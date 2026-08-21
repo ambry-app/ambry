@@ -1012,11 +1012,17 @@ defmodule AmbryWeb.CoreComponents do
         >
           <.icon name="fa-magnifying-glass" class="h-3 w-3 text-zinc-100" />
         </span>
+        <%!-- Measured from `full`, not from what is on screen: the forms
+            render a derived thumbnail and zoom to the original, and a caption
+            under a 512px preview saying "512×512" answers a question nobody
+            asked. What the operator wants to know is how big the image they
+            imported is. --%>
         <p
           id={"#{@id}-size"}
           class="text-center text-xs text-zinc-700"
           phx-hook="image-size"
           data-target={"#{@id}-preview"}
+          data-measure={@full}
           phx-update="ignore"
         />
       </div>

@@ -1,5 +1,8 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <div class="relative">
+  <%!-- The scrim is the form's width, not the window's: its label centres
+      over what it is covering, and a message floating in the middle of a
+      1920px viewport does not read as belonging to the form beneath it. --%>
+  <div class="relative max-w-4xl">
     <%!-- Matching keeps retrying until every provider has answered, and it
           rebuilds an untouched draft when one finally comes back — so a form
           with a job on it is not the operator's to edit yet, and says so

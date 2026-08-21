@@ -181,6 +181,36 @@ defmodule AmbryWeb.Admin.MediaLive.SetPickerTest do
                "Season One"
     end
 
+    # A set's own facts are its own: joining one states its total, and only a
+    # set being named here asks for one — editing a set from a member's form
+    # would edit it for every other member too. The import form's row, and
+    # its reasons.
+    test "joining a set states its total and asks for neither it nor a name", %{conn: conn} do
+      book = insert(:book)
+      group = insert(:recording_group, book: book, name: "Graphic Audio", parts_total: 3)
+      media = insert(:media, book: book, recording_group: group, part_number: 1)
+
+      {:ok, view, html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
+
+      assert html =~ "of 3"
+      refute has_element?(view, ~s{input[name="media[recording_group][name]"]})
+      refute has_element?(view, ~s{input[name="media[recording_group][parts_total]"]})
+      assert has_element?(view, ~s{input[name="media[part_number]"]})
+    end
+
+    test "naming one asks for both", %{conn: conn} do
+      book = insert(:book)
+      insert(:recording_group, book: book, name: "Graphic Audio", parts_total: 3)
+      media = insert(:media, book: book)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media.id}/edit")
+
+      view |> element("button[phx-click='add-group-row']") |> render_click()
+
+      assert has_element?(view, ~s{input[name="media[recording_group][name]"]})
+      assert has_element?(view, ~s{input[name="media[recording_group][parts_total]"]})
+    end
+
     # Choosing an existing set from the drop-down is still a link, and the
     # name box has no business posting a second set beside it.
     test "picking an existing set creates nothing", %{conn: conn} do

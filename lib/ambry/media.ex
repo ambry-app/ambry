@@ -1150,7 +1150,10 @@ defmodule Ambry.Media do
       id: group.id,
       label: group.name,
       image: first_member_thumbnail(group),
-      detail: parts_progress(group)
+      detail: parts_progress(group),
+      # A member's form states the set's total rather than asking for it, so
+      # the option has to carry the number and not only the words.
+      parts_total: group.parts_total
     }
   end
 

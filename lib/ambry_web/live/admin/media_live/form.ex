@@ -881,6 +881,24 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # does not mean "no set": leaving the set is the ✕, which is an event.
   defp new_set_option, do: %{id: "", label: "New set"}
 
+  # Naming one, as opposed to joining one. Read off the id the drop-down
+  # posts, which is the same thing `Ambry.Media.Media`'s cast reads to decide
+  # whether to build a set at all.
+  defp naming_a_set?(form), do: to_string(form[:recording_group_id].value || "") == ""
+
+  # How many parts the set being *joined* says it has, for the line that
+  # states it. A set being named has a box for it instead, and a set that
+  # doesn't know says nothing.
+  defp joined_set_total(%{form: form, recording_group_options: options}) do
+    if !naming_a_set?(form) do
+      id = to_string(form[:recording_group_id].value)
+
+      Enum.find_value(options, fn option ->
+        to_string(option.id) == id && option.parts_total
+      end)
+    end
+  end
+
   defp preview_date_format(form) do
     format_published(%{
       published_format: Ecto.Changeset.get_field(form.source, :published_format),
