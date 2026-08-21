@@ -295,7 +295,10 @@
                   </.inputs_for>
                 </div>
 
-                <.input field={@form[:part_number]} placeholder="no." container_class="w-16 flex-none" />
+                <%!-- `w-20`, not `w-16`: "total" clipped to "tota" in the
+                  narrower box, and two adjacent number boxes of different
+                  widths to fit one placeholder reads as an accident. --%>
+                <.input field={@form[:part_number]} placeholder="no." container_class="w-20 flex-none" />
 
                 <p :if={naming_a_set?(@form)} class="text-sm text-zinc-400">of</p>
 
@@ -306,7 +309,7 @@
                     type="number"
                     min="1"
                     placeholder="total"
-                    container_class="w-16 flex-none"
+                    container_class="w-20 flex-none"
                   />
                 </.inputs_for>
 

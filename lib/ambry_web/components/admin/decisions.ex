@@ -2422,6 +2422,9 @@ defmodule AmbryWeb.Admin.Decisions do
           />
         </form>
 
+        <%!-- `w-20` on both boxes, not `w-16`: "total" clipped to "tota" in
+              the narrower one, and two adjacent number boxes of different
+              widths to fit one placeholder reads as an accident. --%>
         <form id="group-part" phx-change="set-group-part" class="flex-none">
           <input
             type="number"
@@ -2429,7 +2432,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="part_number"
             value={@link.part_number}
             placeholder="no."
-            class={input_classes("w-16")}
+            class={input_classes("w-20")}
             data-role="part-number"
           />
         </form>
@@ -2445,7 +2448,7 @@ defmodule AmbryWeb.Admin.Decisions do
             name="parts_total"
             value={@link.parts_total}
             placeholder="total"
-            class={input_classes("w-16")}
+            class={input_classes("w-20")}
             data-role="parts-total"
           />
         </form>
