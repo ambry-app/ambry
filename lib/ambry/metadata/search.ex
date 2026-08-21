@@ -60,6 +60,12 @@ defmodule Ambry.Metadata.Search do
       {:ok, books} ->
         {books, ok_outcome(entry, length(books))}
 
+      # Usable and incomplete: the books are shown, and the chip says part of
+      # this provider was not reached and offers the retry.
+      {:partial, books, reason} ->
+        Logger.warning(fn -> "Metadata search: #{entry.id} partial: #{inspect(reason)}" end)
+        {books, Outcome.partial(entry, length(books), reason)}
+
       {:error, reason} ->
         Logger.warning(fn -> "Metadata search: #{entry.id} failed: #{inspect(reason)}" end)
         {[], failed_outcome(entry, reason)}

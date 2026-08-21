@@ -311,8 +311,12 @@ defmodule Ambry.Metadata.Provider do
   """
   @callback config_notices(config()) :: [notice()]
 
+  # `{:partial, …}` is for a provider that is more than one source behind one
+  # name — Audible's regional catalogs — where some of them answered and some
+  # did not. The results are usable and incomplete, and a provider that says
+  # only the first half turns an unreachable region into an empty one.
   @callback search_books(query :: String.t() | Query.t(), config()) ::
-              {:ok, [Book.t()]} | {:error, term}
+              {:ok, [Book.t()]} | {:partial, [Book.t()], term} | {:error, term}
   @callback book_details(id :: String.t(), config()) :: {:ok, Book.t()} | {:error, term}
   @callback search_authors(query :: String.t(), config()) :: {:ok, [Author.t()]} | {:error, term}
   @callback author_details(id :: String.t(), config()) :: {:ok, Author.t()} | {:error, term}

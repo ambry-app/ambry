@@ -1359,8 +1359,11 @@ defmodule Ambry.Inbox.AutoMatch do
     outcomes
     |> Enum.group_by(& &1["id"])
     |> Enum.map(fn {_id, [first | _rest] = group} ->
-      answered = Enum.reject(group, &Outcome.failed?/1)
-      count = Enum.sum_by(answered, &(&1["count"] || 0))
+      # Every outcome's own count, partial ones included: a failure that
+      # reached nothing carries a zero, so summing the group is the same
+      # answer for those and the right one for an answer that came back
+      # half-full.
+      count = Enum.sum_by(group, &(&1["count"] || 0))
 
       case Enum.find(group, &Outcome.failed?/1) do
         nil -> %{first | "status" => "ok", "count" => count}
@@ -1958,6 +1961,19 @@ defmodule Ambry.Inbox.AutoMatch do
           books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
 
         {candidates, Outcome.ok(entry, length(candidates))}
+
+      # What did answer is matched on; what didn't is what sends `RunMatch`
+      # round again. A region that was rate-limited during a scan of hundreds
+      # of items must not read as a region the book isn't sold in.
+      {:partial, books, reason} ->
+        candidates =
+          books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
+
+        Logger.warning(fn ->
+          "Auto-match: #{entry.id} partial for #{inspect(to_string(query))}: #{inspect(reason)}"
+        end)
+
+        {candidates, Outcome.partial(entry, length(candidates), reason)}
 
       {:error, reason} ->
         Logger.warning(fn ->

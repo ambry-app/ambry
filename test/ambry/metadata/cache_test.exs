@@ -15,6 +15,27 @@ defmodule Ambry.Metadata.CacheTest do
     assert {:ok, :value} = Cache.fetch("test:op:arg", fn -> {:ok, :value} end)
   end
 
+  # A partial answer is part of an outage: caching it would keep serving the
+  # half that answered for the whole TTL, which is the miss it exists to
+  # report. Passed through, because the half that answered is worth having.
+  @tag :capture_log
+  test "does not cache partial answers" do
+    assert {:partial, [:some], "uk: HTTP 429"} =
+             Cache.fetch("test:op:arg", fn -> {:partial, [:some], "uk: HTTP 429"} end)
+
+    assert {:ok, :value} = Cache.fetch("test:op:arg", fn -> {:ok, :value} end)
+  end
+
+  # And it beats a stale one: it is this question's answer, now, from the
+  # sources that could be reached.
+  @tag :capture_log
+  test "a partial answer is preferred to a stale entry" do
+    assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:ok, :old} end)
+
+    assert {:partial, [:some], _reason} =
+             Cache.fetch("test:op:arg", fn -> {:partial, [:some], "uk: HTTP 429"} end, ttl: -1)
+  end
+
   test "expired entries are re-fetched" do
     assert {:ok, :old} = Cache.fetch("test:op:arg", fn -> {:ok, :old} end)
     assert {:ok, :new} = Cache.fetch("test:op:arg", fn -> {:ok, :new} end, ttl: -1)

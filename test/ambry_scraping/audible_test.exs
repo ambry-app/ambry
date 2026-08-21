@@ -68,4 +68,95 @@ defmodule AmbryScraping.AudibleTest do
       assert {:ok, []} = Audible.search_books("Jaws", language: "german")
     end
   end
+
+  # Audible's catalog is regional and an edition existing in one marketplace
+  # says nothing about the others, so the operator can ask for several. None
+  # of this was covered when it was written.
+  describe "marketplaces" do
+    defp product(attrs) do
+      Map.merge(
+        %{
+          "asin" => "B000",
+          "title" => "A Book",
+          "language" => "english",
+          "release_date" => "2020-01-01",
+          "narrators" => [%{"name" => "A Reader"}]
+        },
+        attrs
+      )
+    end
+
+    defp answering(by_marketplace) do
+      patch(Client, :get, fn _path, _params, opts ->
+        case Map.fetch(by_marketplace, Keyword.fetch!(opts, :marketplace)) do
+          {:ok, products} when is_list(products) ->
+            {:ok, %{status: 200, body: %{"products" => products}}}
+
+          {:ok, failure} ->
+            failure
+
+          :error ->
+            {:ok, %{status: 200, body: %{"products" => []}}}
+        end
+      end)
+    end
+
+    test "merges what each regional catalog answered" do
+      answering(%{
+        "us" => [product(%{"asin" => "US1", "title" => "A Book"})],
+        "uk" => [product(%{"asin" => "UK1", "title" => "Another Book"})]
+      })
+
+      assert {:ok, books} = Audible.search_books("q", marketplaces: ["us", "uk"])
+      assert Enum.map(books, & &1.title) == ["A Book", "Another Book"]
+    end
+
+    # The same recording carries a different ASIN in every regional catalog,
+    # which is why the key isn't the ASIN.
+    test "one recording in two catalogs is one result" do
+      answering(%{
+        "us" => [product(%{"asin" => "US1"})],
+        "uk" => [product(%{"asin" => "UK1"})]
+      })
+
+      assert {:ok, [only]} = Audible.search_books("q", marketplaces: ["us", "uk"])
+      # the configured order is a preference order
+      assert only.id == "US1"
+    end
+
+    # The distinction the whole setting exists to make: a catalog that could
+    # not be reached is not a catalog with nothing in it. This used to answer
+    # plain `{:ok, …}` and the miss was invisible.
+    test "a region that could not be reached is reported, with what did answer" do
+      answering(%{
+        "us" => [product(%{"asin" => "US1"})],
+        "uk" => {:ok, %{status: 429, body: %{}}}
+      })
+
+      assert {:partial, [only], unreached} = Audible.search_books("q", marketplaces: ["us", "uk"])
+      assert only.id == "US1"
+      assert unreached =~ "uk"
+      assert unreached =~ "429"
+    end
+
+    test "every region failing is a failure, not an empty catalog" do
+      answering(%{
+        "us" => {:error, :timeout},
+        "uk" => {:error, :timeout}
+      })
+
+      assert {:error, _reason} = Audible.search_books("q", marketplaces: ["us", "uk"])
+    end
+
+    test "the operator's spelling of the setting is parsed generously" do
+      assert Audible.parse_marketplaces("us, uk") == ["us", "uk"]
+      assert Audible.parse_marketplaces("US UK") == ["us", "uk"]
+      # a typo costs that one marketplace, not the search
+      assert Audible.parse_marketplaces("us, xx") == ["us"]
+      # and a setting with nothing usable in it falls back rather than
+      # silently disabling Audible
+      assert Audible.parse_marketplaces("xx") == ["us"]
+      assert Audible.parse_marketplaces(nil) == ["us"]
+    end
+  end
 end

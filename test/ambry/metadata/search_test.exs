@@ -38,4 +38,32 @@ defmodule Ambry.Metadata.SearchTest do
       assert %{"id" => "audnexus", "status" => "failed"} = outcome
     end
   end
+
+  describe "books/2" do
+    # A provider that is several sources behind one name — Audible's regional
+    # catalogs — can answer by halves, and the answer is usable and
+    # incomplete. Reported as a failure *carrying a count*, because everything
+    # that reads outcomes asks one question of them: is there something a
+    # retry could still get?
+    @tag :capture_log
+    test "a provider that answered by halves keeps its records and its retry" do
+      patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
+        {:partial, [%Provider.Book{provider: "audible", id: "US1", title: "A Book"}],
+         "uk: HTTP 429"}
+      end)
+
+      {found, outcomes} =
+        Search.books(%Provider.Query{title: "A Book"}, level: :recording, refresh: true)
+
+      assert [{_entry, [%{id: "US1"}]}] = Enum.filter(found, fn {e, _b} -> e.id == "audible" end)
+
+      assert %{"status" => "failed", "count" => 1, "partial" => true, "reason" => reason} =
+               Enum.find(outcomes, &(&1["id"] == "audible"))
+
+      assert reason =~ "uk"
+
+      # which is what sends the matching job round again for the rest
+      assert Ambry.Metadata.Outcome.failed?(Enum.find(outcomes, &(&1["id"] == "audible")))
+    end
+  end
 end
