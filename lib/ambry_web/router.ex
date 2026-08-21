@@ -170,7 +170,8 @@ defmodule AmbryWeb.Router do
       on_mount: [
         {AmbryWeb.UserAuth, :ensure_authenticated},
         {AmbryWeb.Admin.Auth, :ensure_mounted_admin_user},
-        AmbryWeb.Admin.NavHooks
+        AmbryWeb.Admin.NavHooks,
+        AmbryWeb.Admin.ReturnTo
       ] do
       live "/", HomeLive.Index, :index
 

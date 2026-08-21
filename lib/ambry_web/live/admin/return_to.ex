@@ -19,7 +19,82 @@ defmodule AmbryWeb.Admin.ReturnTo do
   came from, and the browser's own back button restores a *scroll offset* —
   which is the wrong thing to remember anyway. Rename a book and its row moves;
   what the operator means by "put me back" is the record, not the pixel.
+
+  ## `focus` is spent the moment it is used
+
+  Being in the URL is what makes it survive the round trip, and being in the
+  URL is also what put it in the browser's history: every back and forward
+  through that entry lit the row up again, on a list the operator was merely
+  passing through (operator, 2026-08-21).
+
+  So the list says when it has flashed, and the entry is **replaced** with the
+  same list minus `focus` — the history that remains is the one the operator
+  would have made themselves, and there is no entry left to come back to. It
+  is `push_patch(replace: true)`, which is `history.replaceState` with
+  LiveView's own bookkeeping kept straight; doing it in the hook by hand
+  changes the URL behind LiveView's back and leaves its idea of where it is
+  disagreeing with the address bar.
+
+  **After the flash, not on arrival.** Dropping the param as soon as it is
+  read would race the render that carries it to the client, and the whole
+  point of the param is a thing that happens in the browser.
+
+  ## One hook, every admin list
+
+  Mounted on the `:admin` live session rather than added to six index modules,
+  which is what the six identical `assign(focus: params["focus"])` lines were.
+  A page with no `focus` in its params assigns nil and nothing else happens.
   """
+
+  import Phoenix.Component, only: [assign: 2]
+  import Phoenix.LiveView
+
+  @doc false
+  def on_mount(:default, _params, _session, socket) do
+    {:cont,
+     socket
+     |> attach_hook(:focus_arrives, :handle_params, &arrives/3)
+     |> attach_hook(:focus_flashed, :handle_event, &flashed/3)}
+  end
+
+  defp arrives(params, uri, socket) do
+    {:cont, assign(socket, focus: params["focus"], focus_spent: spent_path(params, uri))}
+  end
+
+  # Raised by `assets/js/hooks/focus-row.js` once the row has been found and
+  # lit up. A list that never had a focus never sends it, and a stale page
+  # that sends it anyway has nothing to replace.
+  defp flashed("focus-flashed", _params, socket) do
+    case socket.assigns[:focus_spent] do
+      nil ->
+        {:halt, socket}
+
+      path ->
+        {:halt,
+         socket
+         |> assign(focus: nil, focus_spent: nil)
+         |> push_patch(to: path, replace: true)}
+    end
+  end
+
+  defp flashed(_event, _params, socket), do: {:cont, socket}
+
+  # The same address without the part that has now been used. Built from the
+  # URI the router gave us rather than from anything the client said, so the
+  # only thing a page can ask for is its own address.
+  defp spent_path(%{"focus" => _focus}, uri) do
+    parsed = URI.parse(uri)
+
+    query =
+      (parsed.query || "")
+      |> URI.decode_query()
+      |> Map.delete("focus")
+      |> then(&(map_size(&1) > 0 && URI.encode_query(&1)))
+
+    %URI{path: parsed.path, query: query || nil} |> URI.to_string()
+  end
+
+  defp spent_path(_params, _uri), do: nil
 
   @doc """
   The list state a row link should carry.

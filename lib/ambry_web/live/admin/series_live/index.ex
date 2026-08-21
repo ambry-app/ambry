@@ -42,8 +42,6 @@ defmodule AmbryWeb.Admin.SeriesLive.Index do
     {:noreply,
      socket
      |> assign(search_form: to_form(%{"query" => params["filter"]}, as: :search))
-     # The record a form just sent the operator back to, if they came from one.
-     |> assign(focus: params["focus"])
      |> maybe_update_series(params)}
   end
 

@@ -31,6 +31,13 @@ export const FocusRowHook = {
       row.scrollIntoView({ block: "center", behavior: "instant" })
       row.classList.add("row-flash")
       row.addEventListener("animationend", () => row.classList.remove("row-flash"), { once: true })
+
+      // Spent. `?focus=` is in the address bar, which means it is in the
+      // browser's history, which meant every back and forward through this
+      // entry lit the row up again. The server replaces the entry with the
+      // same list minus the param — said from here because the flash is the
+      // thing that spends it (`AmbryWeb.Admin.ReturnTo`).
+      this.pushEvent("focus-flashed", {})
     })
   },
 }
