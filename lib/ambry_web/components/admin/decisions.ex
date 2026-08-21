@@ -404,12 +404,16 @@ defmodule AmbryWeb.Admin.Decisions do
     doc: "the name these records were searched for — not the person's own name"
 
   attr :event, :string, default: "research-person"
-  attr :label, :string, default: "Search again"
+  attr :label, :string, default: "Search"
   attr :running, :boolean, default: false
 
   attr :standalone, :boolean,
     default: true,
     doc: "false where this sits inside a form that is not its own — see `person_card/1`"
+
+  attr :query_name, :string,
+    default: nil,
+    doc: "not standalone: the input name the query posts under, in the enclosing form"
 
   @doc """
   The person level's search-again form — the work-level pattern with a name
@@ -450,13 +454,24 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # No box, because a form cannot nest and because there is nothing for one to
-  # add: the name is an input the operator is looking at three lines up, so
-  # the button searches for whatever it currently says. Revealing the pen-name
-  # box is how you search for somebody else.
+  # The same box, minus the form element it cannot have here: the query is an
+  # input in the enclosing form, and the button carries whatever it currently
+  # says. The box matters as much on this surface as on the inbox — the name
+  # worth searching for is often not the name being imported.
   def person_research_form(assigns) do
     ~H"""
-    <div class="pl-3">
+    <div class="flex flex-wrap items-end gap-2">
+      <label class="text-xs text-zinc-400">
+        <span class="block pl-3">name</span>
+        <input
+          type="text"
+          name={@query_name}
+          value={@name}
+          phx-debounce="300"
+          class={input_classes("mt-1 block")}
+        />
+      </label>
+
       <.button
         color={:zinc}
         type="button"
@@ -1102,6 +1117,7 @@ defmodule AmbryWeb.Admin.Decisions do
         be part-way through (design language §9). --%>
     <div
       id={"person-#{@person.key}"}
+      phx-hook={@input_prefix && "set-input"}
       class={["relative space-y-3 rounded-lg bg-zinc-900 p-4", is_nil(@input_prefix) && ["border-l-4", state_rail(@person)]]}
       data-role="person-card"
     >
@@ -1600,6 +1616,17 @@ defmodule AmbryWeb.Admin.Decisions do
           :if={is_nil(@image)}
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
         />
+
+        <%!-- Where the card is inside a form, the chosen face is one of that
+              form's values and has to have an input to live in — the URL the
+              save downloads. On the inbox the decision is the draft's, and
+              there is nothing to post. --%>
+        <input
+          :if={@input_prefix}
+          type="hidden"
+          name={@input_prefix <> "[image_import_url]"}
+          value={@image}
+        />
       </div>
 
       <%!-- The same three parts in the same order as the work and recording
@@ -1614,6 +1641,7 @@ defmodule AmbryWeb.Admin.Decisions do
         name={@query_name || Field.value(@person.name)}
         running={@searching}
         standalone={is_nil(@input_prefix)}
+        query_name={@input_prefix && @input_prefix <> "[search_query]"}
       />
 
       <.provider_outcomes_row outcomes={@outcomes} retryable={false} />

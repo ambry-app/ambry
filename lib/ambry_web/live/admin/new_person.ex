@@ -153,7 +153,7 @@ defmodule AmbryWeb.Admin.NewPerson do
       photos_expanded={@state.expanded?}
       records={@state.evidence.records}
       outcomes={@state.evidence.outcomes}
-      query_name={@state.query}
+      query_name={@form.params["search_query"] || @state.query}
     />
     """
   end
@@ -226,7 +226,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Every event a card raises, so a form can forward them in one clause.
   """
-  def events, do: ~w(research-person toggle-person-source toggle-person-photos reveal-person-name)
+  def events,
+    do: ~w(research-person toggle-person-source toggle-photos separate-name use-credited-name)
 
   @doc """
   Handles one card event. The form that renders the card owns nothing but the
@@ -255,14 +256,23 @@ defmodule AmbryWeb.Admin.NewPerson do
      put_state(socket, key, %{state | evidence: Evidence.toggle(state.evidence, source, id)})}
   end
 
-  def handle_event("toggle-person-photos", %{"key" => key}, socket) do
+  def handle_event("toggle-photos", %{"key" => key}, socket) do
     state = state(socket.assigns.new_people, key)
     {:noreply, put_state(socket, key, %{state | expanded?: not state.expanded?})}
   end
 
-  def handle_event("reveal-person-name", %{"key" => key}, socket) do
+  # The pen-name reveal, both ways. `own_name?` is the card's only piece of
+  # view state that isn't a form input: it says the human's name is theirs
+  # rather than the credit's, and until it is set no name is posted at all,
+  # so the person keeps following the credit while it is still being typed.
+  def handle_event("separate-name", %{"key" => key}, socket) do
     state = state(socket.assigns.new_people, key)
     {:noreply, put_state(socket, key, %{state | own_name?: true})}
+  end
+
+  def handle_event("use-credited-name", %{"key" => key}, socket) do
+    state = state(socket.assigns.new_people, key)
+    {:noreply, put_state(socket, key, %{state | own_name?: false})}
   end
 
   @doc """

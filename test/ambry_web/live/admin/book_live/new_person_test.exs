@@ -20,6 +20,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
   setup :register_and_log_in_admin_user
 
   @photo "https://images.gr-assets.com/authors/999015.jpg"
+  @person_prefix "book[book_authors][0][author][author_people][0][person]"
 
   defp patch_providers do
     patch(Ambry.Metadata.Providers, :search_authors, fn
@@ -111,6 +112,65 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
 
     send(searcher, :go)
     render_async(view)
+  end
+
+  # Every event the card raises has to be answered by whichever form renders
+  # it. "This is a pen name" was raising `separate-name` at a LiveView that
+  # had never heard of it, which is a crash, not a no-op.
+  test "the pen-name reveal opens the name box and closes again", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    name_an_author(view, "Matt Dinniman")
+    refute has_element?(view, ~s{input[name="#{@person_prefix}[name]"]})
+
+    html = render_click(view, "separate-name", %{"key" => "0"})
+
+    assert html =~ "A pen name of"
+    assert has_element?(view, ~s{input[name="#{@person_prefix}[name]"]})
+
+    html = render_click(view, "use-credited-name", %{"key" => "0"})
+    assert html =~ "This is a pen name"
+  end
+
+  # A chip that writes an input is only as good as the input being there: the
+  # photo chip pointed at a hidden field the card never rendered, so clicking
+  # it did nothing at all and said nothing about why.
+  test "every chip that writes an input has one to write", %{conn: conn} do
+    patch_providers()
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    name_an_author(view, "Matt Dinniman")
+    render_click(view, "research-person", %{"key" => "0", "name" => "Matt Dinniman"})
+    render_async(view)
+
+    html =
+      view
+      |> element(~s{[data-role="person-card"] [data-role="record"] input[type="checkbox"]})
+      |> render_click()
+
+    doc = Floki.parse_document!(html)
+    targets = doc |> Floki.find("[data-set-input]") |> Floki.attribute("data-set-input")
+
+    assert targets != [], "no chip writes an input, so this proves nothing"
+
+    for target <- Enum.uniq(targets) do
+      assert Floki.find(doc, ~s{[name="#{target}"]}) != [],
+             "a chip writes #{target}, which is not on the page"
+    end
+  end
+
+  # "again" presumes a search that may never have happened — and on either
+  # form, since the inbox grows cards for people the matcher never saw.
+  test "the search button does not claim there was a search before", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    html = name_an_author(view, "Matt Dinniman")
+
+    refute html =~ "Search again"
+    assert has_element?(view, ~s{input[name="#{@person_prefix}[search_query]"]})
   end
 
   # Two passes over one list: the credit rows post the hidden inputs, and the
