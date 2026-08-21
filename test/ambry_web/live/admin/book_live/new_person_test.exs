@@ -424,9 +424,7 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     assert html =~ "Is this pen name more than one person?"
     assert html =~ "Add a person"
 
-    view
-    |> form("#book-form")
-    |> render_submit(%{
+    two_people = %{
       "book" => %{
         "book_authors_sort" => ["0"],
         "book_authors" => %{
@@ -444,7 +442,19 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
           }
         }
       }
-    })
+    }
+
+    # A pen name standing for two humans has no single "their name" to fall
+    # back to, so every card opens with its own box and the way back out of
+    # the reveal goes away. `Credit.simple?/1` reads the count, and the card
+    # has asked both questions of it since it was written.
+    html = view |> form("#book-form") |> render_change(two_people)
+
+    assert html =~ "2 people behind this name"
+    assert html =~ "A pen name of"
+    refute html =~ "is their name"
+
+    view |> form("#book-form") |> render_submit(two_people)
 
     names = Person |> Repo.all() |> Enum.map(& &1.name) |> Enum.sort()
     assert names == ["Daniel Abraham", "Ty Franck"]

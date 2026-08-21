@@ -159,6 +159,14 @@ defmodule AmbryWeb.Admin.NewPerson do
     default: nil,
     doc: "what the credit calls them — the identity's name, never the human's"
 
+  attr :people_count, :integer,
+    default: 1,
+    doc: "how many humans this pen name stands for — see `group/3`"
+
+  attr :person_index, :integer,
+    default: 0,
+    doc: "where this human sits behind the pen name — the card's DOM ids key on it"
+
   attr :list_sort_name, :string,
     default: nil,
     doc: "the `author_people` sort param, for a pen name"
@@ -188,7 +196,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     assigns =
       assign(assigns,
         person: person,
-        group: group(assigns.credited, assigns.kind),
+        group: group(assigns.credited, assigns.kind, assigns.people_count),
         locals: locals(person)
       )
 
@@ -196,7 +204,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     <.person_card
       person={@person}
       group={@group}
-      person_index={0}
+      person_index={@person_index}
       input_prefix={@row.name <> "[person]"}
       link_input={@row.name <> "[person_id]"}
       list_sort_name={@list_sort_name}
@@ -290,9 +298,21 @@ defmodule AmbryWeb.Admin.NewPerson do
   # credit's words: "Foo, a pen name of Bar" only reads that way if the title
   # is the identity's name. Titling it from the person's own name renamed the
   # card letter by letter while the operator typed the very thing it is about.
-  defp group(credited, kind) do
+  # `person_keys` is not decoration here: `Credit.simple?/1` reads its length,
+  # and the card asks two things of the answer. A pen name standing for one
+  # human is titled by the credit and offers a name box only if you ask for
+  # one; a pen name standing for several has no single "their name" to fall
+  # back to, so every card opens with its own box and the way back out of the
+  # reveal goes away. Claiming one human always gave a freshly added second
+  # card a folded box and an offer to be told a name it was already showing.
+  defp group(credited, kind, people_count) do
     %{
-      credit: %Credit{name: credited, kind: kind, mode: :create, person_keys: ["one"]},
+      credit: %Credit{
+        name: credited,
+        kind: kind,
+        mode: :create,
+        person_keys: Enum.map(1..max(people_count, 1)//1, &"person-#{&1}")
+      },
       # The card asks "is this pen name more than one person?" of authors and
       # not of narrators, and it asks it of the section — a narrator stays
       # one-to-one with a human by design.

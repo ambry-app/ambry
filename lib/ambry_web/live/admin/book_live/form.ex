@@ -475,6 +475,8 @@ defmodule AmbryWeb.Admin.BookLive.Form do
         }
         credited={staged_name(@book_author_form, :author)}
         kind={:author}
+        people_count={NewPerson.people_count(@book_author_form)}
+        person_index={author_person_form.index}
         list_sort_name={@author_form[:author_people_sort].name}
         list_drop_name={@author_form[:author_people_drop].name}
         removable={author_person_form.index > 0}
