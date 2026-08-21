@@ -79,12 +79,14 @@
               fetch={&People.author_option/1}
               create_name={"#{book_author_form.name}[author][name]"}
               create_value={staged_name(book_author_form, :author)}
+              create_flag_name={"#{book_author_form.name}[author][create]"}
+              create_flag_value={NewPerson.chosen(book_author_form, :author)}
               container_class="grow"
             />
             <%!-- Who this credit means, and a way down to their card. --%>
             <.inputs_for
               :let={author_form}
-              :if={NewPerson.creating(book_author_form, [:author, :author_people, :person])}
+              :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people, :person])}
               field={book_author_form[:author]}
               skip_hidden
               skip_persistent_id
@@ -145,7 +147,7 @@
           nobody has made yet — never for a credit pointing at an author the
           library already has. --%>
       <.form_section
-        :if={NewPerson.any?(@form.source, :book_authors, [:author, :author_people, :person])}
+        :if={NewPerson.any?(@form.source, :book_authors, :author, [:author, :author_people, :person])}
         id="new-people"
         title="New people"
       >
@@ -157,7 +159,7 @@
         >
           <.inputs_for
             :let={author_form}
-            :if={NewPerson.creating(book_author_form, [:author, :author_people, :person])}
+            :if={NewPerson.carded?(book_author_form, :author, [:author, :author_people, :person])}
             field={book_author_form[:author]}
           >
             <.inputs_for :let={author_person_form} field={author_form[:author_people]}>
@@ -166,6 +168,7 @@
                   form={person_form}
                   key={NewPerson.key(book_author_form)}
                   state={NewPerson.state(@new_people, NewPerson.key(book_author_form))}
+                  credited={staged_name(book_author_form, :author)}
                   kind={:author}
                 />
               </.inputs_for>

@@ -52,9 +52,77 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     |> render_change(%{
       "book" => %{
         "book_authors_sort" => ["new"],
-        "book_authors" => %{"new" => %{"author_id" => "", "author" => %{"name" => name}}}
+        "book_authors" => %{
+          "new" => %{"author_id" => "", "author" => %{"name" => name, "create" => "true"}}
+        }
       }
     })
+  end
+
+  # Typing a name and *deciding* to create one post the same name — what is
+  # typed is the new record's name either way — so a card that watched the
+  # typing appeared on the first letter, and did so hardest when what the
+  # operator was doing was searching for an author who already exists.
+  test "typing a name is not yet a decision to create one", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    html =
+      view
+      |> form("#book-form")
+      |> render_change(%{
+        "book" => %{
+          "book_authors_sort" => ["new"],
+          "book_authors" => %{
+            "new" => %{"author_id" => "", "author" => %{"name" => "M", "create" => "false"}}
+          }
+        }
+      })
+
+    refute html =~ ~s{data-role="person-card"}
+    refute html =~ "New people"
+  end
+
+  # The card is titled by the CREDIT — "Foo, a pen name of Bar" only reads
+  # that way if the title is the identity's name — and it was following the
+  # person's own box instead, renaming itself letter by letter while the
+  # operator typed the very thing it is about.
+  test "the card is titled by the credit, not by the human", %{conn: conn} do
+    book = insert(:book, book_authors: [])
+    {:ok, view, _html} = live(conn, ~p"/admin/books/#{book}/edit")
+
+    name_an_author(view, "Robert Galbraith")
+    render_click(view, "separate-name", %{"key" => "0"})
+
+    html =
+      view
+      |> form("#book-form")
+      |> render_change(%{
+        "book" => %{
+          "book_authors_sort" => ["0"],
+          "book_authors" => %{
+            "0" => %{
+              "author_id" => "",
+              "author" => %{
+                "name" => "Robert Galbraith",
+                "create" => "true",
+                "author_people" => %{"0" => %{"person" => %{"name" => "J.K. Rowling"}}}
+              }
+            }
+          }
+        }
+      })
+
+    title =
+      html
+      |> Floki.parse_document!()
+      |> Floki.find(~s{[data-role="person-card"] label})
+      |> List.first()
+      |> Floki.text()
+      |> String.trim()
+
+    assert title == "Robert Galbraith"
+    assert html =~ "J.K. Rowling"
   end
 
   test "a credit that names nobody the library has gets a card", %{conn: conn} do
@@ -170,7 +238,13 @@ defmodule AmbryWeb.Admin.BookLive.NewPersonTest do
     html = name_an_author(view, "Matt Dinniman")
 
     refute html =~ "Search again"
-    assert has_element?(view, ~s{input[name="#{@person_prefix}[search_query]"]})
+    assert html =~ "Search"
+
+    # The query is view state, not one of the form's values: as a posted
+    # input it captured the card's first render — one letter — and then won
+    # every render against the name it was meant to be following.
+    refute html =~ "search_query"
+    assert has_element?(view, ~s{input[phx-keyup="person-query"]})
   end
 
   # Two passes over one list: the credit rows post the hidden inputs, and the

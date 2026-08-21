@@ -49,7 +49,9 @@ defmodule AmbryWeb.Admin.MediaLive.NewPersonTest do
     |> render_change(%{
       "media" => %{
         "media_narrators_sort" => ["new"],
-        "media_narrators" => %{"new" => %{"narrator_id" => "", "narrator" => %{"name" => name}}}
+        "media_narrators" => %{
+          "new" => %{"narrator_id" => "", "narrator" => %{"name" => name, "create" => "true"}}
+        }
       }
     })
   end

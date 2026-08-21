@@ -411,9 +411,9 @@ defmodule AmbryWeb.Admin.Decisions do
     default: true,
     doc: "false where this sits inside a form that is not its own — see `person_card/1`"
 
-  attr :query_name, :string,
-    default: nil,
-    doc: "not standalone: the input name the query posts under, in the enclosing form"
+  attr :query_event, :string,
+    default: "person-query",
+    doc: "not standalone: what the box raises as it is typed into"
 
   @doc """
   The person level's search-again form — the work-level pattern with a name
@@ -454,10 +454,15 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # The same box, minus the form element it cannot have here: the query is an
-  # input in the enclosing form, and the button carries whatever it currently
-  # says. The box matters as much on this surface as on the inbox — the name
-  # worth searching for is often not the name being imported.
+  # The same box, minus the form element it cannot have here.
+  #
+  # **The query is not one of the enclosing form's values.** It was, briefly,
+  # and that made it a value the form posts back: the box captured whatever
+  # the card first rendered with — one letter, because the card appears as
+  # soon as a name starts being typed — and then won every render against the
+  # name it was supposed to be following. A query is view state, so it lives
+  # in the socket like the inbox's does, and `phx-keyup` is how a box with no
+  # form of its own says what it holds.
   def person_research_form(assigns) do
     ~H"""
     <div class="flex flex-wrap items-end gap-2">
@@ -465,8 +470,9 @@ defmodule AmbryWeb.Admin.Decisions do
         <span class="block pl-3">name</span>
         <input
           type="text"
-          name={@query_name}
           value={@name}
+          phx-keyup={@query_event}
+          phx-value-key={@person_key}
           phx-debounce="300"
           class={input_classes("mt-1 block")}
         />
@@ -1666,7 +1672,6 @@ defmodule AmbryWeb.Admin.Decisions do
         name={@query_name || Field.value(@person.name)}
         running={@searching}
         standalone={is_nil(@input_prefix)}
-        query_name={@input_prefix && @input_prefix <> "[search_query]"}
       />
 
       <.provider_outcomes_row outcomes={@outcomes} retryable={false} />

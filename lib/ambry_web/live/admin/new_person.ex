@@ -82,6 +82,27 @@ defmodule AmbryWeb.Admin.NewPerson do
   """
   def creating(row_form, path), do: nested(row_form.source, path)
 
+  @doc """
+  Whether the operator *said* they meant a new record, rather than having
+  typed something nothing matches yet.
+
+  Both post the same name — what is typed is the new record's name either way
+  — so a card that watched the typing appeared on the first letter, and did
+  so hardest when what the operator was actually doing was searching for an
+  existing author. Only one of the two is a decision, and the picker's
+  "Create …" row is where it is made (`AmbryWeb.Components.EntityResolver`).
+  """
+  def chosen(row_form, assoc) do
+    case Ecto.Changeset.get_change(row_form.source, assoc) do
+      %Ecto.Changeset{params: %{"create" => flag}} -> flag
+      _nothing -> nil
+    end
+  end
+
+  @doc "Whether this row has a person to show a card for."
+  def carded?(row_form, assoc, path),
+    do: chosen(row_form, assoc) == "true" and creating(row_form, path) != nil
+
   defp nested(changeset, path) do
     Enum.reduce_while(path, changeset, fn step, changeset ->
       case Ecto.Changeset.get_change(changeset, step) do
@@ -98,10 +119,10 @@ defmodule AmbryWeb.Admin.NewPerson do
   What decides whether the section exists at all: a heading over nothing is
   worse than no heading.
   """
-  def any?(changeset, assoc, path) do
+  def any?(changeset, assoc, nested_assoc, path) do
     changeset
     |> Ecto.Changeset.get_change(assoc, [])
-    |> Enum.any?(&(nested(&1, path) != nil))
+    |> Enum.any?(&carded?(%{source: &1}, nested_assoc, path))
   end
 
   @doc """
@@ -119,6 +140,10 @@ defmodule AmbryWeb.Admin.NewPerson do
   attr :key, :string, required: true
   attr :state, __MODULE__, required: true
   attr :kind, :atom, required: true, doc: ":author or :narrator"
+
+  attr :credited, :string,
+    default: nil,
+    doc: "what the credit calls them — the identity's name, never the human's"
 
   @doc """
   One human this form will create — the inbox's own card, on an edit form.
@@ -140,7 +165,7 @@ defmodule AmbryWeb.Admin.NewPerson do
     assigns =
       assign(assigns,
         person: decision(assigns.form, assigns.key, assigns.state),
-        group: group(assigns.form, assigns.kind)
+        group: group(assigns.credited, assigns.kind)
       )
 
     ~H"""
@@ -153,7 +178,7 @@ defmodule AmbryWeb.Admin.NewPerson do
       photos_expanded={@state.expanded?}
       records={@state.evidence.records}
       outcomes={@state.evidence.outcomes}
-      query_name={@form.params["search_query"] || @state.query}
+      query_name={@state.query}
     />
     """
   end
@@ -206,9 +231,13 @@ defmodule AmbryWeb.Admin.NewPerson do
   # section and index address a credit inside a draft, which an edit form
   # does not have; every event the card raises from here carries the person's
   # key as well, which is what this surface answers to.
-  defp group(form, kind) do
+  # The card is titled by the CREDIT and asks its pen-name question in the
+  # credit's words: "Foo, a pen name of Bar" only reads that way if the title
+  # is the identity's name. Titling it from the person's own name renamed the
+  # card letter by letter while the operator typed the very thing it is about.
+  defp group(credited, kind) do
     %{
-      credit: %Credit{name: form[:name].value, kind: kind, mode: :create, person_keys: ["one"]},
+      credit: %Credit{name: credited, kind: kind, mode: :create, person_keys: ["one"]},
       section: nil,
       index: 0,
       kind: kind
@@ -237,9 +266,14 @@ defmodule AmbryWeb.Admin.NewPerson do
     %{
       key: key,
       name: form[:name].value || "unnamed",
-      src: proxied_remote_image_url(form.params["image_import_url"])
+      # A blank URL is not a URL: `<img src="">` is a broken image, where the
+      # pill has a grey circle to fall back to.
+      src: form.params["image_import_url"] |> presence() |> proxied_remote_image_url()
     }
   end
+
+  defp presence(nil), do: nil
+  defp presence(value), do: if(String.trim(value) != "", do: value)
 
   defp present(nil), do: ""
   defp present(value), do: to_string(value)
@@ -252,8 +286,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Every event a card raises, so a form can forward them in one clause.
   """
-  def events,
-    do: ~w(research-person toggle-person-source toggle-photos separate-name use-credited-name)
+  def events, do: ~w(research-person person-query toggle-person-source toggle-photos separate-name
+         use-credited-name)
 
   @doc """
   Handles one card event. The form that renders the card owns nothing but the
@@ -280,6 +314,14 @@ defmodule AmbryWeb.Admin.NewPerson do
 
     {:noreply,
      put_state(socket, key, %{state | evidence: Evidence.toggle(state.evidence, source, id)})}
+  end
+
+  # What the box holds, which stops following the credited name the moment
+  # somebody types into it — the name worth searching for is often not the
+  # name being credited, which is the whole reason the box is there.
+  def handle_event("person-query", %{"key" => key, "value" => query}, socket) do
+    state = state(socket.assigns.new_people, key)
+    {:noreply, put_state(socket, key, %{state | query: query})}
   end
 
   def handle_event("toggle-photos", %{"key" => key}, socket) do

@@ -133,12 +133,14 @@
                 fetch={&People.narrator_option/1}
                 create_name={"#{media_narrator_form.name}[narrator][name]"}
                 create_value={staged_name(media_narrator_form, :narrator)}
+                create_flag_name={"#{media_narrator_form.name}[narrator][create]"}
+                create_flag_value={NewPerson.chosen(media_narrator_form, :narrator)}
                 container_class="grow"
               />
               <%!-- Who this credit means, and a way down to their card. --%>
               <.inputs_for
                 :let={narrator_form}
-                :if={NewPerson.creating(media_narrator_form, [:narrator, :person])}
+                :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator, :person])}
                 field={media_narrator_form[:narrator]}
                 skip_hidden
                 skip_persistent_id
@@ -193,7 +195,7 @@
             different question from "who read this book". The book form's
             twin, one join shallower. --%>
         <.form_section
-          :if={NewPerson.any?(@form.source, :media_narrators, [:narrator, :person])}
+          :if={NewPerson.any?(@form.source, :media_narrators, :narrator, [:narrator, :person])}
           id="new-people"
           title="New people"
         >
@@ -205,7 +207,7 @@
           >
             <.inputs_for
               :let={narrator_form}
-              :if={NewPerson.creating(media_narrator_form, [:narrator, :person])}
+              :if={NewPerson.carded?(media_narrator_form, :narrator, [:narrator, :person])}
               field={media_narrator_form[:narrator]}
             >
               <.inputs_for :let={person_form} field={narrator_form[:person]}>
@@ -213,6 +215,7 @@
                   form={person_form}
                   key={NewPerson.key(media_narrator_form)}
                   state={NewPerson.state(@new_people, NewPerson.key(media_narrator_form))}
+                  credited={staged_name(media_narrator_form, :narrator)}
                   kind={:narrator}
                 />
               </.inputs_for>

@@ -121,6 +121,18 @@ defmodule AmbryWeb.Components.EntityResolver do
         name={@text_name}
         value={@text}
       />
+      <%!-- Whether the operator *said* they meant a new record, as opposed to
+          having typed something nothing matches yet. Both post the same name,
+          because what's typed is the new record's name either way — but only
+          one of them is a decision, and a surface that reacts to the typing
+          reacts on the first letter. --%>
+      <input
+        :if={@create_flag_name}
+        type="hidden"
+        id={"#{@id}-created"}
+        name={@create_flag_name}
+        value={to_string(@created?)}
+      />
       <input
         type="text"
         id={"#{@id}-input"}
@@ -236,6 +248,11 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
      |> then(&assign(&1, :value, held_id(&1.assigns.value)))
+     |> assign_new(:create_flag_name, fn -> nil end)
+     # Sticky, on purpose: the operator goes on editing the name after
+     # choosing Create, and every keystroke is a `filter`. Only picking
+     # something that exists takes the choice back.
+     |> assign_new(:created?, fn -> assigns[:initial_created] || false end)
      |> assign_new(:placeholder, fn -> nil end)
      |> assign_new(:class, fn -> nil end)}
   end
@@ -262,7 +279,7 @@ defmodule AmbryWeb.Components.EntityResolver do
   end
 
   def handle_event("pick", %{"id" => id}, socket) do
-    {:noreply, socket |> assign(value: id, open: false, query: nil) |> moved()}
+    {:noreply, socket |> assign(value: id, created?: false, open: false, query: nil) |> moved()}
   end
 
   def handle_event("create", _params, socket) do
@@ -270,6 +287,7 @@ defmodule AmbryWeb.Components.EntityResolver do
      socket
      |> assign(
        value: nil,
+       created?: true,
        text: effective_query(socket.assigns) || "",
        open: false,
        query: nil
