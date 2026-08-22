@@ -81,16 +81,18 @@ defmodule Ambry.Wanted.SearchTest do
       {:ok, [%Provider.Book{provider: "hardcover", id: "2235778", title: "Blightfall"}]}
     end)
 
-    patch(Ambry.Metadata.Providers.Hardcover, :editions, fn "2235778", _config ->
+    patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn ["2235778"], _config ->
       {:ok,
-       [
-         %Provider.Book{
-           provider: "hardcover",
-           id: "33170376",
-           title: "Blightfall",
-           published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
-         }
-       ]}
+       %{
+         "2235778" => [
+           %Provider.Book{
+             provider: "hardcover",
+             id: "33170376",
+             title: "Blightfall",
+             published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
+           }
+         ]
+       }}
     end)
 
     {candidates, _outcomes, _notes} = Search.candidates(%Provider.Query{title: "Blightfall"})
@@ -108,19 +110,21 @@ defmodule Ambry.Wanted.SearchTest do
       {:ok, [%Provider.Book{provider: "hardcover", id: "2235778", title: "Blightfall"}]}
     end)
 
-    patch(Ambry.Metadata.Providers.Hardcover, :editions, fn "2235778", _config ->
+    patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn ["2235778"], _config ->
       {:ok,
-       [
-         %Provider.Book{
-           provider: "hardcover",
-           id: "33170376",
-           title: "Blightfall",
-           publisher: "Listening Library",
-           narrators: [%{name: "Eddie Lopez"}],
-           duration_seconds: 45_660,
-           published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
-         }
-       ]}
+       %{
+         "2235778" => [
+           %Provider.Book{
+             provider: "hardcover",
+             id: "33170376",
+             title: "Blightfall",
+             publisher: "Listening Library",
+             narrators: [%{name: "Eddie Lopez"}],
+             duration_seconds: 45_660,
+             published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
+           }
+         ]
+       }}
     end)
 
     {candidates, _outcomes, _notes} = Search.candidates(%Provider.Query{title: "Blightfall"})
@@ -129,6 +133,44 @@ defmodule Ambry.Wanted.SearchTest do
     assert edition.edition.publisher == "Listening Library"
     assert edition.edition.duration_seconds == 45_660
     assert edition.work_title == "Blightfall"
+  end
+
+  # A work-level provider ranks by its own idea of relevance, and the right
+  # book can sit well down that list -- Neuromancer by William Gibson puts the
+  # actual novel sixth. Opening only the promising ones guesses at exactly the
+  # thing that is uncertain.
+  test "every matched work is opened, not just the first few" do
+    patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config -> {:ok, []} end)
+
+    works =
+      for n <- 1..7 do
+        %Provider.Book{provider: "hardcover", id: "w#{n}", title: "Work #{n}"}
+      end
+
+    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _q, _c -> {:ok, works} end)
+
+    patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn ids, _config ->
+      # The one worth having is last, exactly where a guess would miss it.
+      assert length(ids) == 7
+
+      {:ok,
+       %{
+         "w7" => [
+           %Provider.Book{
+             provider: "hardcover",
+             id: "buried",
+             title: "The One",
+             published: %Provider.PublishedDate{date: ~D[2099-01-01], display_format: :full}
+           }
+         ]
+       }}
+    end)
+
+    {candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "Work"})
+
+    assert Enum.map(candidates, & &1.provider_id) == ["buried"]
+    # Nothing was left unopened, so nothing is reported as cut.
+    refute Enum.any?(notes, &(&1 =~ "unopened"))
   end
 
   describe "only what has not come out yet" do

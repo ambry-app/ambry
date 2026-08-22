@@ -4,8 +4,15 @@ defmodule Ambry.Metadata.Providers.Audible do
 
   Wraps the existing `AmbryScraping.Audible` HTTP client (the undocumented
   but stable JSON catalog API — no browser scraping involved) and normalizes
-  its results. This is the primary source for narrator credits, square
-  audiobook covers, and publication facts; ASIN is the natural key.
+  its results. Its search answers with recordings directly, and those records
+  carry narrator credits, square covers, publication facts and an ASIN.
+
+  It is **not** a primary or preferred source, and nothing should treat it as
+  one: providers are selected by the capabilities they declare, and every
+  provider that can answer a question gets asked. What this one is good at is
+  a fact about its records, not a rank — and it is blind in its own way, being
+  a storefront rather than a bibliography: it carries preorders and drops what
+  it has delisted.
   """
 
   @behaviour Ambry.Metadata.Provider

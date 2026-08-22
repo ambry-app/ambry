@@ -40,11 +40,18 @@ defmodule Ambry.Wanted.Search do
   search for a book whose recordings all came out years ago should read as
   *there are twelve, they are all already out*, never as *nothing found*.
 
-  ## Coverage this knowingly cuts
+  ## Every matched work is opened
 
-  Expanding a work costs an extra provider call, so only the first few are
-  expanded — and when that truncates anything the caller is told, because a
-  list that silently stopped looking reads as a list of everything there is.
+  A provider that answers with works ranks them by its own idea of relevance,
+  and the recording the operator wants can sit well down that list — asking
+  for *Neuromancer* by William Gibson puts the actual 1984 novel sixth, behind
+  a study guide and a graphic novel. So opening only the promising ones is a
+  guess about precisely the thing that is uncertain.
+
+  Instead every matched work is opened. Where a provider declares
+  `:editions_bulk` that is one request for all of them; otherwise it is one
+  apiece. Either way nothing is left unopened on the grounds that it looked
+  unpromising.
   """
 
   alias Ambry.Metadata.Provider
@@ -53,8 +60,6 @@ defmodule Ambry.Wanted.Search do
   alias Ambry.Wanted.Edition
 
   require Logger
-
-  @works_expanded 3
 
   defmodule Candidate do
     @moduledoc "One recording a watch could be created from."
@@ -126,22 +131,51 @@ defmodule Ambry.Wanted.Search do
     {found, outcomes} = Search.books(query, Keyword.put(opts, :level, :work))
 
     Enum.reduce(found, {[], outcomes, []}, fn {entry, works}, {candidates, outs, notes} ->
-      if :editions in entry.capabilities do
-        {expanded, truncated} = expand(entry, works)
-        {candidates ++ expanded, outs, notes ++ truncated}
-      else
-        # A provider that can find the work but cannot list its editions has
-        # nothing to offer a watch. Saying so beats a silent absence.
-        {candidates, outs, notes ++ [no_editions_note(entry)]}
-      end
+      {expanded, entry_notes} = expand(entry, works)
+      {candidates ++ expanded, outs, notes ++ entry_notes}
     end)
   end
 
-  defp expand(entry, works) do
-    {asked, rest} = Enum.split(works, @works_expanded)
+  # Every matched work is opened, never the first few. A work-level search
+  # ranks by its own idea of relevance and the recording the operator wants
+  # can sit well down that list, so "open the promising ones" is a guess about
+  # exactly the thing that is uncertain.
+  defp expand(_entry, []), do: {[], []}
 
+  defp expand(entry, works) do
+    cond do
+      :editions_bulk in entry.capabilities -> expand_bulk(entry, works)
+      :editions in entry.capabilities -> expand_one_by_one(entry, works)
+      # Finding the book but not its recordings leaves nothing to watch, and
+      # saying so beats a silent absence.
+      true -> {[], [no_editions_note(entry)]}
+    end
+  end
+
+  defp expand_bulk(entry, works) do
+    case Providers.editions_bulk(entry.id, Enum.map(works, & &1.id)) do
+      {:ok, by_work} ->
+        titles = Map.new(works, &{&1.id, &1.title})
+
+        candidates =
+          Enum.flat_map(works, fn work ->
+            by_work
+            |> Map.get(work.id, [])
+            |> Enum.map(&candidate(entry.id, &1, titles[work.id]))
+          end)
+
+        {candidates, []}
+
+      other ->
+        Logger.warning(fn -> "Wanted search: #{entry.id} bulk editions: #{inspect(other)}" end)
+
+        {[], [could_not_open_note(entry)]}
+    end
+  end
+
+  defp expand_one_by_one(entry, works) do
     candidates =
-      Enum.flat_map(asked, fn work ->
+      Enum.flat_map(works, fn work ->
         case Providers.editions(entry.id, work.id) do
           {:ok, editions} ->
             Enum.map(editions, &candidate(entry.id, &1, work.title))
@@ -155,20 +189,15 @@ defmodule Ambry.Wanted.Search do
         end
       end)
 
-    {candidates, truncation_note(entry, rest)}
-  end
-
-  defp truncation_note(_entry, []), do: []
-
-  defp truncation_note(entry, rest) do
-    [
-      "#{entry.display_name}: looked inside the first #{@works_expanded} matching books; " <>
-        "#{length(rest)} more went unopened. Narrow the search to reach them."
-    ]
+    {candidates, []}
   end
 
   defp no_editions_note(entry) do
     "#{entry.display_name} can find books but not their audio editions, so it offered nothing here."
+  end
+
+  defp could_not_open_note(entry) do
+    "#{entry.display_name} found books but could not be asked what recordings they have."
   end
 
   defp candidate(provider_id, book, work_title) do

@@ -35,7 +35,8 @@ defmodule Ambry.Metadata.Providers.Hardcover do
   def level, do: :work
 
   @impl Provider
-  def capabilities, do: [:book_search, :book_details, :author_search, :author_details, :editions]
+  def capabilities,
+    do: [:book_search, :book_details, :author_search, :author_details, :editions, :editions_bulk]
 
   @impl Provider
   def config_fields do
@@ -174,6 +175,71 @@ defmodule Ambry.Metadata.Providers.Hardcover do
     }
   }
   """
+
+  # The same filter as `@editions_query`, over several books at once. Hasura
+  # takes `_in` on `book_id`, so asking about seven works costs one request
+  # rather than seven -- which is what makes it possible to open *every*
+  # candidate work instead of guessing which few are worth opening.
+  #
+  # The limit is across all of them, so it is generous and its exhaustion is
+  # reported rather than silently truncating.
+  @editions_bulk_query """
+  query AudioEditionsBulk($ids: [Int!], $roles: [String!]) {
+    editions(
+      where: {
+        book_id: {_in: $ids},
+        _or: [
+          {reading_format_id: {_eq: #{@audiobook_format}}},
+          {audio_seconds: {_is_null: false}},
+          {contributions: {contribution: {_in: $roles}}}
+        ]
+      },
+      limit: 500
+    ) {
+      id
+      book_id
+      title
+      release_date
+      asin
+      audio_seconds
+      reading_format_id
+      publisher { name }
+      image { url }
+      contributions { contribution author { id name } }
+      book { description contributions { contribution author { id name } } }
+    }
+  }
+  """
+
+  @doc """
+  The audiobook editions of several works, keyed by work id.
+  """
+  @impl Provider
+  def editions_bulk(work_ids, config) do
+    ids =
+      Enum.flat_map(work_ids, fn id ->
+        case parse_id(id) do
+          {:ok, parsed} -> [parsed]
+          _error -> []
+        end
+      end)
+
+    with false <- ids == [],
+         {:ok, %{"editions" => editions}} <-
+           Client.query(config, @editions_bulk_query, %{
+             ids: ids,
+             roles: @narrator_roles_upstream
+           }) do
+      {:ok,
+       editions
+       |> Enum.filter(&audio_edition?/1)
+       |> Enum.group_by(&to_string(&1["book_id"]), &edition_to_book/1)}
+    else
+      true -> {:ok, %{}}
+      {:ok, _other} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   @doc """
   The audiobook editions of a work.
