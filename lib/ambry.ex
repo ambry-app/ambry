@@ -30,6 +30,7 @@ defmodule Ambry do
       {Search, []},
       {Settings, []},
       {Sync, []},
-      {Utils, []}
+      {Utils, []},
+      {Wanted, []}
     ]
 end
