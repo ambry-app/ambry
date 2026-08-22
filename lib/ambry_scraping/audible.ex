@@ -53,6 +53,9 @@ defmodule AmbryScraping.Audible do
   """
   def search_books(query, opts \\ []), do: Products.search(query, opts)
 
+  @doc "One audiobook, by its ASIN. See `AmbryScraping.Audible.Products.details/2`."
+  def book_details(asin, opts \\ []), do: Products.details(asin, opts)
+
   @doc "The regional marketplace codes that can be searched."
   defdelegate marketplaces, to: Client
 

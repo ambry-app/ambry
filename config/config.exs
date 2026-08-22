@@ -64,6 +64,10 @@ config :ambry, Oban,
      crontab: [
        {"0 * * * *", Ambry.Inbox.RunDiscovery},
        {"0 4 * * *", Ambry.Media.RunReconciliation},
+       # Weekly, and only for watches inside the next month: what a provider
+       # can tell us that arithmetic cannot is whether a date has *moved*, and
+       # a release six months out has not moved in the last hour.
+       {"0 5 * * 1", Ambry.Wanted.RunRefresh},
        # Organizing is triggered by the edits that invalidate a path, so this
        # is the backstop for the one thing no edit can announce: a change to
        # the naming template itself, which invalidates every path at once.
