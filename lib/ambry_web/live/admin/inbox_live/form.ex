@@ -37,7 +37,6 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   import AmbryWeb.Admin.ChapterEditor
   import AmbryWeb.Admin.Decisions
-  import AmbryWeb.TimeUtils
 
   alias Ambry.Books
   alias Ambry.Inbox
@@ -1269,24 +1268,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   @doc "What the item's files say they are, for the evidence header."
-  def evidence(%InboxItem{probe: probe}) when is_map(probe) do
-    [
-      probe["duration"] && format_timecode(Decimal.new(probe["duration"])),
-      file_count(probe),
-      probe["codec"],
-      probe["chapters"] && probe["chapters"] > 0 && "#{probe["chapters"]} chapters",
-      probe["seek_accuracy"] == "approximate" && "inexact seeking"
-    ]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" · ")
-  end
+  def evidence(%InboxItem{probe: probe}) when is_map(probe),
+    do: probe |> probe_facts(files: true) |> Enum.join(" · ")
 
   def evidence(_item), do: "not read yet"
-
-  # A one-file recording says nothing; a forty-file one is the single most
-  # useful fact about it, because it's what the timeline is built out of.
-  defp file_count(%{"files" => count}) when count > 1, do: "#{count} files"
-  defp file_count(_probe), do: nil
 
   @doc """
   The fallback line for an item whose draft has no chapters decision yet —
