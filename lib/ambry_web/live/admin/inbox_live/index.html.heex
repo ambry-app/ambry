@@ -71,78 +71,38 @@
           cover-and-credits shape, because it is the same thing. --%>
     <:row :let={item}>
       <%= if item.status == :imported do %>
-        <%= if audiobook = @audiobooks[item.id] do %>
+        <%= if item.superseded_by_id do %>
+          <%!-- A replaced import stops wearing the audiobook. The record is
+                still true about what it was — this release, these files, this
+                date — and false about everything the audiobook says now,
+                because the recording is served from somebody else's files and
+                has been edited since. So it goes back to describing itself,
+                with the badge for the one thing its shape can't say: this was
+                imported, and then superseded. --%>
           <.index_row
-            navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
+            navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
             class={rail_class(item)}
           >
-            <:cover>
-              <div class={["h-16 w-16 rounded-sm", if(!audiobook.thumbnail, do: "bg-zinc-800")]}>
-                <img
-                  :if={audiobook.thumbnail}
-                  src={audiobook.thumbnail}
-                  alt=""
-                  class="h-full w-full rounded-sm"
-                />
-              </div>
-            </:cover>
+            <:headline>
+              <span class="text-zinc-400">{item_name(item)}</span>
+            </:headline>
 
-            <:headline>{media_display_title(audiobook)}</:headline>
-
-            <.credit_lines authors={audiobook.authors} narrators={audiobook.narrators} />
-
-            <%!-- No "imported" badge: the footer's date already says it, and
-                  what varies from one imported row to the next is the state
-                  of the audiobook, which is what these say. --%>
             <:badges>
-              <.badge
-                :if={audiobook.status != :ready}
-                color={library_status_color(audiobook.status)}
-                class="text-xs"
-              >
-                {audiobook.status}
-              </.badge>
-              <.badge
-                :if={audiobook.missing_since}
-                color={:red}
-                class="text-xs"
-                title={"Files couldn't be read since #{Calendar.strftime(audiobook.missing_since, "%x %X")}"}
-                data-role="audiobook-missing"
-              >
-                missing
-              </.badge>
+              <.badge color={:gray} class="text-xs" data-role="superseded">superseded</.badge>
             </:badges>
 
-            <%!-- The audiobooks list's line, verbatim: same helper, same
-                  place, same words. It was an inline middle-dot line here and
-                  a footer column there, which is two answers to one question. --%>
-            <p
-              :if={record_meta(audiobook) != ""}
-              class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
-            >
-              {record_meta(audiobook)}
+            <p class="text-sm text-zinc-400">
+              Replaced by a later import. The audiobook is served from that one now.
             </p>
 
-            <:facts>
-              <.row_fact
-                :if={audiobook.chapters > 0}
-                icon="fa-book-bookmark"
-                count={audiobook.chapters}
-                title="# of chapters"
-              />
-            </:facts>
-
             <:action
-              navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
-              icon="fa-pencil"
-              title="Edit this audiobook"
+              navigate={~p"/admin/inbox/#{item.superseded_by_id}?#{return_query(assigns)}"}
+              icon="fa-right-long"
+              title="The import that replaced this one"
             >
-              Edit
+              What replaced it
             </:action>
 
-            <%!-- The way back to where it came from — the files, the matches,
-                  the decisions that produced it. Off the row by design, one
-                  click away because a wrong import is diagnosed there. --%>
             <:action
               navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
               icon="fa-inbox"
@@ -154,30 +114,114 @@
             <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
           </.index_row>
         <% else %>
-          <%!-- Deleting an audiobook nilifies the link rather than taking the
+          <%= if audiobook = @audiobooks[item.id] do %>
+            <.index_row
+              navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
+              class={rail_class(item)}
+            >
+              <:cover>
+                <div class={["h-16 w-16 rounded-sm", if(!audiobook.thumbnail, do: "bg-zinc-800")]}>
+                  <img
+                    :if={audiobook.thumbnail}
+                    src={audiobook.thumbnail}
+                    alt=""
+                    class="h-full w-full rounded-sm"
+                  />
+                </div>
+              </:cover>
+
+              <:headline>{media_display_title(audiobook)}</:headline>
+
+              <.credit_lines authors={audiobook.authors} narrators={audiobook.narrators} />
+
+              <%!-- No "imported" badge: the footer's date already says it, and
+                  what varies from one imported row to the next is the state
+                  of the audiobook, which is what these say. --%>
+              <:badges>
+                <.badge
+                  :if={audiobook.status != :ready}
+                  color={library_status_color(audiobook.status)}
+                  class="text-xs"
+                >
+                  {audiobook.status}
+                </.badge>
+                <.badge
+                  :if={audiobook.missing_since}
+                  color={:red}
+                  class="text-xs"
+                  title={"Files couldn't be read since #{Calendar.strftime(audiobook.missing_since, "%x %X")}"}
+                  data-role="audiobook-missing"
+                >
+                  missing
+                </.badge>
+              </:badges>
+
+              <%!-- The audiobooks list's line, verbatim: same helper, same
+                  place, same words. It was an inline middle-dot line here and
+                  a footer column there, which is two answers to one question. --%>
+              <p
+                :if={record_meta(audiobook) != ""}
+                class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+              >
+                {record_meta(audiobook)}
+              </p>
+
+              <:facts>
+                <.row_fact
+                  :if={audiobook.chapters > 0}
+                  icon="fa-book-bookmark"
+                  count={audiobook.chapters}
+                  title="# of chapters"
+                />
+              </:facts>
+
+              <:action
+                navigate={~p"/admin/audiobooks/#{audiobook.id}/edit"}
+                icon="fa-pencil"
+                title="Edit this audiobook"
+              >
+                Edit
+              </:action>
+
+              <%!-- The way back to where it came from — the files, the matches,
+                  the decisions that produced it. Off the row by design, one
+                  click away because a wrong import is diagnosed there. --%>
+              <:action
+                navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+                icon="fa-inbox"
+                title="What was imported, and from where"
+              >
+                Import record
+              </:action>
+
+              <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
+            </.index_row>
+          <% else %>
+            <%!-- Deleting an audiobook nilifies the link rather than taking the
                 record of the import with it, so the row outlives the thing it
                 describes. It says that, instead of falling back to matching
                 details for a result that is gone. --%>
-          <.index_row
-            navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
-            class={rail_class(item)}
-          >
-            <:headline>
-              <span class="text-zinc-400">{item_name(item)}</span>
-            </:headline>
-
-            <p class="text-sm text-zinc-400">The audiobook this became has been deleted.</p>
-
-            <:action
+            <.index_row
               navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
-              icon="fa-inbox"
-              title="What was imported, and from where"
+              class={rail_class(item)}
             >
-              Import record
-            </:action>
+              <:headline>
+                <span class="text-zinc-400">{item_name(item)}</span>
+              </:headline>
 
-            <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
-          </.index_row>
+              <p class="text-sm text-zinc-400">The audiobook this became has been deleted.</p>
+
+              <:action
+                navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
+                icon="fa-inbox"
+                title="What was imported, and from where"
+              >
+                Import record
+              </:action>
+
+              <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
+            </.index_row>
+          <% end %>
         <% end %>
       <% else %>
         <.index_row

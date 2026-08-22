@@ -136,6 +136,22 @@ outlives the thing it describes says so plainly rather than falling back to
 the process view, which would describe a decision whose outcome no longer
 exists.
 
+**And that its result is no longer its own.** A third state sits between
+those two: the outcome still exists, but it belongs to a later record — an
+import replaced by another import of the same audiobook. Wearing the result
+there is the worst of the three, because it is not merely stale, it is
+*someone else's*, and it keeps updating: the row would go on showing a cover,
+credits and state badges that another record is responsible for.
+
+So the row goes back to describing **itself** — the release it holds, its own
+files, the date it landed — and carries a badge for the one thing that shape
+cannot say, which is that this was imported and then superseded. This is the
+documented exception to "the status badge goes": the badge is what stops an
+import-shaped row from reading as work still to do.
+
+It does not offer the result. A way to the record that *replaced* it is the
+honest link, and the way to the audiobook is that record's to give.
+
 ## 3. Geometry
 
 **Two left edges, never three.** Every container has exactly two

@@ -239,6 +239,11 @@ defmodule Ambry.Inbox.Importer do
            {:ok, media} <- existing_recording(media_id),
            retired = Media.retired_files(media),
            {:ok, media} <- repoint(media, probes, destination),
+           # Before the link, not after: `inbox_items_one_live_import_per_media`
+           # is checked per statement and a partial unique index cannot be
+           # deferred, so the old claim has to be released before the new one
+           # is made rather than the two overlapping for a statement.
+           :ok <- supersede_previous(item, media),
            {:ok, _item} <- link(item, media),
            {:ok, media, placements, vacated} <-
              place(destination, media.book, media, files, retired.files),
@@ -834,5 +839,29 @@ defmodule Ambry.Inbox.Importer do
     |> InboxItem.changeset(%{status: :imported, media_id: media.id, issue: nil})
     |> InboxItem.versioned()
     |> Repo.update()
+  end
+
+  # The other half of the replacement: the item this one just took over from
+  # stops being the recording's import. Runs after `link/2`, so the row it
+  # must not touch is the one that now holds this media id.
+  #
+  # `updated_at` is deliberately left alone. It is the moment the superseded
+  # item was imported — the row's date, the imported tab's sort, and the
+  # ordering this whole feature is built on — and `Repo.update_all` not
+  # bumping it is the behaviour being relied on rather than an omission.
+  # Touching it would rewrite the history this is trying to record.
+  #
+  # Ordinarily one row. Zero when the recording came from somewhere other
+  # than the inbox, and more than one only for data that predates the
+  # backfill.
+  defp supersede_previous(%InboxItem{id: id}, %Media.Media{id: media_id}) do
+    import Ecto.Query, only: [where: 3]
+
+    InboxItem
+    |> where([i], i.media_id == ^media_id and i.id != ^id)
+    |> where([i], i.status == :imported and is_nil(i.superseded_by_id))
+    |> Repo.update_all(set: [superseded_by_id: id])
+
+    :ok
   end
 end
