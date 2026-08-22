@@ -4,6 +4,8 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   import Phoenix.LiveViewTest
 
   alias Ambry.Inbox
+  alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Reconciliation
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunImport
 
@@ -557,6 +559,34 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
   # The rows' badges, as text. Read out of the markup rather than asserted
   # against the raw HTML: the formatter puts the badge's content on its own
   # line, so an exact-string match on the rendered page is a whitespace bet.
+  # The badge is the row's one word, so what it spends it on has to be worth
+  # it. A pending item's files going away is what stops it being imported and
+  # outranks whatever it still owes; an ignored item was never going to be
+  # imported, so the same fact says nothing and would cost it the word that
+  # does.
+  test "missing takes the badge from a pending row", %{conn: conn} do
+    item = probed_item()
+    item |> InboxItem.disk_path() |> File.rm_rf!()
+    {:ok, :missing} = Reconciliation.reconcile(item)
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?status=pending")
+
+    assert has_element?(view, "[data-role='item-missing']", "missing")
+    assert item_states(html) == []
+  end
+
+  test "an ignored row keeps its own word", %{conn: conn} do
+    item = probed_item()
+    {:ok, _item} = Inbox.ignore_item(item)
+    item |> InboxItem.disk_path() |> File.rm_rf!()
+    {:ok, :missing} = item.id |> Inbox.get_item!() |> Reconciliation.reconcile()
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?status=ignored")
+
+    refute has_element?(view, "[data-role='item-missing']")
+    assert item_states(html) == ["ignored"]
+  end
+
   defp item_states(html) do
     html
     |> Floki.parse_document!()

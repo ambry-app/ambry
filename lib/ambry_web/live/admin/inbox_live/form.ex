@@ -1468,6 +1468,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # every other answer moot: there is nothing left to import. Read here with
   # the other two because it is the same kind of fact — about the world, not
   # about the draft — and an outstanding decision is not what it is.
+  # Only where something is still being decided. An imported item is not
+  # importing, so "this can't be imported" is not a fact about it — and for a
+  # `move` placement its source is gone *because the import took it*, which
+  # is the design working rather than a fault to paint red.
+  @doc """
+  Whether this item's files have gone away since it was found.
+  """
+  def missing?(%{missing_since: at}), do: not is_nil(at)
+
+  defp missing_blocker(%{status: :imported}), do: nil
   defp missing_blocker(%{missing_since: nil}), do: nil
   defp missing_blocker(%{}), do: Inbox.describe_error(:files_missing)
 
