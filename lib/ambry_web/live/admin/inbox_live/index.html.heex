@@ -364,15 +364,21 @@
           <%!-- One badge. Inside a tab named for the status, printing the
                 status on every row says nothing; what the row owes does.
 
-                Missing outranks it: what a row owes stops mattering when
-                there is nothing left to do it to, and red is the blocker
-                colour (§5). --%>
+                Missing outranks it where it changes what can be done: what
+                a pending row owes stops mattering when there is nothing left
+                to do it to, and red is the blocker colour (§5). An ignored
+                row keeps its word — see `missing_blocks?/1`. --%>
           <:badges>
-            <.badge :if={missing?(item)} color={:red} class="text-xs" data-role="item-missing">
+            <.badge
+              :if={missing_blocks?(item)}
+              color={:red}
+              class="text-xs"
+              data-role="item-missing"
+            >
               missing
             </.badge>
             <.badge
-              :if={!missing?(item)}
+              :if={!missing_blocks?(item)}
               color={elem(state_words(item), 1)}
               class="text-xs"
               data-role="item-state"

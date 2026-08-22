@@ -372,6 +372,18 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def missing?(%InboxItem{missing_since: at}), do: not is_nil(at)
 
   @doc """
+  Whether that is worth the row's one badge.
+
+  Only where it changes what can be done. A pending item's files going away
+  is what stops it being imported, and it outranks whatever the row still
+  owes — the decisions stop mattering when there is nothing to make them
+  about. An ignored item was never going to be imported, so the same fact
+  says nothing and would cost the row the one word that does.
+  """
+  def missing_blocks?(%InboxItem{status: :pending} = item), do: missing?(item)
+  def missing_blocks?(%InboxItem{}), do: false
+
+  @doc """
   Whether an imported item can go back into the queue.
 
   The files it would be worked on again have to still be there. A `move`
