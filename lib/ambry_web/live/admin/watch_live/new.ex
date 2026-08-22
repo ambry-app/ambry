@@ -17,6 +17,13 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   for sale. Ranking one above the other would hide whichever half the operator
   happened to need.
 
+  ## Only what has not come out yet
+
+  Everything here is a recording that has not been published. A book whose
+  audiobooks all came out years ago legitimately produces no candidates, and
+  the page says *that* rather than "nothing found" — which would read as the
+  provider not having it.
+
   ## Outcomes are shown even when they are empty
 
   A provider that was rate-limited and a provider that genuinely has nothing
@@ -138,24 +145,13 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   defdelegate provider_words(provider_id), to: Ambry.Wanted, as: :provider_name
 
   @doc """
-  How a candidate's date reads before it is a watch.
+  When a candidate is expected.
 
-  An unreleased recording is the point, so a future date is stated plainly
-  and a past one is marked as already out — watching something that has
-  already been published is legitimate (it is a reminder to go and get it)
-  but it is not what the operator usually means.
+  Every candidate that reaches this page has a future date — the search drops
+  anything already published, and anything undated — so there is no
+  already-out case to render.
   """
-  def date_words(nil), do: "No date"
-
-  def date_words(date) do
-    formatted = Calendar.strftime(date, "%b %-d, %Y")
-
-    if Date.after?(date, Date.utc_today()) do
-      formatted
-    else
-      "#{formatted} — already out"
-    end
-  end
+  def date_words(date), do: Calendar.strftime(date, "%b %-d, %Y")
 
   @doc "How long the recording is, in words."
   defdelegate runtime(edition), to: Ambry.Wanted.Edition

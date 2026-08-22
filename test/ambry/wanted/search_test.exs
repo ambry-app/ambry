@@ -1,7 +1,7 @@
 defmodule Ambry.Wanted.SearchTest do
   @moduledoc """
-  The two provider levels are differently blind about the future, so both are
-  asked and neither is preferred. These are the cases that made that the
+  Providers are selected by capability and their answers are filtered to what
+  has not come out yet. These are the cases that made both of those the
   design rather than a preference.
   """
 
@@ -26,6 +26,8 @@ defmodule Ambry.Wanted.SearchTest do
   end
 
   defp product(id, title, opts) do
+    date = if Keyword.has_key?(opts, :date), do: Keyword.get(opts, :date), else: ~D[2099-09-29]
+
     %Provider.Book{
       provider: "audible",
       id: id,
@@ -33,17 +35,19 @@ defmodule Ambry.Wanted.SearchTest do
       asin: Keyword.get(opts, :asin),
       narrators: Keyword.get(opts, :narrators, []),
       duration_seconds: Keyword.get(opts, :duration_seconds),
-      published: %Provider.PublishedDate{
-        date: Keyword.get(opts, :date, ~D[2026-09-29]),
-        display_format: :full
-      }
+      published: date && %Provider.PublishedDate{date: date, display_format: :full}
     }
   end
 
-  # A storefront lists what it is selling, so it has the preorder; a
-  # bibliography lists what has been published, and there is no audiobook yet
-  # to catalogue. This is the real shape of The Velvet Knife.
-  test "a preorder only a storefront knows about is still offered" do
+  defp no_hardcover_results do
+    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
+  end
+
+  # A catalogue of what is for sale carries preorders; a catalogue of what has
+  # been published has no entry for a recording that has not come out. This is
+  # the real shape of The Velvet Knife, and why every capable provider is
+  # asked rather than one being chosen.
+  test "a preorder only one provider knows about is still offered" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
       {:ok,
        [
@@ -54,14 +58,14 @@ defmodule Ambry.Wanted.SearchTest do
        ]}
     end)
 
-    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
+    no_hardcover_results()
 
     {candidates, _outcomes, _notes} =
       Search.candidates(%Provider.Query{title: "The Velvet Knife"})
 
     assert [candidate] = Enum.filter(candidates, &(&1.provider == "audible"))
     assert candidate.provider_id == "B0FKVNLXQS"
-    assert candidate.published == ~D[2026-09-29]
+    assert candidate.published == ~D[2099-09-29]
     assert candidate.edition.narrators == ["Emily Ellet"]
     # An audiobook's runtime rides with it: it is what tells two recordings
     # of one book apart when everything else agrees.
@@ -70,7 +74,7 @@ defmodule Ambry.Wanted.SearchTest do
 
   test "the same recording from two providers is offered twice, not merged" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
-      {:ok, [product("B0GPDBGTTL", "Blightfall", date: ~D[2026-09-01])]}
+      {:ok, [product("B0GPDBGTTL", "Blightfall", date: ~D[2099-09-01])]}
     end)
 
     patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config ->
@@ -84,7 +88,7 @@ defmodule Ambry.Wanted.SearchTest do
            provider: "hardcover",
            id: "33170376",
            title: "Blightfall",
-           published: %Provider.PublishedDate{date: ~D[2026-09-01], display_format: :full}
+           published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
          }
        ]}
     end)
@@ -95,42 +99,113 @@ defmodule Ambry.Wanted.SearchTest do
     assert candidates |> Enum.map(& &1.provider_id) |> Enum.sort() == ["33170376", "B0GPDBGTTL"]
   end
 
-  test "a work-level provider is expanded into its audio editions" do
+  # A work is not a recording, so a work-level answer has to be opened before
+  # it can offer anything. That is a difference in shape, not in standing.
+  test "a provider that answers with works is expanded into its audio editions" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config -> {:ok, []} end)
 
     patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config ->
-      {:ok, [%Provider.Book{provider: "hardcover", id: "313448", title: "Neuromancer"}]}
+      {:ok, [%Provider.Book{provider: "hardcover", id: "2235778", title: "Blightfall"}]}
     end)
 
-    patch(Ambry.Metadata.Providers.Hardcover, :editions, fn "313448", _config ->
+    patch(Ambry.Metadata.Providers.Hardcover, :editions, fn "2235778", _config ->
       {:ok,
        [
          %Provider.Book{
            provider: "hardcover",
-           id: "e1",
-           title: "Neuromancer",
-           publisher: "Books on Tape",
-           narrators: [%{name: "Robertson Dean"}],
-           duration_seconds: 37_920,
-           published: %Provider.PublishedDate{date: ~D[1984-07-01], display_format: :full}
+           id: "33170376",
+           title: "Blightfall",
+           publisher: "Listening Library",
+           narrators: [%{name: "Eddie Lopez"}],
+           duration_seconds: 45_660,
+           published: %Provider.PublishedDate{date: ~D[2099-09-01], display_format: :full}
          }
        ]}
     end)
 
-    {candidates, _outcomes, _notes} = Search.candidates(%Provider.Query{title: "Neuromancer"})
+    {candidates, _outcomes, _notes} = Search.candidates(%Provider.Query{title: "Blightfall"})
 
     assert [edition] = Enum.filter(candidates, &(&1.provider == "hardcover"))
-    assert edition.edition.publisher == "Books on Tape"
-    assert edition.edition.duration_seconds == 37_920
-    assert edition.published == ~D[1984-07-01]
-    assert edition.work_title == "Neuromancer"
+    assert edition.edition.publisher == "Listening Library"
+    assert edition.edition.duration_seconds == 45_660
+    assert edition.work_title == "Blightfall"
+  end
+
+  describe "only what has not come out yet" do
+    # Neuromancer is the case this exists for: a dozen real audio editions,
+    # every one of them decades old. A watch is a reminder about something
+    # still to come, so none of them is one.
+    test "recordings that are already published are not offered" do
+      patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
+        {:ok,
+         [
+           product("old", "Neuromancer", date: ~D[1984-07-01]),
+           product("coming", "Neuromancer", date: ~D[2099-01-01])
+         ]}
+      end)
+
+      no_hardcover_results()
+
+      {candidates, _outcomes, _notes} = Search.candidates(%Provider.Query{title: "Neuromancer"})
+
+      assert Enum.map(candidates, & &1.provider_id) == ["coming"]
+    end
+
+    # "Nothing found" and "they are all already out" mean opposite things to
+    # someone deciding whether a provider has the book at all.
+    test "says how many were set aside rather than looking like nothing was found" do
+      patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
+        {:ok,
+         [
+           product("a", "Neuromancer", date: ~D[1984-07-01]),
+           product("b", "Neuromancer", date: ~D[2011-06-30])
+         ]}
+      end)
+
+      no_hardcover_results()
+
+      {candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "Neuromancer"})
+
+      assert candidates == []
+      assert Enum.any?(notes, &(&1 =~ "2 already published"))
+    end
+
+    test "an undated record is not evidence of the future either" do
+      patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
+        {:ok, [product("undated", "Someday", date: nil)]}
+      end)
+
+      no_hardcover_results()
+
+      {candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "Someday"})
+
+      assert candidates == []
+      assert Enum.any?(notes, &(&1 =~ "no announced date"))
+    end
+
+    test "today is not the future; something out this morning is already out" do
+      patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
+        {:ok,
+         [
+           product("today", "Out Now", date: ~D[2026-08-22]),
+           product("tomorrow", "Out Soon", date: ~D[2026-08-23])
+         ]}
+      end)
+
+      no_hardcover_results()
+
+      {candidates, _outcomes, _notes} =
+        Search.candidates(%Provider.Query{title: "Out"}, today: ~D[2026-08-22])
+
+      assert Enum.map(candidates, & &1.provider_id) == ["tomorrow"]
+    end
   end
 
   # A provider that can find the book but not list its recordings has nothing
   # to offer a watch, and saying so beats a silent absence.
   test "says when a provider could not contribute rather than staying quiet" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config -> {:ok, []} end)
-    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
+    no_hardcover_results()
 
     patch(Ambry.Metadata.Providers.RreadingGlasses, :search_books, fn _query, _config ->
       {:ok, [%Provider.Book{provider: "rreading_glasses", id: "w1", title: "A Book"}]}
@@ -147,7 +222,7 @@ defmodule Ambry.Wanted.SearchTest do
       {:error, :timeout}
     end)
 
-    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
+    no_hardcover_results()
 
     {_candidates, outcomes, _notes} = Search.candidates(%Provider.Query{title: "Anything"})
 

@@ -2,35 +2,43 @@ defmodule Ambry.Wanted.Search do
   @moduledoc """
   Finding an audiobook to watch, across every provider that can name one.
 
-  ## The rule is a capability, not a ranking
+  ## Providers are selected by capability
 
-  **Any provider that can produce audio editions is asked, and none of them is
-  preferred.** There is no primary source here and no fallback: a provider
-  either can answer "which recordings of this exist" or it cannot, and the
-  ones that can all get to. Nothing in this module names a provider.
+  **Every enabled provider that can produce audio editions is asked**, in the
+  registry's configured order. That is the whole selection rule: a provider is
+  chosen by what it is tagged as able to do, the same way every other
+  provider-driven surface here chooses one. Nothing in this module names a
+  provider.
 
-  What differs between them is *shape*, not standing:
+  What differs between them is *shape*:
 
     * Some answer with recordings directly. Their search results are already
       audiobooks — narrators, runtime, cover — and nothing needs expanding.
     * Some answer with works. A novel is not a recording, so each promising
       work is expanded through `editions/2` into the audio editions it has.
 
-  ## Why that has to be the rule rather than a preference
+  Asking all of them matters because they disagree about what exists, in both
+  directions and for structural reasons. A catalogue of what is *for sale*
+  carries preorders and drops anything delisted; a catalogue of what has been
+  *published* has no entry at all for a recording that has not come out yet.
+  Measured: *The Velvet Knife* is findable in one and absent from the other,
+  and *Blightfall* is in both under different ids — and is offered twice
+  rather than merged, because they are two records of one thing and choosing
+  between them is the operator's job.
 
-  Providers are differently blind about what does not exist yet, and the
-  blindness does not sort into better and worse. A catalogue of what is *for
-  sale* has preorders months out and forgets anything delisted. A catalogue of
-  what has been *published* reaches back to tape and has no entry at all for a
-  recording that has not come out. Measured: *The Velvet Knife* is findable in
-  one and absent from the other; *Neuromancer*'s 1984 editions are the reverse;
-  *Blightfall* is in both, under different ids, and is offered twice rather
-  than merged.
+  Which is the import form's bargain: records are evidence, outcomes are
+  visible, the operator decides.
 
-  Which is exactly the import form's bargain: records are evidence, outcomes
-  are visible, the operator decides. So everything comes back labelled, in the
-  order the providers are configured, and nothing here scores or hides a
-  candidate.
+  ## Only what has not come out yet
+
+  A watch is a thing to be reminded about, so a recording that is already
+  published cannot be one. Candidates are filtered to a **known future
+  release date** — past-dated and undated records are both dropped, since
+  "no date" is not evidence of the future either.
+
+  This is the one place that hides results, so it says how many and why. A
+  search for a book whose recordings all came out years ago should read as
+  *there are twelve, they are all already out*, never as *nothing found*.
 
   ## Coverage this knowingly cuts
 
@@ -63,10 +71,43 @@ defmodule Ambry.Wanted.Search do
   already render), and any notes about coverage this search knowingly cut.
   """
   def candidates(%Provider.Query{} = query, opts \\ []) do
+    today = Keyword.get(opts, :today, Date.utc_today())
+
     {recordings, recording_outcomes} = recording_level(query, opts)
     {editions, work_outcomes, notes} = work_level(query, opts)
 
-    {recordings ++ editions, recording_outcomes ++ work_outcomes, notes}
+    {upcoming, already_out} = split_by_release(recordings ++ editions, today)
+
+    {upcoming, recording_outcomes ++ work_outcomes, notes ++ already_out_note(already_out)}
+  end
+
+  # A watch is a reminder about something that has not happened. A recording
+  # that is already published cannot be one, and an undated record is not
+  # evidence of the future — so both are dropped rather than offered and
+  # then explained.
+  defp split_by_release(candidates, today) do
+    Enum.split_with(candidates, fn candidate ->
+      not is_nil(candidate.published) and Date.after?(candidate.published, today)
+    end)
+  end
+
+  defp already_out_note([]), do: []
+
+  defp already_out_note(dropped) do
+    {dated, undated} = Enum.split_with(dropped, & &1.published)
+
+    [
+      Enum.join(
+        Enum.reject(
+          [
+            dated != [] && "#{length(dated)} already published",
+            undated != [] && "#{length(undated)} with no announced date"
+          ],
+          &(&1 == false)
+        ),
+        ", "
+      ) <> " — not shown, since a watch is for something still to come."
+    ]
   end
 
   # A storefront's search results are already recordings; nothing to expand.

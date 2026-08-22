@@ -28,7 +28,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       authors: [%{name: "Maureen Johnson", id: "a1", role: "author"}],
       narrators: [%{name: "Emily Ellet", id: "n1", role: "narrator"}],
       duration_seconds: 36_000,
-      published: %Provider.PublishedDate{date: ~D[2026-09-29], display_format: :full}
+      published: %Provider.PublishedDate{date: ~D[2099-09-29], display_format: :full}
     }
   end
 
@@ -59,7 +59,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
 
       assert html =~ "The Velvet Knife"
       assert html =~ "Emily Ellet"
-      assert html =~ "Sep 29, 2026"
+      assert html =~ "Sep 29, 2099"
       assert has_element?(view, "[data-role='candidate-runtime']", "10h")
     end
 
@@ -83,10 +83,10 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       view |> form("#watch-search-form", search: %{title: "Nothing"}) |> render_submit()
 
       assert has_element?(view, "*", "Who answered")
-      assert has_element?(view, "*", "Nothing came back.")
+      assert has_element?(view, "*", "Nothing still to come.")
     end
 
-    test "marks a candidate that is already out rather than hiding it", %{conn: conn} do
+    test "a recording that is already out is not offered as a watch", %{conn: conn} do
       offering([
         %{velvet_knife() | published: %Provider.PublishedDate{date: ~D[2020-01-01]}}
       ])
@@ -95,7 +95,22 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
 
       view |> form("#watch-search-form", search: %{title: "Old"}) |> render_submit()
 
-      assert has_element?(view, "[data-role='candidate-date']", "already out")
+      refute has_element?(view, "[data-role='watch-candidate']")
+    end
+
+    # Otherwise a book whose recordings are all decades old reads as a book
+    # the provider does not have.
+    test "says results were set aside rather than that nothing was found", %{conn: conn} do
+      offering([
+        %{velvet_knife() | published: %Provider.PublishedDate{date: ~D[2020-01-01]}}
+      ])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
+
+      view |> form("#watch-search-form", search: %{title: "Old"}) |> render_submit()
+
+      assert has_element?(view, "*", "1 already published")
+      assert has_element?(view, "*", "Nothing still to come.")
     end
 
     test "watching a result keeps the provider's record", %{conn: conn} do
@@ -110,7 +125,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       assert [watch] = Wanted.list_watches()
       assert watch.provider == "audible"
       assert watch.provider_id == "B0FKVNLXQS"
-      assert watch.expected_release_date == ~D[2026-09-29]
+      assert watch.expected_release_date == ~D[2099-09-29]
       assert watch.edition.narrators == ["Emily Ellet"]
       assert watch.edition.asin == "B0FKVNLXQS"
       assert watch.edition.duration_seconds == 36_000
