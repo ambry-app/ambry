@@ -264,6 +264,32 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
     assert item_states(html) == []
   end
 
+  # The row wears the audiobook because it produced it. Once a later import
+  # has, that claim is not merely stale, it is somebody else's — and it keeps
+  # updating, so the row would go on showing a cover and credits another
+  # record is responsible for.
+  test "a superseded row describes itself, not the audiobook", %{conn: conn} do
+    item = probed_item() |> settle()
+    {:ok, media} = Ambry.Inbox.import_item(item)
+
+    successor = probed_item(name: "The Way of Kings [FLAC]") |> settle()
+
+    item
+    |> Ecto.Changeset.change(superseded_by_id: successor.id)
+    |> Ambry.Repo.update!()
+
+    {:ok, view, html} = live(conn, ~p"/admin/inbox?status=imported")
+
+    assert has_element?(view, "[data-role='superseded']", "superseded")
+    assert html =~ "Replaced by a later import"
+    assert has_element?(view, "a[href^='/admin/inbox/#{successor.id}']")
+
+    # it is back to naming its own release, and offers no way to claim the
+    # audiobook as its result
+    assert html =~ item.path
+    refute has_element?(view, "a[href='/admin/audiobooks/#{media.id}/edit']")
+  end
+
   # "Found" is when discovery tripped over the folder, which for a finished
   # row is the least interesting date it has. `updated_at` is stamped by the
   # status change and nothing writes to an imported item afterwards.

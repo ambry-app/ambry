@@ -195,7 +195,7 @@
           library records were created FROM it, so an edit here would make
           the record lie. The rail is lime because imported IS settled. --%>
       <section
-        :if={@read_only}
+        :if={@read_only and !@item.superseded_by_id}
         class="border-brand-dark/60 rounded-lg border-l-4 bg-zinc-900 p-4"
         data-role="imported-banner"
       >
@@ -204,6 +204,25 @@
           This item was imported. Everything below is the read-only record of that import.
           <.brand_link :if={@item.media_id} navigate={~p"/admin/audiobooks/#{@item.media_id}/edit"}>
             Open the audiobook
+          </.brand_link>
+        </p>
+      </section>
+
+      <%!-- A superseded import is still settled, so it keeps the lime rail:
+          nothing here needs doing and nothing here is wrong. What changed is
+          what it is the record OF. It does not offer the audiobook, because
+          the audiobook is no longer what this item produced. --%>
+      <section
+        :if={@read_only and @item.superseded_by_id}
+        class="border-brand-dark/60 rounded-lg border-l-4 bg-zinc-900 p-4"
+        data-role="superseded-banner"
+      >
+        <p class="pl-3 font-bold">Replaced by a later import</p>
+        <p class="max-w-prose pt-1 pl-3 text-sm text-zinc-400">
+          These files were imported and have since been replaced. The audiobook is served from
+          the newer import, and the files below are gone.
+          <.brand_link navigate={~p"/admin/inbox/#{@item.superseded_by_id}"}>
+            Open the import that replaced it
           </.brand_link>
         </p>
       </section>

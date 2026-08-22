@@ -681,6 +681,48 @@ defmodule Ambry.Inbox.ManagedImportTest do
       )
     end
 
+    # A replacement is the only way two inbox items come to name one
+    # recording, so it is also the only thing that can make the first of them
+    # stale. Nothing on disk can be asked afterwards — a `move` leaves no
+    # source, and the replacement deletes the library copy the first import
+    # produced — so the write path has to say it.
+    test "the import it replaced is marked superseded" do
+      %{item: first, watched: watched} = downloads_item()
+
+      assert {:ok, media} = Inbox.import_item(first)
+
+      second = watched |> second_release() |> replace_with(media)
+      assert {:ok, _replaced} = Inbox.import_item(second)
+
+      first = Inbox.get_item!(first.id)
+      second = Inbox.get_item!(second.id)
+
+      assert first.superseded_by_id == second.id
+      assert second.superseded_by_id == nil
+
+      # Still imported, and still into that recording: what it did is history
+      # and stays true. Only which import the library plays has changed.
+      assert first.status == :imported
+      assert first.media_id == media.id
+    end
+
+    # The trap this feature is built on: `updated_at` is when an item was
+    # imported, because nothing writes to an imported item afterwards. The
+    # supersede is the first thing that ever wanted to, and a `Repo.update`
+    # instead of `update_all` would have silently restamped the row it was
+    # recording the history of.
+    test "superseding does not rewrite when the older import happened" do
+      %{item: first, watched: watched} = downloads_item()
+
+      assert {:ok, media} = Inbox.import_item(first)
+      imported_at = Inbox.get_item!(first.id).updated_at
+
+      second = watched |> second_release() |> replace_with(media)
+      assert {:ok, _replaced} = Inbox.import_item(second)
+
+      assert Inbox.get_item!(first.id).updated_at == imported_at
+    end
+
     # What the form's replace control does: settle the decision and save it.
     defp replace_with(item, media) do
       {:ok, item} = Inbox.prepare_draft(item)

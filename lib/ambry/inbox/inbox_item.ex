@@ -31,6 +31,22 @@ defmodule Ambry.Inbox.InboxItem do
 
   Every item has a source. There is no other way in, which is what makes
   the relative form an invariant rather than a convention.
+
+  ## An imported item can stop being the one that counts
+
+  A replacement links a second item to a recording the library already has,
+  and from then on the first item describes files that are gone: the
+  replacement deleted the library copy it produced, and if the placement was
+  a `move` its source went at import time. `superseded_by_id` is how that is
+  known, and it has to be *recorded* rather than worked out — a file can
+  arrive by hardlink, symlink, copy or move, so there is no comparison that
+  answers it for every import.
+
+  The rule it records is a fact about the write path: a replacement is the
+  only way a second item comes to name one recording, so the item that
+  linked last is the live one. A partial unique index enforces the other
+  side of it — a recording has at most one import that has not been
+  superseded.
   """
 
   use Ecto.Schema
@@ -49,6 +65,12 @@ defmodule Ambry.Inbox.InboxItem do
 
   schema "inbox_items" do
     belongs_to :media, Media
+
+    # The import that replaced this one. Set on the *old* item when a
+    # replacement links a second item to one recording, which is the only way
+    # two items come to name the same one. Nil means this item's files are
+    # what the recording is served from — see the moduledoc.
+    belongs_to :superseded_by, __MODULE__
 
     # The watched folder this was found in, and the base its `path` and
     # `files` are relative to.
