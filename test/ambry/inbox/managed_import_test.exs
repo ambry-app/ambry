@@ -8,6 +8,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
   alias Ambry.Inbox.Draft.Destination
+  alias Ambry.Inbox.Reconciliation
   alias Ambry.Library
   alias Ambry.Library.ImportPreference
   alias Ambry.Media
@@ -721,6 +722,67 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert {:ok, _replaced} = Inbox.import_item(second)
 
       assert Inbox.get_item!(first.id).updated_at == imported_at
+    end
+
+    # There is no undo for an import, and re-open is deliberately not one.
+    # Nothing in the library moves; the paperwork goes back to being work,
+    # and putting a replaced audiobook back on its old files is then an
+    # ordinary import rather than a reversal with its own rules.
+    test "re-opening an imported item touches nothing in the library" do
+      %{item: item} = downloads_item()
+      assert {:ok, media} = Inbox.import_item(item)
+
+      assert {:ok, reopened} = item.id |> Inbox.get_item!() |> Inbox.reopen_item()
+
+      assert reopened.status == :pending
+      assert Media.get_media!(media.id).id == media.id
+      assert [_track] = Media.get_media!(media.id).media_tracks
+    end
+
+    # A pending item has not imported anything. Leaving the claim would put a
+    # row in the queue saying it produced a recording it is no longer the
+    # record of, which is the half-truth the supersede work was about.
+    test "re-opening drops the item's claim on the audiobook" do
+      %{item: first, watched: watched} = downloads_item()
+      assert {:ok, media} = Inbox.import_item(first)
+
+      second = watched |> second_release() |> replace_with(media)
+      assert {:ok, _replaced} = Inbox.import_item(second)
+      assert Inbox.get_item!(first.id).superseded_by_id == second.id
+
+      assert {:ok, reopened} = first.id |> Inbox.get_item!() |> Inbox.reopen_item()
+
+      assert reopened.media_id == nil
+      assert reopened.superseded_by_id == nil
+    end
+
+    test "the draft survives, because it is the operator's curation" do
+      %{item: item} = downloads_item()
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      assert {:ok, reopened} = item.id |> Inbox.get_item!() |> Inbox.reopen_item()
+
+      assert reopened.draft
+      assert Draft.unresolved(reopened.draft) == []
+    end
+
+    # A `move` placement consumed its source at import time, so there is
+    # nothing to make decisions about. Refusing is the right answer, not a gap.
+    test "an item whose files are gone cannot be re-opened" do
+      %{item: item, source: source} = downloads_item()
+      assert {:ok, _media} = Inbox.import_item(item)
+
+      File.rm!(source)
+      {:ok, :missing} = Reconciliation.reconcile(Inbox.get_item!(item.id))
+
+      assert {:error, :files_missing} = item.id |> Inbox.get_item!() |> Inbox.reopen_item()
+      assert Inbox.get_item!(item.id).status == :imported
+    end
+
+    test "a pending item is not something to re-open" do
+      %{item: item} = downloads_item()
+
+      assert {:error, :not_imported} = Inbox.reopen_item(item)
     end
 
     # What the form's replace control does: settle the decision and save it.
