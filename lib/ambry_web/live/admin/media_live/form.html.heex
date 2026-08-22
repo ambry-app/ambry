@@ -486,7 +486,12 @@
             dressing it as though it might would promise what it can't
             deliver. Absent for a transcoded recording, whose audio is the
             packaged trio in the fold below. --%>
-          <.file_list files={@audio_files} label="Files" />
+          <.file_list files={@audio_files} label="Files">
+            <%!-- Which library root these paths are relative to. The same
+              answer the import form's tag gives about the same list: where
+              these files are. Absent where there is no single root to name. --%>
+            <:tag :if={@audio_root}><.root_tag root={@audio_root} class="flex-none" /></:tag>
+          </.file_list>
 
           <%!-- Transcoded recordings only, and assigned nil otherwise: an
             imported recording has no packaged artifacts and no transcode

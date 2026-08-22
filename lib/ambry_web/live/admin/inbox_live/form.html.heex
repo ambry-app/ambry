@@ -25,17 +25,10 @@
             the tags say and which files said it are one question, and they
             were three screens apart. --%>
       <section class="space-y-2">
-        <div class="space-y-1 rounded-lg bg-zinc-900 p-4">
+        <div class="space-y-1 rounded-lg bg-zinc-900 p-4" data-role="item-card">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 pl-3">
-              <%!-- Which watched folder this was found in, in the queue row's
-                  own tag. The row has carried it since the queue could hold
-                  more than one source; the form, which is where an item's
-                  paths are actually read, had lost it. --%>
-              <div class="flex min-w-0 items-baseline gap-2">
-                <p class="truncate font-bold">{@page_title}</p>
-                <.source_tag source={@item.source} class="flex-none" />
-              </div>
+              <p class="truncate font-bold">{@page_title}</p>
               <%!-- Dropped when the file list below is about to print the
                   same string: a release folder and its own files, or a loose
                   file under the folder the list names first. --%>
@@ -111,6 +104,29 @@
             {@item.issue}
           </p>
 
+          <%!-- The files are part of this card, not a card of their own: what
+            this item is and what is in it were never two subjects, and the
+            split was making the reader hold the first while looking at the
+            second. `card={false}` because a card inside a card is what eats
+            the elevation ladder (§1) — merged means merged, not nested.
+
+            They sit above the two questions below, which are both questions
+            *about this list*. Asking "not one audiobook?" before showing the
+            files asked the operator to answer from memory. --%>
+          <.file_list
+            files={@item.files}
+            label="Files"
+            card={false}
+            class="pt-2"
+            excluded={@item.excluded_files}
+            toggle={!@read_only && "toggle-file"}
+          >
+            <%!-- Which watched folder this was found in, in the queue row's
+                own tag. It belongs on the file list rather than the title: it
+                names where these paths are, and the paths are here. --%>
+            <:tag><.source_tag source={@item.source} class="flex-none" /></:tag>
+          </.file_list>
+
           <%!-- These files are one recording unless the operator says
             otherwise — a folder of forty mp3s is one book in forty pieces far
             more often than it is forty books. Splitting is the escape hatch
@@ -173,15 +189,6 @@
             </div>
           </div>
         </div>
-
-        <%!-- A sibling card, never nested inside the one above: a card in a
-            card is what eats the elevation ladder (§1). --%>
-        <.file_list
-          files={@item.files}
-          label="Files"
-          excluded={@item.excluded_files}
-          toggle={!@read_only && "toggle-file"}
-        />
       </section>
 
       <%!-- Once imported, the draft is the record of what was imported — the

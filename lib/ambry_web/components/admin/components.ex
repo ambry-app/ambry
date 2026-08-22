@@ -1254,8 +1254,40 @@ defmodule AmbryWeb.Admin.Components do
   """
   def source_tag(assigns) do
     ~H"""
-    <span class={["bg-blue-400/15 rounded-sm px-1 py-0.5 text-xs text-blue-300", @class]}>
-      {@source.name}
+    <.place_tag name={@source.name} class={@class} />
+    """
+  end
+
+  attr :root, :any, required: true, doc: "the `Ambry.Library.Root` the files live in"
+  attr :class, :any, default: nil
+
+  @doc """
+  Which library root a recording's files live in.
+
+  The same costume as `source_tag/1`, because it answers the same question
+  about the same list of files: where these are. A watched folder and a
+  library root are different things, but "where" is one fact and two tints
+  for it would say there are two kinds of answer.
+  """
+  def root_tag(assigns) do
+    ~H"""
+    <.place_tag name={@root.name} class={@class} />
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :class, :any, default: nil
+
+  # Blue is location (§5), and there is one tint for every place: they are
+  # told apart by name, and colouring them apart would invent a taxonomy the
+  # model doesn't have.
+  defp place_tag(assigns) do
+    ~H"""
+    <span
+      class={["bg-blue-400/15 rounded-sm px-1 py-0.5 text-xs text-blue-300", @class]}
+      data-role="place"
+    >
+      {@name}
     </span>
     """
   end
@@ -1271,7 +1303,13 @@ defmodule AmbryWeb.Admin.Components do
     default: nil,
     doc: "phx-click event taking a file in or out; without it the list is a fact display"
 
+  attr :card, :boolean,
+    default: true,
+    doc: "false where the caller is already a card — a card in a card eats the ladder (§1)"
+
   attr :class, :any, default: nil
+
+  slot :tag, doc: "where these files are, beside the label — a source or a library root"
 
   @doc """
   A read-only list of files: mono, muted, the common directory printed once.
@@ -1300,9 +1338,14 @@ defmodule AmbryWeb.Admin.Components do
     assigns = assign(assigns, :common, common_dir(assigns.files))
 
     ~H"""
-    <div :if={@files != []} class={["space-y-1 rounded-lg bg-zinc-900 p-4", @class]}>
-      <div class="flex items-baseline justify-between gap-3 pl-3">
-        <.label :if={@label}>{@label}</.label>
+    <div :if={@files != []} class={["space-y-1", @card && "rounded-lg bg-zinc-900 p-4", @class]}>
+      <div class="flex items-baseline justify-between gap-3 pl-3" data-role="files-header">
+        <%!-- Label and place read as one fact, so they share the left of the
+            line and the count keeps the right. --%>
+        <div class="flex min-w-0 items-baseline gap-2">
+          <.label :if={@label}>{@label}</.label>
+          {render_slot(@tag)}
+        </div>
         <p :if={@excluded != []} class="flex-none text-xs text-zinc-400" data-role="excluded-count">
           {length(@files) - length(@excluded)} of {length(@files)} in this audiobook
         </p>

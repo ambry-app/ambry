@@ -15,6 +15,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Books
   alias Ambry.Images
   alias Ambry.Inbox
+  alias Ambry.Library.Root
   alias Ambry.Media
   alias Ambry.Media.Chapters.Merge
   alias Ambry.Metadata.Outcome
@@ -89,6 +90,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       page_title: Media.Media.display_title(media),
       media: media,
       audio_files: audio_files(media),
+      audio_root: audio_root(media),
       file_stats: legacy_file_stats(media),
       # View state, not derived per render: deriving it from the typeahead's
       # value made the row vanish mid-edit the moment the box was cleared.
@@ -105,6 +107,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # from.
   defp audio_files(%{media_tracks: tracks}),
     do: tracks |> Enum.sort_by(& &1.index) |> Enum.map(& &1.path)
+
+  # The library root those paths are relative to, and only when there is one
+  # answer to give. A track can sit outside every root (`/uploads/...`, root
+  # nil), and nothing stops two tracks naming different roots, so this states
+  # a fact rather than picking a winner: the badge is absent instead of wrong.
+  defp audio_root(%{media_tracks: tracks}) do
+    case Enum.uniq_by(tracks, & &1.library_root_id) do
+      [%{library_root: %Root{} = root}] -> root
+      _none_or_several -> nil
+    end
+  end
 
   # Only a transcoded recording has streaming files, and only it pays for
   # the `File.ls` and four `File.stat`s that describe them.
