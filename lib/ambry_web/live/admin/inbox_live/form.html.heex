@@ -104,6 +104,19 @@
             {@item.issue}
           </p>
 
+          <%!-- The footer says "the reason is above", so the reason has to be
+            above. It lives with the files because that is what it is about,
+            and it wears the `issue` line's costume because it is the same
+            kind of statement: the row's verdict, read last. --%>
+          <p
+            :if={@blocker && missing?(@item)}
+            class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400"
+            data-role="files-missing"
+          >
+            <.icon name="fa-triangle-exclamation" class="h-3.5 w-3.5 flex-none translate-y-0.5 text-current" />
+            {Inbox.describe_error(:files_missing)}
+          </p>
+
           <%!-- The files are part of this card, not a card of their own: what
             this item is and what is in it were never two subjects, and the
             split was making the reader hold the first while looking at the

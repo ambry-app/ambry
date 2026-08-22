@@ -10,12 +10,45 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
   alias Ambry.Inbox.Draft.Field
   alias Ambry.Inbox.Draft.Recording
   alias Ambry.Inbox.InboxItem
+  alias Ambry.Inbox.Reconciliation
   alias Ambry.Inbox.RunImport
   alias Ambry.Metadata.PersonSearch
   alias Ambry.Metadata.Providers
   alias Ambry.Repo
 
   setup :register_and_log_in_admin_user
+
+  describe "files that have gone away" do
+    # A `move` placement consumes its source: the files being absent
+    # afterwards is the import having worked, not a fault. The record used to
+    # say "this can't be imported yet. The reason is above" in red, on a
+    # settled import, pointing at a reason that was nowhere on the page.
+    test "a moved import is not marked as a problem", %{conn: conn} do
+      item = probed_item(policy: :move) |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+
+      {:ok, %{missing: 1}} = Reconciliation.reconcile_source(Repo.preload(item, :source).source)
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='imported-banner']")
+      refute has_element?(view, "[data-role='files-missing']")
+      refute html =~ "this can't be imported yet"
+    end
+
+    # The footer promises the reason is above, so it has to be above.
+    test "a pending item says where its files went", %{conn: conn} do
+      item = probed_item()
+      item |> Repo.preload(:source) |> InboxItem.disk_path() |> File.rm_rf!()
+
+      {:ok, :missing} = Reconciliation.reconcile(Repo.preload(item, :source))
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='files-missing']", "files are gone")
+      assert has_element?(view, "button[data-role='import'][disabled]")
+    end
+  end
 
   describe "the item card" do
     # What this item is and what is in it were never two subjects, so they are
