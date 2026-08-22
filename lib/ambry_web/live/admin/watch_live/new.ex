@@ -2,6 +2,17 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   @moduledoc """
   Finding an audiobook to watch.
 
+  ## Grouped by provider, then by the book each recording is of
+
+  A provider that answers with works can return several books for one search —
+  a novel, a study guide about it, a graphic adaptation — and their recordings
+  are not alternatives to each other. Grouping under the work says which book
+  each recording *is*, which is the question a flat list leaves the operator to
+  answer by reading titles.
+
+  Headings appear only when a provider found more than one work, because a
+  lone heading repeats what the rows beneath it already say.
+
   ## Every provider that can name a recording, side by side
 
   Results are grouped by the provider that gave them and nothing is ranked
@@ -134,11 +145,50 @@ defmodule AmbryWeb.Admin.WatchLive.New do
 
   defp blank_query?(_query), do: false
 
-  @doc "The candidates one provider returned, in the order it returned them."
-  def by_provider(candidates) do
+  @doc """
+  Candidates grouped by the provider that gave them, then by the work each
+  came from.
+
+  Answers `[{provider, [{work_title | nil, [candidate]}]}]`, everything in the
+  order the providers returned it.
+
+  A recording-level provider answers with recordings that belong to no work it
+  named, so those group under `nil` and render without a heading. Inventing a
+  heading for them would be inventing a fact.
+  """
+  def by_provider_and_work(candidates) do
     candidates
     |> Enum.group_by(& &1.provider)
-    |> Enum.sort_by(fn {provider, _} -> provider end)
+    |> Enum.sort_by(fn {provider, _candidates} -> provider end)
+    |> Enum.map(fn {provider, for_provider} -> {provider, by_work(for_provider)} end)
+  end
+
+  defp by_work(candidates) do
+    grouped = Enum.group_by(candidates, & &1.work_title)
+
+    candidates
+    |> Enum.map(& &1.work_title)
+    |> Enum.uniq()
+    |> Enum.map(&{&1, grouped[&1]})
+  end
+
+  @doc """
+  Whether a provider's results are worth splitting under work headings.
+
+  Only when it found more than one work. A single heading above the recordings
+  it contains says nothing the recordings do not already say, and a search
+  that returned one book should not look like it returned a category.
+  """
+  def show_work_headings?(groups) do
+    groups |> Enum.count(fn {work, _candidates} -> work end) > 1
+  end
+
+  @doc "How many recordings a group holds, in words."
+  def recordings_words(candidates) do
+    case length(candidates) do
+      1 -> "1 recording"
+      n -> "#{n} recordings"
+    end
   end
 
   @doc "What to call the provider a record came from."

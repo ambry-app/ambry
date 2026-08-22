@@ -6,13 +6,30 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
   import Phoenix.LiveViewTest
 
   alias Ambry.Metadata.Provider
+  alias Ambry.Metadata.ProviderConfig
+  alias Ambry.Repo
   alias Ambry.Wanted
 
   setup :register_and_log_in_admin_user
 
   setup do
+    Repo.insert!(%ProviderConfig{
+      provider_id: "hardcover",
+      enabled: true,
+      config: %{"api_token" => "test-token"}
+    })
+
     patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
     :ok
+  end
+
+  defp future_edition(title) do
+    %Provider.Book{
+      provider: "hardcover",
+      id: title,
+      title: title,
+      published: %Provider.PublishedDate{date: ~D[2099-01-01], display_format: :full}
+    }
   end
 
   defp offering(books) do
@@ -61,6 +78,63 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       assert html =~ "Emily Ellet"
       assert html =~ "Sep 29, 2099"
       assert has_element?(view, "[data-role='candidate-runtime']", "10h")
+    end
+
+    test "groups a provider's recordings under the book each is of", %{conn: conn} do
+      offering([])
+
+      patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _q, _c ->
+        {:ok,
+         [
+           %Provider.Book{provider: "hardcover", id: "w1", title: "Neuromancer"},
+           %Provider.Book{
+             provider: "hardcover",
+             id: "w2",
+             title: "Neuromancer: The Graphic Novel"
+           }
+         ]}
+      end)
+
+      patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn _ids, _c ->
+        {:ok, %{"w1" => [future_edition("Reissue")], "w2" => [future_edition("Adaptation")]}}
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
+      view |> form("#watch-search-form", search: %{title: "Neuromancer"}) |> render_submit()
+
+      assert has_element?(view, "[data-role='work-heading']", "Neuromancer")
+      assert has_element?(view, "[data-role='work-heading']", "Neuromancer: The Graphic Novel")
+    end
+
+    # A lone heading repeats the row beneath it.
+    test "one book gets no heading", %{conn: conn} do
+      offering([])
+
+      patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _q, _c ->
+        {:ok, [%Provider.Book{provider: "hardcover", id: "w1", title: "Blightfall"}]}
+      end)
+
+      patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn _ids, _c ->
+        {:ok, %{"w1" => [future_edition("Blightfall")]}}
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
+      view |> form("#watch-search-form", search: %{title: "Blightfall"}) |> render_submit()
+
+      assert has_element?(view, "[data-role='watch-candidate']")
+      refute has_element?(view, "[data-role='work-heading']")
+    end
+
+    # A recording-level provider names no work, so inventing a heading for its
+    # results would be inventing a fact.
+    test "recordings that belong to no named book get no heading", %{conn: conn} do
+      offering([velvet_knife()])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
+      view |> form("#watch-search-form", search: %{title: "The Velvet Knife"}) |> render_submit()
+
+      assert has_element?(view, "[data-role='watch-candidate']")
+      refute has_element?(view, "[data-role='work-heading']")
     end
 
     test "groups results under the provider that gave them", %{conn: conn} do
