@@ -1,43 +1,99 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <div class="flex items-baseline gap-4">
-    <%!-- The count of what was examined, not of what was found. A report of
-        nothing and a report that never ran read identically without it, and
-        this page exists to be believed. --%>
-    <p class="text-sm text-zinc-400" data-role="scanned">
-      Checked {scanned_words(@scanned)}.
-    </p>
-    <div class="grow" />
-    <.button color={:zinc} type="button" phx-click="reload">
-      <.icon name="fa-rotate" class="mr-1.5 h-4 w-4 text-current" /> Reload
-    </.button>
-  </div>
+  <%!-- The page's blocks are 28px apart (§3's rhythm). Without this the
+      header row's button sat flush against the card below it. --%>
+  <div class="space-y-7">
+    <div class="flex items-baseline gap-4">
+      <%!-- The count of what was examined, not of what was found. A report of
+          nothing and a report that never ran read identically without it, and
+          this page exists to be believed. Ground level, so no rail (§3). --%>
+      <p class="text-sm text-zinc-400" data-role="scanned">
+        Checked {scanned_words(@scanned)}.
+      </p>
+      <div class="grow" />
+      <.button color={:zinc} type="button" phx-click="reload">
+        <.icon name="fa-rotate" class="mr-1.5 h-4 w-4 text-current" /> Reload
+      </.button>
+    </div>
 
-  <div :if={@groups == []} class="rounded-lg bg-zinc-900 p-4" data-role="all-clear">
-    <p class="pl-3 text-sm text-zinc-300">
-      Nothing in the library is here twice.
-    </p>
-  </div>
+    <div :if={@found == []} class="rounded-lg bg-zinc-900 p-4" data-role="all-clear">
+      <p class="pl-3 text-sm text-zinc-300">
+        {all_clear_words(@dismissed)}
+      </p>
+    </div>
 
-  <div :if={@groups != []} class="space-y-14">
-    <%= for kind <- [:person, :author, :narrator, :book, :series],
-            groups = of_kind(@groups, kind),
-            groups != [] do %>
-      <% {heading, hint} = section(kind) %>
-      <section class="space-y-4" data-role={"section-#{kind}"}>
-        <h2 class="text-xl font-bold text-zinc-100">{heading}</h2>
+    <div :if={@found != []} class="space-y-14">
+      <%= for kind <- kinds(),
+              groups = of_kind(@found, kind),
+              groups != [] do %>
+        <% {heading, hint} = section(kind) %>
+        <section class="space-y-4" data-role={"section-#{kind}"}>
+          <h2 class="text-xl font-bold text-zinc-100">{heading}</h2>
 
-        <p class="max-w-prose text-sm text-zinc-400">{hint}</p>
+          <p class="max-w-prose text-sm text-zinc-400">{hint}</p>
 
-        <%!-- One card per set, so where one ends and the next begins is the
-            shape of the page rather than a line drawn on it. --%>
-        <div
-          :for={group <- groups}
-          class="space-y-2 rounded-lg bg-zinc-900 p-4"
-          data-role="duplicate-set"
-        >
-          <.duplicate_row :for={record <- group.records} kind={kind} record={record} />
+          <%!-- One card per set, so where one ends and the next begins is the
+              shape of the page rather than a line drawn on it. --%>
+          <div
+            :for={group <- groups}
+            class="space-y-2 rounded-lg bg-zinc-900 p-4"
+            data-role="duplicate-set"
+          >
+            <.duplicate_row :for={record <- group.records} kind={kind} record={record} />
+
+            <%!-- The only action a set can carry: this page does not merge, so
+                the one thing it can be told is that there is nothing to merge. --%>
+            <div class="flex justify-end pt-1">
+              <.button
+                color={:zinc}
+                size={:sm}
+                type="button"
+                phx-click="dismiss"
+                phx-value-kind={kind}
+                phx-value-ids={ids_value(group)}
+              >
+                Not a duplicate
+              </.button>
+            </div>
+          </div>
+        </section>
+      <% end %>
+    </div>
+
+    <%!-- The fold is a card, and its summary is the card's own label: a
+        `<details>` needs a 12px gutter to hang its chevron in, and on the
+        ground there is no container whose padding can be that gutter, so it
+        manufactures a third x-position (§3). Carded, the chevron sits on the
+        padding edge and the summary lands on the same rail as every other
+        card's text.
+
+        Folded rather than filtered away, because a set nobody can see is one
+        nobody can change their mind about, and the summary is what stops
+        "nothing found" from quietly meaning "nothing you have not already
+        waved off". --%>
+    <div :if={@dismissed != []} class="rounded-lg bg-zinc-900 p-4" data-role="dismissed">
+      <.disclosure summary={dismissed_words(@dismissed)} class="text-sm text-zinc-300">
+        <div class="space-y-7 pt-3">
+          <div :for={group <- @dismissed} class="space-y-2" data-role="dismissed-set">
+            <% {heading, _hint} = section(group.kind) %>
+            <.microlabel class="block pl-3">{heading}</.microlabel>
+
+            <.duplicate_row :for={record <- group.records} kind={group.kind} record={record} />
+
+            <div class="flex justify-end pt-1">
+              <.button
+                color={:zinc}
+                size={:sm}
+                type="button"
+                phx-click="restore"
+                phx-value-kind={group.kind}
+                phx-value-ids={ids_value(group)}
+              >
+                Undo
+              </.button>
+            </div>
+          </div>
         </div>
-      </section>
-    <% end %>
+      </.disclosure>
+    </div>
   </div>
 </.layout>

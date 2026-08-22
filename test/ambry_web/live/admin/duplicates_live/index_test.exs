@@ -74,5 +74,50 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
     end
   end
 
+  describe "marking a set intentional" do
+    setup do
+      saga = insert(:series, name: "The Mistborn Saga")
+      trilogy = insert(:series, name: "The Mistborn Trilogy")
+
+      %{ids: Enum.join(Enum.sort([saga.id, trilogy.id]), ",")}
+    end
+
+    test "the set folds away and the page says so", %{conn: conn, ids: ids} do
+      {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
+      assert has_element?(view, "[data-role='section-series']")
+
+      render_click(view, "dismiss", %{"kind" => "series", "ids" => ids})
+
+      refute has_element?(view, "[data-role='section-series']")
+      assert has_element?(view, "[data-role='dismissed']", "1 set marked intentional")
+      assert has_element?(view, "[data-role='dismissed-set']", "The Mistborn Saga")
+    end
+
+    # The page's whole job is to be believed, so the reassuring sentence has
+    # to stop short of a claim the dismissal made untrue.
+    test "the empty state does not claim more than it can", %{conn: conn, ids: ids} do
+      {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
+      render_click(view, "dismiss", %{"kind" => "series", "ids" => ids})
+
+      assert has_element?(
+               view,
+               "[data-role='all-clear']",
+               "Nothing here twice that you have not already answered"
+             )
+
+      refute view |> element("[data-role='all-clear']") |> render() =~
+               "Nothing in the library is here twice"
+    end
+
+    test "undo puts it back in the report", %{conn: conn, ids: ids} do
+      {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
+      render_click(view, "dismiss", %{"kind" => "series", "ids" => ids})
+      render_click(view, "restore", %{"kind" => "series", "ids" => ids})
+
+      assert has_element?(view, "[data-role='section-series']")
+      refute has_element?(view, "[data-role='dismissed']")
+    end
+  end
+
   defp count_of(html, needle), do: html |> String.split(needle) |> length() |> Kernel.-(1)
 end

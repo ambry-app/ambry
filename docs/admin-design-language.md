@@ -181,6 +181,15 @@ hanging-indicator pattern, always via `<.disclosure>`. Browser-default
 summary markers are never used bare: Firefox draws them `inside`, pushing
 the text off the rail; other engines pick their own widths.
 
+**So a fold needs a container to hang that gutter in.** On the ground there
+is no padding edge for the chevron to sit on, and `<.disclosure>` makes one
+anyway: its summary lands 12px right of every heading around it, its chevron
+on the page edge, and neither agrees with the 28px rail of the cards above
+it. Three x-positions, arrived at by following the rule. **A ground-level
+fold gets a card, and its summary becomes that card's label** — the chevron
+takes the padding edge and the summary lands on the rail with everything
+else. The duplicates report's "marked intentional" fold is the case.
+
 **A long editable list scrolls inside its card; it does not fold.** The
 chapter editor is the case: dozens of rows would swallow the form, but a
 fold hides the content *and* fights the autosave patches, while
