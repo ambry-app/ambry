@@ -2,6 +2,7 @@ defmodule Ambry.WantedTest do
   use Ambry.DataCase
 
   alias Ambry.Wanted
+  alias Ambry.Wanted.Edition
   alias Ambry.Wanted.Watch
 
   defp attrs(overrides \\ %{}) do
@@ -57,6 +58,31 @@ defmodule Ambry.WantedTest do
     test "requires an edition" do
       assert {:error, changeset} = Wanted.create_watch(%{provider: "audible", provider_id: "x"})
       assert %{edition: _} = errors_on(changeset)
+    end
+  end
+
+  describe "runtime" do
+    test "an audiobook's length is part of what was chosen" do
+      {:ok, watch} =
+        Wanted.create_watch(
+          attrs(%{edition: %{title: "The Velvet Knife", duration_seconds: 36_000}})
+        )
+
+      assert watch.edition.duration_seconds == 36_000
+      assert Edition.runtime(watch.edition) == "10h"
+    end
+
+    test "reads in hours and minutes, the way a recording is talked about" do
+      assert Edition.runtime(%Edition{duration_seconds: 37_920}) == "10h 32m"
+      assert Edition.runtime(%Edition{duration_seconds: 3600}) == "1h"
+      assert Edition.runtime(%Edition{duration_seconds: 900}) == "15m"
+    end
+
+    # Not every provider record has one -- seven of Hardcover's twelve
+    # Neuromancer audio editions do. An absent runtime is reported as absent.
+    test "a provider that gave no runtime leaves it absent rather than zero" do
+      assert Edition.runtime(%Edition{duration_seconds: nil}) == nil
+      assert Edition.runtime(%Edition{duration_seconds: 0}) == nil
     end
   end
 

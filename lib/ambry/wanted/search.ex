@@ -1,32 +1,42 @@
 defmodule Ambry.Wanted.Search do
   @moduledoc """
-  Finding a recording to watch, across every provider that can answer.
+  Finding an audiobook to watch, across every provider that can name one.
 
-  ## Why both levels are asked, and neither is preferred
+  ## The rule is a capability, not a ranking
 
-  A watch is by definition about something that has not come out yet, and the
-  two provider levels know about the future in opposite ways:
+  **Any provider that can produce audio editions is asked, and none of them is
+  preferred.** There is no primary source here and no fallback: a provider
+  either can answer "which recordings of this exist" or it cannot, and the
+  ones that can all get to. Nothing in this module names a provider.
 
-    * **Recording-level providers are storefronts.** They list what they are
-      *selling*, which includes preorders. Audible has *The Velvet Knife*
-      (`B0FKVNLXQS`, 2026-09-29, read by Emily Ellet) months ahead.
-    * **Work-level providers are bibliographies.** They catalogue what has
-      been *published*, which is why they reach back to Books on Tape in 1984
-      — and why Hardcover holds no audio edition of *The Velvet Knife* at all
-      yet, because there isn't one to catalogue.
+  What differs between them is *shape*, not standing:
 
-  Neither is the better source; they are differently blind. So both are asked
-  and everything comes back labelled, in the order the providers are
-  configured. Nothing here scores, ranks or hides a candidate — the operator
-  chooses, exactly as they do on the import form.
+    * Some answer with recordings directly. Their search results are already
+      audiobooks — narrators, runtime, cover — and nothing needs expanding.
+    * Some answer with works. A novel is not a recording, so each promising
+      work is expanded through `editions/2` into the audio editions it has.
 
-  ## Work-level providers take two calls
+  ## Why that has to be the rule rather than a preference
 
-  A work-level search answers with *works*, not recordings, so each promising
-  work is expanded through `editions/2` into its audio editions. That is one
-  extra provider call per work, so only the first few are expanded — and when
-  that limit truncates anything, the caller is told rather than left to
-  assume the list is everything.
+  Providers are differently blind about what does not exist yet, and the
+  blindness does not sort into better and worse. A catalogue of what is *for
+  sale* has preorders months out and forgets anything delisted. A catalogue of
+  what has been *published* reaches back to tape and has no entry at all for a
+  recording that has not come out. Measured: *The Velvet Knife* is findable in
+  one and absent from the other; *Neuromancer*'s 1984 editions are the reverse;
+  *Blightfall* is in both, under different ids, and is offered twice rather
+  than merged.
+
+  Which is exactly the import form's bargain: records are evidence, outcomes
+  are visible, the operator decides. So everything comes back labelled, in the
+  order the providers are configured, and nothing here scores or hides a
+  candidate.
+
+  ## Coverage this knowingly cuts
+
+  Expanding a work costs an extra provider call, so only the first few are
+  expanded — and when that truncates anything the caller is told, because a
+  list that silently stopped looking reads as a list of everything there is.
   """
 
   alias Ambry.Metadata.Provider

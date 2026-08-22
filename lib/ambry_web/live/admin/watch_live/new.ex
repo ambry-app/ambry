@@ -1,20 +1,21 @@
 defmodule AmbryWeb.Admin.WatchLive.New do
   @moduledoc """
-  Finding a recording to watch.
+  Finding an audiobook to watch.
 
-  ## Every provider's answer, side by side
+  ## Every provider that can name a recording, side by side
 
   Results are grouped by the provider that gave them and nothing is ranked
-  across providers, because for an unreleased recording the providers are
-  differently blind rather than better and worse. A storefront lists what it
-  is selling, so it has preorders months out — *The Velvet Knife* is on
-  Audible with a September date and has no Hardcover audio edition at all,
-  because there is not yet an audiobook to catalogue. A bibliography lists
-  what has been published, which is how the same search reaches Books on Tape
-  in 1984.
+  across providers. There is no primary source: a provider either can produce
+  audio editions or it cannot, and the ones that can are all asked. What
+  differs is shape — some answer with recordings, some answer with works that
+  have to be opened — and shape is not standing.
 
-  So both are shown, labelled, and the operator picks. Same bargain as the
-  import form: records are evidence, the human decides.
+  That matters most for exactly what this page is for, because providers are
+  differently blind about the future and the past. A recording that is on
+  preorder somewhere may be absent from a catalogue of what has been
+  published; a recording from 1984 may be absent from a catalogue of what is
+  for sale. Ranking one above the other would hide whichever half the operator
+  happened to need.
 
   ## Outcomes are shown even when they are empty
 
@@ -157,6 +158,9 @@ defmodule AmbryWeb.Admin.WatchLive.New do
       "#{formatted} — already out"
     end
   end
+
+  @doc "How long the recording is, in words."
+  defdelegate runtime(edition), to: Ambry.Wanted.Edition
 
   @doc false
   def credited(names), do: Enum.map(names, &%{name: &1})

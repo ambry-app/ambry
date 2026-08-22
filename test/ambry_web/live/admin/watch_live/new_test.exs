@@ -27,6 +27,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       asin: "B0FKVNLXQS",
       authors: [%{name: "Maureen Johnson", id: "a1", role: "author"}],
       narrators: [%{name: "Emily Ellet", id: "n1", role: "narrator"}],
+      duration_seconds: 36_000,
       published: %Provider.PublishedDate{date: ~D[2026-09-29], display_format: :full}
     }
   end
@@ -59,6 +60,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       assert html =~ "The Velvet Knife"
       assert html =~ "Emily Ellet"
       assert html =~ "Sep 29, 2026"
+      assert has_element?(view, "[data-role='candidate-runtime']", "10h")
     end
 
     test "groups results under the provider that gave them", %{conn: conn} do
@@ -111,6 +113,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       assert watch.expected_release_date == ~D[2026-09-29]
       assert watch.edition.narrators == ["Emily Ellet"]
       assert watch.edition.asin == "B0FKVNLXQS"
+      assert watch.edition.duration_seconds == 36_000
     end
 
     test "watching the same thing twice is an answer, not an error", %{conn: conn} do

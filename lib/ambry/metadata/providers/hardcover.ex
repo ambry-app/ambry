@@ -227,6 +227,10 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       id: to_string(edition["id"]),
       asin: presence(edition["asin"]),
       title: edition["title"],
+      # Already fetched and already used to decide this is an audio edition
+      # at all; keeping it costs nothing and it is the one fact that
+      # distinguishes two recordings of the same book.
+      duration_seconds: edition["audio_seconds"],
       # From the WORK's contributions, not the edition's own. An edition of a
       # book has that book's author by definition, and reading the edition's
       # list instead promotes whoever upstream filed under the nil role —

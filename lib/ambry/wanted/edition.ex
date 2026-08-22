@@ -29,13 +29,20 @@ defmodule Ambry.Wanted.Edition do
     field :cover_url, :string
     field :description, :string
 
+    # How long the recording is. This is an audiobook, so its runtime is part
+    # of what it *is* — it is what separates an abridgement from the full
+    # reading and one dramatization from another when the title, the author
+    # and even the narrator all agree.
+    field :duration_seconds, :integer
+
     # Matching keys, none of them required, all of them useful when the
     # recording eventually turns up in the inbox.
     field :asin, :string
     field :isbn13, :string
   end
 
-  @fields ~w(title authors narrators publisher language cover_url description asin isbn13)a
+  @fields ~w(title authors narrators publisher language cover_url description
+             duration_seconds asin isbn13)a
 
   @doc false
   def changeset(edition, attrs) do
@@ -60,12 +67,33 @@ defmodule Ambry.Wanted.Edition do
       language: Map.get(book, :language),
       cover_url: Map.get(book, :cover_url),
       description: Map.get(book, :description),
+      duration_seconds: Map.get(book, :duration_seconds),
       asin: Map.get(book, :asin)
     }
   end
 
   defp names(nil), do: []
   defp names(list), do: Enum.map(list, & &1.name)
+
+  @doc """
+  The runtime in words, or nil when the provider did not give one.
+
+  Hours and minutes, because that is how long an audiobook is talked about —
+  nobody asks for a recording in seconds.
+  """
+  def runtime(%__MODULE__{duration_seconds: nil}), do: nil
+
+  def runtime(%__MODULE__{duration_seconds: seconds}) do
+    hours = div(seconds, 3600)
+    minutes = seconds |> rem(3600) |> div(60)
+
+    case {hours, minutes} do
+      {0, 0} -> nil
+      {0, m} -> "#{m}m"
+      {h, 0} -> "#{h}h"
+      {h, m} -> "#{h}h #{m}m"
+    end
+  end
 
   @doc "The credited authors as one phrase, or nil when the provider named none."
   def byline(%__MODULE__{authors: []}), do: nil

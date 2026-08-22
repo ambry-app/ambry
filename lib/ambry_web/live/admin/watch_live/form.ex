@@ -59,6 +59,9 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
     ]
   end
 
+  @doc "How long the recording is, in words."
+  defdelegate runtime(edition), to: Ambry.Wanted.Edition
+
   @doc false
   def credited(names), do: Enum.map(names, &%{name: &1})
 

@@ -39,6 +39,9 @@
 
         <:footer>
           <span data-role="watch-when">{when_words(watch, @today)}</span>
+          <span :if={runtime(watch.edition)} data-role="watch-runtime">
+            · {runtime(watch.edition)}
+          </span>
           <span :if={watch.edition.publisher}>· {watch.edition.publisher}</span>
         </:footer>
 

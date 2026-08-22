@@ -94,6 +94,9 @@ defmodule AmbryWeb.Admin.WatchLive.Index do
   def provider_words("hardcover"), do: "Hardcover"
   def provider_words(other), do: other
 
+  @doc "How long the recording is, in words."
+  defdelegate runtime(edition), to: Ambry.Wanted.Edition
+
   @doc """
   The credited names in the shape `credit_lines/1` reads.
 

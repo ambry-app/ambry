@@ -112,6 +112,12 @@ defmodule Ambry.Metadata.Provider do
     A normalized book result — a work (work-level providers) or an audiobook
     release (recording-level providers). Recording-level results carry
     narrators and an ASIN; work-level results may carry an editions list.
+
+    `duration_seconds` is how long the *recording* is, and it is nil on a
+    work: a novel has no runtime, a reading of it does. It is the field that
+    tells two recordings of the same book apart when everything else about
+    them agrees — abridged from unabridged, one cast from another — which is
+    why an audiobook library carries it and a book catalogue would not.
     """
     defstruct [
       :provider,
@@ -124,6 +130,7 @@ defmodule Ambry.Metadata.Provider do
       :language,
       :format,
       :asin,
+      :duration_seconds,
       authors: [],
       narrators: [],
       series: [],

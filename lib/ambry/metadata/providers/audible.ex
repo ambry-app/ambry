@@ -119,6 +119,7 @@ defmodule Ambry.Metadata.Providers.Audible do
       title: product.title,
       description: product.description,
       cover_url: product.cover_image,
+      duration_seconds: product.duration_seconds,
       published: published(product.published),
       publisher: product.publisher,
       language: product.language,

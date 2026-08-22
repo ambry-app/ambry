@@ -179,9 +179,17 @@ defmodule AmbryScraping.Audible.Products do
       format: product["format_type"],
       published: parse_published(product["release_date"]),
       publisher: product["publisher_name"],
-      language: product["language"]
+      language: product["language"],
+      duration_seconds: duration_seconds(product["runtime_length_min"])
     }
   end
+
+  # The catalog reports whole minutes. Seconds is what the rest of Ambry
+  # measures a recording in, so the conversion happens here rather than at
+  # every reader.
+  defp duration_seconds(nil), do: nil
+  defp duration_seconds(minutes) when is_integer(minutes), do: minutes * 60
+  defp duration_seconds(_other), do: nil
 
   defp parse_authors(nil), do: []
 

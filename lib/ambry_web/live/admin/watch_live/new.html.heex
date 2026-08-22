@@ -80,6 +80,11 @@
             />
             <p class="pt-1 text-sm text-zinc-400">
               <span data-role="candidate-date">{date_words(candidate.published)}</span>
+              <%!-- The runtime is what tells two recordings of one book apart
+                    when the title and even the narrator agree. --%>
+              <span :if={runtime(candidate.edition)} data-role="candidate-runtime">
+                · {runtime(candidate.edition)}
+              </span>
               <span :if={candidate.edition.publisher}>· {candidate.edition.publisher}</span>
             </p>
           </div>

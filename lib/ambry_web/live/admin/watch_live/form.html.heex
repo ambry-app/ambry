@@ -19,6 +19,7 @@
           />
           <p class="pt-1 text-sm text-zinc-500">
             {provider_words(@watch.provider)} · {@watch.provider_id}
+            <span :if={runtime(@watch.edition)}>· {runtime(@watch.edition)}</span>
             <span :if={@watch.edition.publisher}>· {@watch.edition.publisher}</span>
           </p>
         </div>

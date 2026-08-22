@@ -38,7 +38,8 @@ defmodule AmbryScraping.Audible do
       :format,
       :published,
       :publisher,
-      :language
+      :language,
+      :duration_seconds
     ]
   end
 

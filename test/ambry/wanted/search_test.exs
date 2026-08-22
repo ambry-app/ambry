@@ -32,6 +32,7 @@ defmodule Ambry.Wanted.SearchTest do
       title: title,
       asin: Keyword.get(opts, :asin),
       narrators: Keyword.get(opts, :narrators, []),
+      duration_seconds: Keyword.get(opts, :duration_seconds),
       published: %Provider.PublishedDate{
         date: Keyword.get(opts, :date, ~D[2026-09-29]),
         display_format: :full
@@ -44,7 +45,13 @@ defmodule Ambry.Wanted.SearchTest do
   # to catalogue. This is the real shape of The Velvet Knife.
   test "a preorder only a storefront knows about is still offered" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
-      {:ok, [product("B0FKVNLXQS", "The Velvet Knife", narrators: [%{name: "Emily Ellet"}])]}
+      {:ok,
+       [
+         product("B0FKVNLXQS", "The Velvet Knife",
+           narrators: [%{name: "Emily Ellet"}],
+           duration_seconds: 36_000
+         )
+       ]}
     end)
 
     patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config -> {:ok, []} end)
@@ -56,6 +63,9 @@ defmodule Ambry.Wanted.SearchTest do
     assert candidate.provider_id == "B0FKVNLXQS"
     assert candidate.published == ~D[2026-09-29]
     assert candidate.edition.narrators == ["Emily Ellet"]
+    # An audiobook's runtime rides with it: it is what tells two recordings
+    # of one book apart when everything else agrees.
+    assert candidate.edition.duration_seconds == 36_000
   end
 
   test "the same recording from two providers is offered twice, not merged" do
@@ -101,6 +111,7 @@ defmodule Ambry.Wanted.SearchTest do
            title: "Neuromancer",
            publisher: "Books on Tape",
            narrators: [%{name: "Robertson Dean"}],
+           duration_seconds: 37_920,
            published: %Provider.PublishedDate{date: ~D[1984-07-01], display_format: :full}
          }
        ]}
@@ -110,6 +121,7 @@ defmodule Ambry.Wanted.SearchTest do
 
     assert [edition] = Enum.filter(candidates, &(&1.provider == "hardcover"))
     assert edition.edition.publisher == "Books on Tape"
+    assert edition.edition.duration_seconds == 37_920
     assert edition.published == ~D[1984-07-01]
     assert edition.work_title == "Neuromancer"
   end

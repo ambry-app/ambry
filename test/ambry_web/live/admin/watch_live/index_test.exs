@@ -19,7 +19,8 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
               title: "The Velvet Knife",
               authors: ["Maureen Johnson"],
               narrators: ["Emily Ellet"],
-              publisher: "Harper Audio"
+              publisher: "Harper Audio",
+              duration_seconds: 36_000
             }
           },
           overrides
@@ -44,6 +45,24 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
       assert html =~ "The Velvet Knife"
       assert html =~ "Maureen Johnson"
       assert html =~ "Emily Ellet"
+    end
+
+    test "says how long the recording is", %{conn: conn} do
+      watch()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches")
+
+      assert has_element?(view, "[data-role='watch-runtime']", "10h")
+    end
+
+    test "a record with no runtime says nothing rather than nothing-per-hour", %{conn: conn} do
+      watch(%{
+        edition: %{title: "Unknown Length", authors: ["Someone"], narrators: ["A Reader"]}
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches")
+
+      refute has_element?(view, "[data-role='watch-runtime']")
     end
 
     test "names the provider the record came from", %{conn: conn} do
