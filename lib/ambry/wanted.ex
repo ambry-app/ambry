@@ -32,6 +32,7 @@ defmodule Ambry.Wanted do
 
   import Ecto.Query
 
+  alias Ambry.Metadata.Registry
   alias Ambry.Repo
   alias Ambry.Wanted.Watch
 
@@ -167,6 +168,21 @@ defmodule Ambry.Wanted do
 
   @doc "Puts a dismissed or released watch back into waiting."
   def reopen(%Watch{} = watch), do: update_watch(watch, %{status: :upcoming})
+
+  @doc """
+  What to call the provider a watch's record came from.
+
+  Read off the registry rather than listed here: a provider added later should
+  name itself, and a hardcoded list would quietly start showing raw ids. Falls
+  back to the id for a provider that has since been removed, because a watch
+  outlives the provider that supplied it.
+  """
+  def provider_name(provider_id) do
+    case Registry.fetch(provider_id) do
+      {:ok, entry} -> entry.display_name
+      {:error, _reason} -> provider_id
+    end
+  end
 
   @doc "Forgets a watch entirely. Prefer `dismiss/1` — see `Watch`."
   def delete_watch(%Watch{} = watch), do: Repo.delete(watch)

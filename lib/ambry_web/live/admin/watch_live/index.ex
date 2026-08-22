@@ -89,10 +89,8 @@ defmodule AmbryWeb.Admin.WatchLive.Index do
 
   defp format_date(date), do: Calendar.strftime(date, "%b %-d, %Y")
 
-  @doc "The provider that supplied this record, named as the operator knows it."
-  def provider_words("audible"), do: "Audible"
-  def provider_words("hardcover"), do: "Hardcover"
-  def provider_words(other), do: other
+  @doc "What to call the provider a record came from."
+  defdelegate provider_words(provider_id), to: Ambry.Wanted, as: :provider_name
 
   @doc "How long the recording is, in words."
   defdelegate runtime(edition), to: Ambry.Wanted.Edition

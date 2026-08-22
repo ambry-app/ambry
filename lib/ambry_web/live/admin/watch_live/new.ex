@@ -134,10 +134,8 @@ defmodule AmbryWeb.Admin.WatchLive.New do
     |> Enum.sort_by(fn {provider, _} -> provider end)
   end
 
-  @doc false
-  def provider_words("audible"), do: "Audible"
-  def provider_words("hardcover"), do: "Hardcover"
-  def provider_words(other), do: other
+  @doc "What to call the provider a record came from."
+  defdelegate provider_words(provider_id), to: Ambry.Wanted, as: :provider_name
 
   @doc """
   How a candidate's date reads before it is a watch.

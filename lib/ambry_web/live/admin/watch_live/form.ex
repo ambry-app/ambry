@@ -65,10 +65,8 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
   @doc false
   def credited(names), do: Enum.map(names, &%{name: &1})
 
-  @doc false
-  def provider_words("audible"), do: "Audible"
-  def provider_words("hardcover"), do: "Hardcover"
-  def provider_words(other), do: other
+  @doc "What to call the provider a record came from."
+  defdelegate provider_words(provider_id), to: Ambry.Wanted, as: :provider_name
 
   @doc false
   def statuses, do: Watch.statuses()
