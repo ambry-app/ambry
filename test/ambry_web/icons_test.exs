@@ -8,6 +8,12 @@ defmodule AmbryWeb.IconsTest do
   spacing. This has shipped twice. Dynamic names (`name={...}`) aren't
   covered; string literals are the overwhelmingly common case.
 
+  **Both spellings.** A component that takes an icon and hands it on names
+  the attribute `icon`, and every row action in the admin is written that
+  way — nineteen literals this scanned straight past, one of which was not
+  vendored and shipped blank. A rule that checks only the spelling it was
+  written for has a hole the shape of every other caller.
+
   One failure mode lives below this test's reach: the Tailwind plugin
   `readdirSync`s the vendor dir when the *watcher* starts, so an SVG
   vendored while the dev server runs passes here yet still renders blank
@@ -28,7 +34,9 @@ defmodule AmbryWeb.IconsTest do
       |> Path.wildcard()
       |> Enum.flat_map(fn file ->
         for [name] <-
-              Regex.scan(~r/name="fa-([a-z0-9-]+)"/, File.read!(file), capture: :all_but_first),
+              Regex.scan(~r/(?:name|icon)="fa-([a-z0-9-]+)"/, File.read!(file),
+                capture: :all_but_first
+              ),
             do: {name, Path.relative_to_cwd(file)}
       end)
 

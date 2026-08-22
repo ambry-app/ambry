@@ -284,7 +284,10 @@ defmodule AmbryWeb.Admin.InboxLive.IndexTest do
 
     assert has_element?(view, "[data-role='superseded']", "superseded")
     assert html =~ "Replaced by a later import"
-    assert has_element?(view, "a[href^='/admin/inbox/#{successor.id}']")
+
+    # The way to the import that replaced it is on the record, one click
+    # away, not duplicated onto the row's action rail.
+    refute has_element?(view, "a[href^='/admin/inbox/#{successor.id}']")
 
     # it is back to naming its own release, and offers no way to claim the
     # audiobook as its result

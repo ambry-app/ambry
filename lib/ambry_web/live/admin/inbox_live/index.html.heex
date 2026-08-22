@@ -91,18 +91,11 @@
               <.badge color={:gray} class="text-xs" data-role="superseded">superseded</.badge>
             </:badges>
 
-            <p class="text-sm text-zinc-400">
-              Replaced by a later import. The audiobook is served from that one now.
-            </p>
+            <p class="text-sm text-zinc-400">Replaced by a later import.</p>
 
-            <:action
-              navigate={~p"/admin/inbox/#{item.superseded_by_id}?#{return_query(assigns)}"}
-              icon="fa-right-long"
-              title="The import that replaced this one"
-            >
-              What replaced it
-            </:action>
-
+            <%!-- No "what replaced it" action: the import record is one click
+                away and carries the link, and a row action rail is not the
+                place to duplicate what the page behind it already says. --%>
             <:action
               :if={reopenable?(item)}
               icon="fa-rotate-left"

@@ -18,6 +18,29 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   setup :register_and_log_in_admin_user
 
+  describe "a superseded import's record" do
+    # The row says it was replaced; the record is where you go to find out by
+    # what, so the link lives here and nowhere else.
+    test "says what replaced it, and offers it", %{conn: conn} do
+      item = probed_item() |> settle()
+      {:ok, _media} = Inbox.import_item(item)
+      successor = probed_item(name: "The Way of Kings [FLAC]") |> settle()
+
+      item
+      |> Ecto.Changeset.change(superseded_by_id: successor.id)
+      |> Repo.update!()
+
+      {:ok, view, html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='superseded-banner']", "Replaced by a later import")
+      assert has_element?(view, "a[href^='/admin/inbox/#{successor.id}']")
+
+      # It does not offer the audiobook: that is the newer record's to give.
+      refute has_element?(view, "[data-role='imported-banner']")
+      refute html =~ "files below are gone"
+    end
+  end
+
   describe "files that have gone away" do
     # A `move` placement consumes its source: the files being absent
     # afterwards is the import having worked, not a fault. The record used to
