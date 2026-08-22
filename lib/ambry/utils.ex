@@ -23,8 +23,13 @@ defmodule Ambry.Utils do
   end
 
   @doc """
-  Formats a byte count as a human-readable string using SI (1000-based) units,
-  rounded to a whole number.
+  Formats a byte count as a human-readable string using SI (1000-based) units.
+
+  Three significant figures, which is what makes the number comparable. It
+  rounded to a whole one before, and a whole one is only three figures in the
+  middle of a unit's range: at the bottom of it, 1.64 GB and 1.51 GB were
+  both "2 GB", so the two files this exists to tell apart printed the same
+  string. Bytes stay whole, having nowhere to round to.
 
   ## Examples
 
@@ -32,25 +37,33 @@ defmodule Ambry.Utils do
       "0 B"
 
       iex> Ambry.Utils.humanize_bytes(1500)
-      "2 kB"
+      "1.5 kB"
 
-      iex> Ambry.Utils.humanize_bytes(1_073_741_824)
-      "1 GB"
+      iex> Ambry.Utils.humanize_bytes(1_639_966_385)
+      "1.64 GB"
+
+      iex> Ambry.Utils.humanize_bytes(819_378_051)
+      "819 MB"
   """
   @spec humanize_bytes(non_neg_integer()) :: String.t()
   def humanize_bytes(bytes) when is_integer(bytes) and bytes >= 0 do
     humanize_bytes(bytes / 1, @byte_units)
   end
 
-  defp humanize_bytes(value, [unit]), do: "#{round(value)} #{unit}"
+  defp humanize_bytes(value, [unit]), do: scaled(value, unit)
 
   defp humanize_bytes(value, [unit | larger_units]) do
     if value >= 1000 do
       humanize_bytes(value / 1000, larger_units)
     else
-      "#{round(value)} #{unit}"
+      scaled(value, unit)
     end
   end
+
+  defp scaled(value, "B"), do: "#{round(value)} B"
+  defp scaled(value, unit) when value < 10, do: "#{Float.round(value, 2)} #{unit}"
+  defp scaled(value, unit) when value < 100, do: "#{Float.round(value, 1)} #{unit}"
+  defp scaled(value, unit), do: "#{round(value)} #{unit}"
 
   @doc """
   A credit, shortened to the name that identifies it and a count of the rest.

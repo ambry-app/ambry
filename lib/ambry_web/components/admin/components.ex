@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.Components do
 
   use AmbryWeb, :html
 
-  import Ambry.Utils, only: [name_credit: 1, series_credit: 1]
+  import Ambry.Utils, only: [humanize_bytes: 1, name_credit: 1, series_credit: 1]
   import AmbryWeb.Gravatar
-  import AmbryWeb.TimeUtils, only: [duration_display: 1]
+  import AmbryWeb.TimeUtils, only: [duration_display: 1, format_timecode: 1]
 
   alias Ambry.Accounts.User
   alias Phoenix.HTML.Form
@@ -1392,6 +1392,72 @@ defmodule AmbryWeb.Admin.Components do
     </div>
     """
   end
+
+  @doc """
+  What the probe found, as facts to read along one line.
+
+  One list, because the queue row and the import form describe the same files
+  and had already drifted apart: the form counted them and the queue did not,
+  from two different sources — `item.files` on one side and `probe["files"]`
+  on the other. Callers join it; where a surface puts the count is the one
+  thing they are allowed to disagree about, which is what `:files` is for.
+
+  **Size and bitrate are here because the pair is the fact.** Two imports of
+  one audiobook can be the same recording at half the rate, and nothing in a
+  filename says so — a 1.64 GB and an 819 MB copy of the same 28 hours are
+  told apart by the second number and not the first. Neither costs a re-read:
+  the probe already stores size and duration, so every item already in the
+  queue gains this the moment it is rendered.
+  """
+  def probe_facts(probe, opts \\ [])
+
+  def probe_facts(probe, opts) when is_map(probe) do
+    [
+      probe["duration"] && format_timecode(Decimal.new(probe["duration"])),
+      Keyword.get(opts, :files, false) && file_count(probe),
+      probe["size"] && humanize_bytes(probe["size"]),
+      bitrate(probe),
+      probe["codec"],
+      probe["chapters"] && probe["chapters"] > 0 && "#{probe["chapters"]} chapters",
+      probe["seek_accuracy"] == "approximate" && "inexact seeking"
+    ]
+    |> Enum.filter(&is_binary/1)
+  end
+
+  def probe_facts(_probe, _opts), do: []
+
+  # The average over the whole recording, which is the only rate worth
+  # comparing: a multi-file release is one timeline, and a list of per-file
+  # rates cannot be held against another list. Rounded to whole kbps because
+  # the question this answers is "64 or 127", never "63.5 or 63.6".
+  defp bitrate(%{"size" => size, "duration" => duration}) when is_integer(size) do
+    with %Decimal{} = seconds <- probe_seconds(duration),
+         true <- Decimal.positive?(seconds) do
+      "#{round(size * 8 / Decimal.to_float(seconds) / 1000)} kbps"
+    else
+      _not_measurable -> nil
+    end
+  end
+
+  defp bitrate(_probe), do: nil
+
+  # jsonb hands the duration back as a string; a struct reaches here only
+  # from a caller that already parsed it.
+  defp probe_seconds(%Decimal{} = seconds), do: seconds
+
+  defp probe_seconds(seconds) when is_binary(seconds) do
+    case Decimal.parse(seconds) do
+      {decimal, ""} -> decimal
+      _unparseable -> nil
+    end
+  end
+
+  defp probe_seconds(_other), do: nil
+
+  # A one-file recording says nothing; a forty-file one is the single most
+  # useful fact about it, because it is what the timeline is built out of.
+  defp file_count(%{"files" => count}) when is_integer(count) and count > 1, do: "#{count} files"
+  defp file_count(_probe), do: nil
 
   @doc """
   The directory every one of these files shares.

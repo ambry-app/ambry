@@ -12,7 +12,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   import AmbryWeb.Admin.Decisions, only: [tier_words: 1]
   import AmbryWeb.Admin.PaginationHelpers
   import AmbryWeb.Admin.ReturnTo, only: [query: 2]
-  import AmbryWeb.TimeUtils
 
   alias Ambry.Inbox
   alias Ambry.Inbox.Draft
@@ -476,18 +475,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   What the files actually are, as probed — the facts, as opposed to the
   claims in `tag_summary/1`.
   """
-  def probe_summary(%InboxItem{probe: probe}) when is_map(probe) do
-    [
-      probe["duration"] && format_timecode(Decimal.new(probe["duration"])),
-      probe["codec"],
-      probe["chapters"] && probe["chapters"] > 0 && "#{probe["chapters"]} chapters",
-      probe["seek_accuracy"] == "approximate" && "inexact seeking"
-    ]
-    |> Enum.filter(&is_binary/1)
-    |> Enum.join(" · ")
-  end
-
-  def probe_summary(_item), do: ""
+  def probe_summary(%InboxItem{probe: probe}), do: probe |> probe_facts() |> Enum.join(" · ")
 
   def file_count(%InboxItem{files: files}), do: length(files)
 
