@@ -96,6 +96,30 @@ defmodule AmbryWeb.Admin.WatchLive.Index do
   defdelegate runtime(edition), to: Ambry.Wanted.Edition
 
   @doc """
+  The row's variable last line: when it is expected, how long it is, who is
+  putting it out.
+
+  Modelled on `record_meta/1` and deliberately not using it: that says
+  "Published …", and the whole point of a watch is that it has not been. It
+  lives with the credits for the same reason — it is prose and reads like one,
+  and it collapses to nothing when a record carries none of it.
+
+  It is **not** `:footer`, which is for system timestamps only. Putting a date
+  and a duration there both mislabels them as things the app did and, because
+  the footer sits in the 224px rail, stretches the rail until the actions
+  stagger and the page scrolls sideways.
+  """
+  def meta_line(watch, today \\ Date.utc_today()) do
+    [
+      when_words(watch, today),
+      runtime(watch.edition),
+      watch.edition.publisher
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
+  end
+
+  @doc """
   The credited names in the shape `credit_lines/1` reads.
 
   The snapshot keeps names as plain strings — it is a copy of what a provider

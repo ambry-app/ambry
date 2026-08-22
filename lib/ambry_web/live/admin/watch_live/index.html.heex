@@ -37,16 +37,21 @@
           narrators={credited(watch.edition.narrators)}
         />
 
-        <:footer>
-          <span data-role="watch-when">{when_words(watch, @today)}</span>
-          <span :if={runtime(watch.edition)} data-role="watch-runtime">
-            · {runtime(watch.edition)}
-          </span>
-          <span :if={watch.edition.publisher}>· {watch.edition.publisher}</span>
-        </:footer>
+        <%!-- The fourth, variable line — with the credits, not in the rail.
+              See `meta_line/2`. --%>
+        <p
+          class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
+          data-role="watch-meta"
+        >
+          {meta_line(watch, @today)}
+        </p>
 
+        <%!-- Three verbs at most, and short enough that two sit side by side
+              in the 224px rail. Forgetting a watch outright lives on the form:
+              it is rare, it is irreversible, and "Dismiss" is what the
+              operator almost always means. --%>
         <:action
-          :if={watch.status != :released}
+          :if={watch.status == :upcoming}
           icon="fa-check"
           color={:brand}
           click="mark-released"
@@ -62,7 +67,7 @@
           value={watch.id}
           role="dismiss-watch"
         >
-          Stop watching
+          Dismiss
         </:action>
         <:action
           :if={watch.status != :upcoming}
@@ -75,16 +80,6 @@
         </:action>
         <:action navigate={~p"/admin/watches/#{watch}/edit"} icon="fa-pencil" role="edit-watch">
           Edit
-        </:action>
-        <:action
-          icon="fa-trash"
-          color={:red}
-          click="delete"
-          value={watch.id}
-          confirm={"Forget \"#{watch.edition.title}\" entirely? \"Stop watching\" keeps the record of having decided."}
-          role="delete-watch"
-        >
-          Forget
         </:action>
       </.index_row>
     </:row>

@@ -59,5 +59,27 @@
         </.simple_form>
       </div>
     </div>
+
+    <%!-- Off the row and down here, because it is rare and irreversible and
+          "Dismiss" is what the operator almost always means: a dismissed watch
+          still answers "did I already decide about this?", and a forgotten one
+          cannot. --%>
+    <div class="rounded-lg bg-zinc-900 p-4">
+      <h3 class="pl-3 text-sm font-semibold text-zinc-200">Forget it</h3>
+      <div class="space-y-3 pt-3 pl-3">
+        <p class="text-sm text-zinc-400">
+          Removes the watch entirely, with no record that you ever decided
+          about it. Dismissing keeps that record.
+        </p>
+        <.button
+          color={:red}
+          phx-click="delete"
+          data-confirm={"Forget \"#{@watch.edition.title}\" entirely?"}
+          data-role="delete-watch"
+        >
+          Forget this watch
+        </.button>
+      </div>
+    </div>
   </div>
 </.layout>

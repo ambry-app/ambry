@@ -31,6 +31,15 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    {:ok, _watch} = Wanted.delete_watch(socket.assigns.watch)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Forgotten.")
+     |> push_navigate(to: ~p"/admin/watches")}
+  end
+
   def handle_event("validate", %{"watch" => params}, socket) do
     changeset = Wanted.change_watch(socket.assigns.watch, params)
 

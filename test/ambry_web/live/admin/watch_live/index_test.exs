@@ -52,7 +52,7 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches")
 
-      assert has_element?(view, "[data-role='watch-runtime']", "10h")
+      assert has_element?(view, "[data-role='watch-meta']", "10h")
     end
 
     test "a record with no runtime says nothing rather than nothing-per-hour", %{conn: conn} do
@@ -62,7 +62,7 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches")
 
-      refute has_element?(view, "[data-role='watch-runtime']")
+      refute has_element?(view, "[data-role='watch-meta']", "h")
     end
 
     test "names the provider the record came from", %{conn: conn} do
@@ -133,16 +133,29 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
       assert Wanted.get_watch!(watch.id).status == :upcoming
     end
 
-    test "forgetting removes it entirely", %{conn: conn} do
-      watch = watch()
+    # Three verbs at most, short enough that two fit the 224px rail.
+    test "the row offers at most three actions", %{conn: conn} do
+      watch()
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches")
 
-      view |> element("[data-role='delete-watch']") |> render_click()
+      actions =
+        view
+        |> element("[data-role='row-actions']")
+        |> render()
+        |> Floki.parse_fragment!()
+        |> Floki.find("[data-role='row-actions'] > *")
 
-      assert Wanted.list_watches() == []
-      assert render(view) =~ "Nothing on the horizon."
-      refute render(view) =~ watch.edition.title
+      assert length(actions) <= 3
+    end
+
+    test "forgetting is not on the row; dismissing is", %{conn: conn} do
+      watch()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches")
+
+      assert has_element?(view, "[data-role='dismiss-watch']")
+      refute has_element?(view, "[data-role='delete-watch']")
     end
   end
 
@@ -167,6 +180,16 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
       |> render_submit()
 
       assert Wanted.get_watch!(watch.id).expected_release_date == ~D[2026-11-03]
+    end
+
+    test "forgetting a watch removes it entirely", %{conn: conn} do
+      watch = watch()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/#{watch}/edit")
+
+      view |> element("[data-role='delete-watch']") |> render_click()
+
+      assert Wanted.list_watches() == []
     end
 
     test "a note survives the round trip", %{conn: conn} do

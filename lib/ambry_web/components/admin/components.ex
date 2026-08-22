@@ -538,7 +538,13 @@ defmodule AmbryWeb.Admin.Components do
         inert={@inert}
       >
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
-          <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5">
+          <%!-- The rail sets the badge size, rather than every caller
+                remembering to. `<.badge>` has no default size, so each of
+                these lists was passing `text-xs` by hand and a new one simply
+                did not — which is the same defect as a shared style its
+                callers have to re-type: it is only shared if it arrives on
+                its own. Callers still passing it are harmless. --%>
+          <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5 text-xs">
             {render_slot(@badges)}
           </div>
 
