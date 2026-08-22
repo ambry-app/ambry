@@ -31,6 +31,9 @@ defmodule Ambry.Metadata.Providers do
   def author_details(provider_id, author_id, opts \\ []),
     do: call(provider_id, :author_details, :author_details, author_id, @details_ttl, opts)
 
+  def editions_bulk(provider_id, work_ids, opts \\ []),
+    do: call(provider_id, :editions_bulk, :editions_bulk, work_ids, @details_ttl, opts)
+
   def editions(provider_id, work_id, opts \\ []),
     do: call(provider_id, :editions, :editions, work_id, @details_ttl, opts)
 
@@ -64,6 +67,11 @@ defmodule Ambry.Metadata.Providers do
     |> Enum.map_join("|", &(&1 || ""))
     |> then(&("q:" <> &1))
   end
+
+  # A list joins rather than flattening: `to_string/1` on `["1", "23"]` and
+  # on `["12", "3"]` produce the same string, which would serve one set of
+  # works' editions for another.
+  defp cache_key(args) when is_list(args), do: Enum.map_join(args, ",", &to_string/1)
 
   defp cache_key(arg), do: to_string(arg)
 

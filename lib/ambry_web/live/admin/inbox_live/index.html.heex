@@ -378,6 +378,18 @@
             >
               {elem(state_words(item), 0)}
             </.badge>
+            <%!-- Not a state: the row can be in any of them and still be the
+                  thing the operator went looking for. It says why this row is
+                  worth doing before anything else on the page. --%>
+            <.badge
+              :if={wanted?(item)}
+              color={:brand}
+              class="text-xs"
+              title="You're watching for this recording"
+              data-role="item-wanted"
+            >
+              waiting for this
+            </.badge>
           </:badges>
 
           <:facts>

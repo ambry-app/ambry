@@ -166,8 +166,12 @@ defmodule AmbryWeb.Admin.Components do
   def list_controls(assigns) do
     ~H"""
     <div class="flex items-end gap-4">
+      <%!-- The attr is optional, so the form has to be too: a short list
+            that is never searched (what you are waiting for) still wants the
+            New button, and the grow div stays either way so the button keeps
+            its corner. --%>
       <div class="grow">
-        <.admin_table_search_form search_form={@search_form} />
+        <.admin_table_search_form :if={@search_form} search_form={@search_form} />
       </div>
       <%!-- A list page's one constructive action, so it wears §6's primary
             costume — the same solid button the inbox's "Scan for new" has
@@ -534,7 +538,13 @@ defmodule AmbryWeb.Admin.Components do
         inert={@inert}
       >
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
-          <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5">
+          <%!-- The rail sets the badge size, rather than every caller
+                remembering to. `<.badge>` has no default size, so each of
+                these lists was passing `text-xs` by hand and a new one simply
+                did not — which is the same defect as a shared style its
+                callers have to re-type: it is only shared if it arrives on
+                its own. Callers still passing it are harmless. --%>
+          <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5 text-xs">
             {render_slot(@badges)}
           </div>
 

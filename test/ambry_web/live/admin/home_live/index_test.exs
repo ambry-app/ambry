@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
 
   alias Ambry.Inbox.InboxItem
   alias Ambry.Repo
+  alias Ambry.Wanted
 
   setup :register_and_log_in_admin_user
 
@@ -27,6 +28,41 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
       assert has_element?(view, "[data-role='work-words']", "Nothing running.")
       assert has_element?(view, "*", "No job has failed in the last day.")
       assert has_element?(view, "*", "Nothing in the queue has asked a provider yet.")
+    end
+
+    test "the upcoming card nags only once a date has passed", %{conn: conn} do
+      watch("Blightfall", ~D[2020-01-01])
+      watch("The Velvet Knife", ~D[2099-09-29])
+
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      assert has_element?(view, "[data-role='watches-due-count']", "1")
+      assert has_element?(view, "[data-role='due-watch']", "Blightfall")
+      refute has_element?(view, "[data-role='due-watch']", "The Velvet Knife")
+    end
+
+    test "with nothing due the card names what is coming instead of vanishing", %{conn: conn} do
+      watch("Blightfall", ~D[2099-09-01])
+
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      refute has_element?(view, "[data-role='watches-due-count']")
+      assert has_element?(view, "*", "Nothing out yet. Next: Blightfall, Sep 1")
+    end
+
+    test "waiting for nothing at all says so", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      assert has_element?(view, "*", "Not waiting for anything.")
+    end
+
+    test "a watch with no date is waiting but has nothing to count down to", %{conn: conn} do
+      watch("Someday", nil)
+
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      refute has_element?(view, "[data-role='watches-due-count']")
+      assert has_element?(view, "*", "Waiting, but nothing has a date yet.")
     end
 
     test "splits the pending queue into ready and waiting on a decision", %{conn: conn} do
@@ -203,5 +239,17 @@ defmodule AmbryWeb.Admin.HomeLive.IndexTest do
 
   defp ready_item(path) do
     path |> drafted_item() |> Ecto.Changeset.change(ready: true) |> Repo.update!()
+  end
+
+  defp watch(title, date) do
+    {:ok, watch} =
+      Wanted.create_watch(%{
+        provider: "audible",
+        provider_id: title,
+        expected_release_date: date,
+        edition: %{title: title, authors: ["Someone"], narrators: ["A Reader"]}
+      })
+
+    watch
   end
 end

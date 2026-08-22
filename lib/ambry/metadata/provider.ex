@@ -112,6 +112,12 @@ defmodule Ambry.Metadata.Provider do
     A normalized book result — a work (work-level providers) or an audiobook
     release (recording-level providers). Recording-level results carry
     narrators and an ASIN; work-level results may carry an editions list.
+
+    `duration_seconds` is how long the *recording* is, and it is nil on a
+    work: a novel has no runtime, a reading of it does. It is the field that
+    tells two recordings of the same book apart when everything else about
+    them agrees — abridged from unabridged, one cast from another — which is
+    why an audiobook library carries it and a book catalogue would not.
     """
     defstruct [
       :provider,
@@ -124,6 +130,7 @@ defmodule Ambry.Metadata.Provider do
       :language,
       :format,
       :asin,
+      :duration_seconds,
       authors: [],
       narrators: [],
       series: [],
@@ -278,6 +285,7 @@ defmodule Ambry.Metadata.Provider do
           | :author_details
           | :chapters
           | :editions
+          | :editions_bulk
 
   @doc "Stable machine identifier, used in cache keys and settings rows."
   @callback id() :: String.t()
@@ -332,6 +340,18 @@ defmodule Ambry.Metadata.Provider do
   """
   @callback editions(work_id :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
 
+  @doc """
+  The audiobook editions of several works at once, keyed by work id.
+
+  Declared separately from `editions/2` because whether a provider can answer
+  for many works in one round trip is a real difference in what it can do, not
+  an optimization a caller may assume. A provider that can say so is asked
+  once instead of once per work — which is the difference between opening
+  every candidate work and opening only the first few.
+  """
+  @callback editions_bulk(work_ids :: [String.t()], config()) ::
+              {:ok, %{String.t() => [Book.t()]}} | {:error, term}
+
   @optional_callbacks available?: 1,
                       config_notices: 1,
                       search_books: 2,
@@ -339,7 +359,8 @@ defmodule Ambry.Metadata.Provider do
                       search_authors: 2,
                       author_details: 2,
                       chapters: 2,
-                      editions: 2
+                      editions: 2,
+                      editions_bulk: 2
 
   @doc "The default config for a provider module, derived from its config fields."
   def default_config(provider_module) do

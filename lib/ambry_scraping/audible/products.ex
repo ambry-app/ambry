@@ -74,6 +74,44 @@ defmodule AmbryScraping.Audible.Products do
   # marketplaces is recall, and which catalog a recording lives in is exactly
   # what the operator doesn't know. Deduped by ASIN, keeping the first
   # marketplace's copy, so the configured order is a preference order.
+  @doc """
+  One product, by its ASIN.
+
+  Marketplace-by-marketplace, because an ASIN belongs to a catalog: the one
+  that issued it is the only one that can resolve it, and a miss in the first
+  says nothing about the rest. The first that answers wins.
+
+  Answers `{:error, :not_found}` when every reachable marketplace denies
+  knowing it — which is a real answer about a delisted recording, not a
+  failure.
+  """
+  def details(asin, opts \\ [])
+
+  def details("", _opts), do: {:error, :not_found}
+
+  def details(asin, opts) when is_binary(asin) do
+    params = %{response_groups: Enum.join(@response_groups, ","), image_sizes: "900"}
+    marketplaces = Keyword.get(opts, :marketplaces, Client.default_marketplaces())
+
+    Enum.reduce_while(marketplaces, {:error, :not_found}, fn marketplace, acc ->
+      case Client.get("/catalog/products/#{asin}", params, marketplace: marketplace) do
+        {:ok, %{status: status, body: %{"product" => product}}} when status in 200..299 ->
+          {:halt, {:ok, parse_product(product)}}
+
+        {:ok, %{status: 404}} ->
+          {:cont, acc}
+
+        # A rate limit or an outage is not evidence the recording is gone, so
+        # it is carried rather than collapsed into `:not_found`.
+        {:ok, response} ->
+          {:cont, {:error, response}}
+
+        {:error, reason} ->
+          {:cont, {:error, reason}}
+      end
+    end)
+  end
+
   defp search_marketplaces(params, marketplaces) do
     Enum.reduce(marketplaces, {[], []}, fn marketplace, {products, errors} ->
       case Client.get("/catalog/products", params, marketplace: marketplace) do
@@ -179,9 +217,17 @@ defmodule AmbryScraping.Audible.Products do
       format: product["format_type"],
       published: parse_published(product["release_date"]),
       publisher: product["publisher_name"],
-      language: product["language"]
+      language: product["language"],
+      duration_seconds: duration_seconds(product["runtime_length_min"])
     }
   end
+
+  # The catalog reports whole minutes. Seconds is what the rest of Ambry
+  # measures a recording in, so the conversion happens here rather than at
+  # every reader.
+  defp duration_seconds(nil), do: nil
+  defp duration_seconds(minutes) when is_integer(minutes), do: minutes * 60
+  defp duration_seconds(_other), do: nil
 
   defp parse_authors(nil), do: []
 

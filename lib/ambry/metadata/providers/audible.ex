@@ -4,8 +4,15 @@ defmodule Ambry.Metadata.Providers.Audible do
 
   Wraps the existing `AmbryScraping.Audible` HTTP client (the undocumented
   but stable JSON catalog API — no browser scraping involved) and normalizes
-  its results. This is the primary source for narrator credits, square
-  audiobook covers, and publication facts; ASIN is the natural key.
+  its results. Its search answers with recordings directly, and those records
+  carry narrator credits, square covers, publication facts and an ASIN.
+
+  It is **not** a primary or preferred source, and nothing should treat it as
+  one: providers are selected by the capabilities they declare, and every
+  provider that can answer a question gets asked. What this one is good at is
+  a fact about its records, not a rank — and it is blind in its own way, being
+  a storefront rather than a bibliography: it carries preorders and drops what
+  it has delisted.
   """
 
   @behaviour Ambry.Metadata.Provider
@@ -23,7 +30,7 @@ defmodule Ambry.Metadata.Providers.Audible do
   def level, do: :recording
 
   @impl Provider
-  def capabilities, do: [:book_search]
+  def capabilities, do: [:book_search, :book_details]
 
   @impl Provider
   def config_fields do
@@ -62,6 +69,23 @@ defmodule Ambry.Metadata.Providers.Audible do
   def search_books(%Provider.Query{} = query, config), do: widen(attempts(query), config)
 
   def search_books(query, config) when is_binary(query), do: widen([%{keywords: query}], config)
+
+  @doc """
+  One recording, by the id its own search handed out.
+
+  Which for this provider is an ASIN, and an ASIN is marketplace-scoped: the
+  catalog that issued it is the only one that can resolve it. `:not_found` is
+  a real answer here, not a failure — a storefront delists, and a recording it
+  no longer sells is one it can no longer be asked about, which is exactly
+  what a bibliography is for.
+  """
+  @impl Provider
+  def book_details(asin, config) do
+    case Audible.book_details(asin, marketplaces: marketplaces(config)) do
+      {:ok, product} -> {:ok, product_to_book(product)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   # Every parameter here is an AND filter, so the most precise query is also
   # the most fragile: asking for narrator "Jeff Harding" on a book whose only
@@ -119,6 +143,7 @@ defmodule Ambry.Metadata.Providers.Audible do
       title: product.title,
       description: product.description,
       cover_url: product.cover_image,
+      duration_seconds: product.duration_seconds,
       published: published(product.published),
       publisher: product.publisher,
       language: product.language,

@@ -66,7 +66,7 @@ defmodule Ambry.Inbox do
   """
 
   use Boundary,
-    deps: [Ambry, Ambry.Library, Ambry.Media],
+    deps: [Ambry, Ambry.Library, Ambry.Media, Ambry.Wanted],
     # The draft tree is exported because it IS the import form's data model —
     # the form renders and edits it directly. Import stays internal.
     exports: [InboxItem, {Draft, []}]
