@@ -336,7 +336,21 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   @doc """
-  The row's one badge: what this item is, in the words that vary from row to
+  Whether the matcher found a recording the operator is waiting for.
+
+  Read off the item's own proposals rather than asked again per row:
+  `AutoMatch` marked them while it was ranking them, so this reports what the
+  matcher already decided instead of forming a second opinion at render time.
+  """
+  def wanted?(%InboxItem{matches: %{"recording" => %{"candidates" => candidates}}})
+      when is_list(candidates) do
+    Enum.any?(candidates, &(&1["wanted"] == true))
+  end
+
+  def wanted?(%InboxItem{}), do: false
+
+  @doc """
+  The row's state badge: what this item is, in the words that vary from row to
   row.
 
   One badge, not two. A pending row used to wear its status *and* its
@@ -349,6 +363,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   it is one nobody has asked. Counting it as one decision would send the
   operator to a form with nothing on it, so it says what is actually true and
   the card's progress line says what to do about it.
+
+  **One *state* badge, still.** `wanted?/1` can put a second badge beside this
+  one, and it does not reopen the argument this settled: the objection was to
+  a badge that read the same on every row in the tab, and a watched recording
+  is the rarest thing the queue ever has to say. It is also not a state — the
+  row can be in any of them and still be the one the operator went looking
+  for.
   """
   def state_words(%InboxItem{status: :pending, ready: true}), do: {"ready", :brand}
   def state_words(%InboxItem{status: :pending, draft: nil}), do: {"not prepared", :yellow}

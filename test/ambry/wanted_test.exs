@@ -226,6 +226,27 @@ defmodule Ambry.WantedTest do
     end
   end
 
+  describe "mark_released/2" do
+    test "links the recording that answered the watch" do
+      media = insert(:media, book: build(:book))
+      {:ok, watch} = Wanted.create_watch(attrs())
+
+      {:ok, released} = Wanted.mark_released(watch, media)
+
+      assert released.status == :released
+      assert released.media_id == media.id
+    end
+
+    test "settles without one, for a book the operator knows is out but hasn't got" do
+      {:ok, watch} = Wanted.create_watch(attrs())
+
+      {:ok, released} = Wanted.mark_released(watch)
+
+      assert released.status == :released
+      assert released.media_id == nil
+    end
+  end
+
   describe "reopen/1" do
     test "puts a settled watch back into waiting" do
       {:ok, watch} = Wanted.create_watch(attrs())

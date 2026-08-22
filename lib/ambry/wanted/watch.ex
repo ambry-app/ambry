@@ -74,6 +74,22 @@ defmodule Ambry.Wanted.Watch do
   end
 
   @doc """
+  The changeset for settling a watch against a recording.
+
+  Separate from `edit_changeset/2` on purpose: that one is the operator's
+  form, and `media_id` is not theirs to type. It is set by the import that
+  answered the watch, and casting it in the form changeset would both invite a
+  crafted parameter and — as this started out — silently drop the link when
+  the form changeset was reused here.
+  """
+  def settle_changeset(watch, attrs) do
+    watch
+    |> cast(attrs, [:status, :media_id])
+    |> validate_required([:status])
+    |> assoc_constraint(:media)
+  end
+
+  @doc """
   Whether the expected date has arrived.
 
   Deliberately not called `released?`. All this knows is that a date passed —

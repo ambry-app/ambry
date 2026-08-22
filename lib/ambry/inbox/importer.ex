@@ -71,6 +71,7 @@ defmodule Ambry.Inbox.Importer do
   alias Ambry.People.Narrator
   alias Ambry.Repo
   alias Ambry.Settings
+  alias Ambry.Wanted
 
   require Logger
 
@@ -111,8 +112,45 @@ defmodule Ambry.Inbox.Importer do
     log_finalize(Placement.finalize(outcome.placements), item)
     Placement.discard(outcome.vacated)
     retire(outcome)
+    settle_watches(item, outcome.media)
     :ok
   end
+
+  # The other end of the watch: the operator said they were waiting for this
+  # recording, and now it is in the library. Turning the nag off is the whole
+  # point -- a reminder the operator has to remember to dismiss is a reminder
+  # that outlived its usefulness.
+  #
+  # Keyed on the provider records the *draft* adopted, not on everything the
+  # matcher proposed: a candidate that was offered and passed over is no
+  # evidence that this file is that recording.
+  #
+  # Like everything else in `finish/2` it may not fail the import. The
+  # recording is already in the library, and a job reported as failed is a lie
+  # the operator acts on.
+  defp settle_watches(%InboxItem{} = item, %Media.Media{} = media) do
+    case adopted_refs(item) do
+      [] ->
+        :ok
+
+      refs ->
+        settled = Wanted.settle(refs, media)
+
+        Enum.each(settled, fn watch ->
+          Logger.info("Import satisfied a watch: #{watch.edition.title} (##{watch.id})")
+        end)
+    end
+  rescue
+    error ->
+      Logger.warning("Could not settle watches for item #{item.id}: #{inspect(error)}")
+      :ok
+  end
+
+  defp adopted_refs(%InboxItem{draft: %{recording: %{sources: sources}}}) when is_list(sources) do
+    Enum.map(sources, &{&1.source, &1.id})
+  end
+
+  defp adopted_refs(_item), do: []
 
   defp retire(%{retired: nil}), do: :ok
 

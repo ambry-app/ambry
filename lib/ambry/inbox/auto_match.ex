@@ -50,6 +50,7 @@ defmodule Ambry.Inbox.AutoMatch do
   alias Ambry.Metadata.Providers
   alias Ambry.Metadata.Registry
   alias Ambry.People
+  alias Ambry.Wanted
 
   require Logger
 
@@ -1027,10 +1028,44 @@ defmodule Ambry.Inbox.AutoMatch do
 
     level_result(
       query,
-      candidates |> Kernel.++(editions) |> dedupe_records() |> apply_narrator_evidence(hints),
+      candidates
+      |> Kernel.++(editions)
+      |> dedupe_records()
+      |> apply_narrator_evidence(hints)
+      |> mark_wanted(),
       outcomes ++ edition_outcomes,
       hints.author
     )
+  end
+
+  @doc """
+  Marks the candidates the operator is already waiting for.
+
+  A watch says *this recording is one I want*, which is a real prior on what
+  a new file turns out to be — the operator went looking for it on purpose.
+
+  **It does not move the score.** The scores answer "how well does this record
+  match this file", and a watch is evidence about the operator's intent, not
+  about the file: wanting a recording cannot make the bytes on disk more
+  likely to be it. Inflating a score with it would be the same dishonesty
+  `order_candidates/1` refuses when it declines to invent a gap between two
+  equals. So it orders equals and it labels, and the operator decides.
+  """
+  def mark_wanted(candidates), do: mark_wanted(candidates, Wanted.open_refs())
+
+  @doc false
+  def mark_wanted(candidates, wanted_refs) do
+    if Enum.empty?(wanted_refs) do
+      candidates
+    else
+      Enum.map(candidates, fn record ->
+        if MapSet.member?(wanted_refs, ref(record)) do
+          Map.put(record, "wanted", true)
+        else
+          record
+        end
+      end)
+    end
   end
 
   # An ASIN is a recording-level key, so when there is one it leads: a hit on
@@ -1458,8 +1493,14 @@ defmodule Ambry.Inbox.AutoMatch do
   actually spoke about.
   """
   def order_candidates(candidates) do
-    Enum.sort_by(candidates, &{&1["score"] || 0.0, corroboration(&1)}, :desc)
+    Enum.sort_by(candidates, &{&1["score"] || 0.0, wanted(&1), corroboration(&1)}, :desc)
   end
+
+  # Ahead of corroboration among equals: the file corroborating a narrator
+  # says this record fits what is on disk, and a watch says the operator went
+  # looking for this exact recording. Neither outranks a better score.
+  defp wanted(%{"wanted" => true}), do: 1
+  defp wanted(_record), do: 0
 
   defp corroboration(%{"narrator_evidence" => "supported"}), do: 2
   defp corroboration(%{"narrator_evidence" => "contradicted"}), do: 0

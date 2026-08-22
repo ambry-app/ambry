@@ -160,7 +160,9 @@ defmodule Ambry.Wanted do
   happened yet would keep nagging about something already handled.
   """
   def mark_released(%Watch{} = watch, media \\ nil) do
-    update_watch(watch, %{status: :released, media_id: media && media.id})
+    watch
+    |> Watch.settle_changeset(%{status: :released, media_id: media && media.id})
+    |> Repo.update()
   end
 
   @doc "Stops the nagging without claiming the recording arrived."
@@ -168,6 +170,49 @@ defmodule Ambry.Wanted do
 
   @doc "Puts a dismissed or released watch back into waiting."
   def reopen(%Watch{} = watch), do: update_watch(watch, %{status: :upcoming})
+
+  @doc """
+  The provider records the operator is waiting for, as `{provider, id}`.
+
+  A set, because the caller is asking the same question of every candidate in
+  a ranked list. Only watches still being waited on: a released or dismissed
+  watch has been answered, and an answered question should not keep colouring
+  what the inbox proposes.
+  """
+  def open_refs do
+    Watch
+    |> where([w], w.status == :upcoming)
+    |> select([w], {w.provider, w.provider_id})
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
+  Settles the watches an import answered, and says which.
+
+  Keyed on the provider records the operator adopted for the import, not on
+  what the matcher merely proposed: a candidate that was offered and passed
+  over is not evidence that this file is that recording. Returns the watches
+  it settled so the caller can say so.
+
+  Never raises and never fails the caller. This runs after the recording is
+  already in the library, where a raised error would report a successful
+  import as a failed one.
+  """
+  def settle(refs, media) do
+    refs = MapSet.new(refs)
+
+    Watch
+    |> where([w], w.status == :upcoming)
+    |> Repo.all()
+    |> Enum.filter(&MapSet.member?(refs, {&1.provider, &1.provider_id}))
+    |> Enum.flat_map(fn watch ->
+      case mark_released(watch, media) do
+        {:ok, settled} -> [settled]
+        {:error, _changeset} -> []
+      end
+    end)
+  end
 
   @doc """
   What to call the provider a watch's record came from.
