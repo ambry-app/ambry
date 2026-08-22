@@ -66,6 +66,14 @@ defmodule AmbryWeb.Admin.Layouts do
               {@inbox_pending}
             </span>
           </.link>
+          <%!-- No count here. The inbox badge is the only one in the nav
+                because the inbox is the only item that is a queue; what is
+                coming is a date, not a backlog, and it nags from the
+                dashboard where it can say which book. --%>
+          <.link navigate={~p"/admin/watches"} class={nav_class(@active_path =~ "/admin/watches")}>
+            <.icon name="fa-eye" class="h-5 w-5 text-current" />
+            <p>Watching</p>
+          </.link>
           <.link navigate={~p"/admin/locations"} class={nav_class(@active_path =~ "/admin/locations")}>
             <.icon name="fa-folder-tree" class="h-5 w-5 text-current" />
             <p>Locations</p>

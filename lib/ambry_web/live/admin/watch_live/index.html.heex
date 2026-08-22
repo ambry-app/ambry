@@ -1,0 +1,89 @@
+<.layout title={@page_title} user={@current_user} socket={@socket}>
+  <:subheader>
+    <.list_controls new_path={~p"/admin/watches/new"} />
+  </:subheader>
+
+  <.flex_table rows={@watches}>
+    <:empty>
+      Nothing on the horizon.
+      <.brand_link navigate={~p"/admin/watches/new"}>
+        Watch something.
+      </.brand_link>
+    </:empty>
+
+    <:row :let={watch}>
+      <.index_row record_id={watch.id} navigate={~p"/admin/watches/#{watch}/edit"}>
+        <:headline>
+          <span data-role="watch-title">{watch.edition.title}</span>
+        </:headline>
+
+        <:badges>
+          <%!-- The state is the only reason to open this page, so it is the
+                first thing on the row that isn't the book's name. "Date
+                passed" rather than "Released": all this knows is that the
+                day the provider promised has been and gone. --%>
+          <.badge :if={state(watch, @today) == :due} color={:yellow} data-role="watch-due-badge">
+            Date passed
+          </.badge>
+          <.badge :if={state(watch, @today) == :released} color={:brand}>Released</.badge>
+          <.badge :if={state(watch, @today) == :dismissed} color={:gray}>Not watching</.badge>
+          <.badge color={:gray} title="Where this record came from">
+            {provider_words(watch.provider)}
+          </.badge>
+        </:badges>
+
+        <.credit_lines
+          authors={credited(watch.edition.authors)}
+          narrators={credited(watch.edition.narrators)}
+        />
+
+        <:footer>
+          <span data-role="watch-when">{when_words(watch, @today)}</span>
+          <span :if={watch.edition.publisher}>· {watch.edition.publisher}</span>
+        </:footer>
+
+        <:action
+          :if={watch.status != :released}
+          icon="fa-check"
+          color={:brand}
+          click="mark-released"
+          value={watch.id}
+          role="mark-released"
+        >
+          It's out
+        </:action>
+        <:action
+          :if={watch.status == :upcoming}
+          icon="fa-eye-slash"
+          click="dismiss"
+          value={watch.id}
+          role="dismiss-watch"
+        >
+          Stop watching
+        </:action>
+        <:action
+          :if={watch.status != :upcoming}
+          icon="fa-rotate-left"
+          click="reopen"
+          value={watch.id}
+          role="reopen-watch"
+        >
+          Watch again
+        </:action>
+        <:action navigate={~p"/admin/watches/#{watch}/edit"} icon="fa-pencil" role="edit-watch">
+          Edit
+        </:action>
+        <:action
+          icon="fa-trash"
+          color={:red}
+          click="delete"
+          value={watch.id}
+          confirm={"Forget \"#{watch.edition.title}\" entirely? \"Stop watching\" keeps the record of having decided."}
+          role="delete-watch"
+        >
+          Forget
+        </:action>
+      </.index_row>
+    </:row>
+  </.flex_table>
+</.layout>

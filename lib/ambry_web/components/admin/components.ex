@@ -166,8 +166,12 @@ defmodule AmbryWeb.Admin.Components do
   def list_controls(assigns) do
     ~H"""
     <div class="flex items-end gap-4">
+      <%!-- The attr is optional, so the form has to be too: a short list
+            that is never searched (what you are waiting for) still wants the
+            New button, and the grow div stays either way so the button keeps
+            its corner. --%>
       <div class="grow">
-        <.admin_table_search_form search_form={@search_form} />
+        <.admin_table_search_form :if={@search_form} search_form={@search_form} />
       </div>
       <%!-- A list page's one constructive action, so it wears §6's primary
             costume — the same solid button the inbox's "Scan for new" has
