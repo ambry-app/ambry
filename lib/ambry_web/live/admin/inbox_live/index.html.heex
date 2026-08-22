@@ -104,6 +104,17 @@
             </:action>
 
             <:action
+              :if={reopenable?(item)}
+              icon="fa-rotate-left"
+              click="reopen"
+              value={item.id}
+              title="Make its decisions again. The library is untouched."
+              confirm="Put this back in the queue? Nothing in the library changes."
+            >
+              Re-open
+            </:action>
+
+            <:action
               navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
               icon="fa-inbox"
               title="What was imported, and from where"
@@ -187,6 +198,17 @@
                   the decisions that produced it. Off the row by design, one
                   click away because a wrong import is diagnosed there. --%>
               <:action
+                :if={reopenable?(item)}
+                icon="fa-rotate-left"
+                click="reopen"
+                value={item.id}
+                title="Make its decisions again. The library is untouched."
+                confirm="Put this back in the queue? Nothing in the library changes."
+              >
+                Re-open
+              </:action>
+
+              <:action
                 navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
                 icon="fa-inbox"
                 title="What was imported, and from where"
@@ -210,6 +232,17 @@
               </:headline>
 
               <p class="text-sm text-zinc-400">The audiobook this became has been deleted.</p>
+
+              <:action
+                :if={reopenable?(item)}
+                icon="fa-rotate-left"
+                click="reopen"
+                value={item.id}
+                title="Make its decisions again. The library is untouched."
+                confirm="Put this back in the queue? Nothing in the library changes."
+              >
+                Re-open
+              </:action>
 
               <:action
                 navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
@@ -329,9 +362,21 @@
           </div>
 
           <%!-- One badge. Inside a tab named for the status, printing the
-                status on every row says nothing; what the row owes does. --%>
+                status on every row says nothing; what the row owes does.
+
+                Missing outranks it: what a row owes stops mattering when
+                there is nothing left to do it to, and red is the blocker
+                colour (§5). --%>
           <:badges>
-            <.badge color={elem(state_words(item), 1)} class="text-xs" data-role="item-state">
+            <.badge :if={missing?(item)} color={:red} class="text-xs" data-role="item-missing">
+              missing
+            </.badge>
+            <.badge
+              :if={!missing?(item)}
+              color={elem(state_words(item), 1)}
+              class="text-xs"
+              data-role="item-state"
+            >
               {elem(state_words(item), 0)}
             </.badge>
           </:badges>
@@ -372,7 +417,7 @@
             :if={item.status == :pending}
             icon="fa-check"
             color={:brand}
-            disabled={!item.ready}
+            disabled={!item.ready or missing?(item)}
             click="import"
             value={item.id}
             title={import_title(item)}

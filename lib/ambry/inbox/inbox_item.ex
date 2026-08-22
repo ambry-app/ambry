@@ -83,6 +83,13 @@ defmodule Ambry.Inbox.InboxItem do
     field :files, {:array, :string}, default: []
     field :excluded_files, {:array, :string}, default: []
     field :status, Ecto.Enum, values: @statuses, default: :pending
+
+    # When this item's files stopped being there. Deliberately not a status
+    # value, for the reason `media.missing_since` isn't one: status is where
+    # the operator has taken this item, and missing is orthogonal to that and
+    # reversible. A pending item whose files come back is pending again with
+    # its decisions intact, and an unplugged NAS doesn't rewrite the queue.
+    field :missing_since, :utc_datetime
     field :probe, :map
     field :tags, :map
     field :matches, :map

@@ -66,6 +66,25 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     {:noreply, reload(socket)}
   end
 
+  # Nothing in the library moves. The flash says so, because "re-open" beside
+  # a row that is wearing an audiobook could otherwise read as undoing the
+  # import rather than reopening the paperwork.
+  def handle_event("reopen", %{"id" => id}, socket) do
+    id
+    |> Inbox.get_item!()
+    |> Inbox.reopen_item()
+    |> case do
+      {:ok, _item} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Back in the queue. The library is untouched.")
+         |> reload()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
+    end
+  end
+
   # Queued, not run here. Importing re-probes every file and then copies every
   # byte, and doing that inside `handle_event` blocked the whole LiveView —
   # the queue froze for the length of a NAS copy, with no sign the click had
@@ -348,11 +367,30 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp status_color(:ignored), do: :gray
 
   @doc """
+  Whether this item's files have gone away since it was found.
+  """
+  def missing?(%InboxItem{missing_since: at}), do: not is_nil(at)
+
+  @doc """
+  Whether an imported item can go back into the queue.
+
+  The files it would be worked on again have to still be there. A `move`
+  placement consumed its source at import time, so those never can, and that
+  is the right answer rather than a gap.
+  """
+  def reopenable?(%InboxItem{status: :imported} = item), do: Inbox.item_files_present?(item)
+  def reopenable?(%InboxItem{}), do: false
+
+  @doc """
   What the Import button promises, or why it won't.
 
   A disabled control that doesn't say what is missing is just a dead button;
   the count comes from the same `Draft.unresolved/1` the form lists in full.
   """
+  # Nothing else on the row can be the reason: an item whose files are gone
+  # has nothing to import whatever its decisions say.
+  def import_title(%InboxItem{missing_since: at}) when not is_nil(at), do: "The files are gone"
+
   def import_title(%InboxItem{ready: false, draft: nil}),
     do: "Nothing has been proposed for this yet"
 

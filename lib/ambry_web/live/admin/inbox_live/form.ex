@@ -1103,7 +1103,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # facts about the world rather than about the draft — a root that went
       # away, an audiobook that was deleted — so they're read here and not
       # counted as outstanding decisions.
-      blocker: destination.blocker || replacement_blocker(replacing, replaces),
+      blocker:
+        missing_blocker(item) || destination.blocker ||
+          replacement_blocker(replacing, replaces),
       # What each level's search box starts from, resolved once per load
       # rather than per render — the hints are parsed out of the release
       # text.
@@ -1462,6 +1464,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   # moment the button is pressed, and the one thing this form may not do is
   # offer an action that fails. Not an unresolved *decision* — the operator
   # answered the question, and the answer stopped being true.
+  # The first thing that can be wrong with an import, and the one that makes
+  # every other answer moot: there is nothing left to import. Read here with
+  # the other two because it is the same kind of fact — about the world, not
+  # about the draft — and an outstanding decision is not what it is.
+  defp missing_blocker(%{missing_since: nil}), do: nil
+  defp missing_blocker(%{}), do: Inbox.describe_error(:files_missing)
+
   defp replacement_blocker(true, nil),
     do:
       "The audiobook this was going to replace has been deleted. " <>

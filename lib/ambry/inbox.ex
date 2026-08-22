@@ -47,8 +47,16 @@ defmodule Ambry.Inbox do
       stale, since the draft describes files that moved under it), where
       "gone" means no candidate in the whole walk claimed it.
 
-  It may never move a file from one item to another, and it never touches an
-  imported item at all. That is what makes a split *and* a combine durable
+  It may never move a file from one item to another, and it never changes
+  what an imported item holds.
+
+  Recording *whether* an item's files are still there is a separate pass with
+  a separate rule — see `Ambry.Inbox.Reconciliation`. It runs over every item
+  of the source, imported ones included, because "can this be re-opened" is a
+  question about an imported item that something has to be able to answer. It
+  asks the filesystem rather than the walk's claims: ownership says which
+  item a file belongs to, existence says whether it is there, and reading one
+  as the other is how the two come to disagree. That is what makes a split *and* a combine durable
   without a marker: once the operator says five folders are five releases, or
   that three are one, the files are owned, and re-walking the folder that
   holds them has nothing to say. It is a property of the construction rather
@@ -76,6 +84,7 @@ defmodule Ambry.Inbox do
   alias Ambry.Inbox.Lookup
   alias Ambry.Inbox.Preflight
   alias Ambry.Inbox.Progress
+  alias Ambry.Inbox.Reconciliation
   alias Ambry.Inbox.ReleaseName
   alias Ambry.Inbox.RunDiscovery
   alias Ambry.Inbox.RunImport
@@ -328,11 +337,18 @@ defmodule Ambry.Inbox do
 
       results = List.flatten(creations) ++ Enum.map(claims, &refresh_claim/1)
 
+      # After the walk, and asking the disk rather than the claims: whether a
+      # file exists and which item owns it are different questions, and this
+      # one has to be answerable for an item the walk deliberately skips.
+      {:ok, %{missing: missing, healed: healed}} = Reconciliation.reconcile_source(source)
+
       {:ok,
        %{
          created: Enum.count(results, &(&1 == :created)),
          updated: Enum.count(results, &(&1 == :updated)),
          skipped: Enum.count(results, &(&1 == :skipped)),
+         missing: missing,
+         healed: healed,
          unreachable: 0
        }}
     else
@@ -992,6 +1008,10 @@ defmodule Ambry.Inbox do
   Nothing is published: the recording is created `pending`.
   """
   def import_item(%InboxItem{} = item) do
+    if Reconciliation.present?(item), do: do_import_item(item), else: {:error, :files_missing}
+  end
+
+  defp do_import_item(%InboxItem{} = item) do
     case Importer.import_item(item) do
       {:ok, media} ->
         # Bookkeeping, and it runs after the records are committed. Neither
@@ -1132,6 +1152,12 @@ defmodule Ambry.Inbox do
 
   def describe_error({:source_missing, _path}), do: "The file has gone away since it was found."
 
+  # The refusal `import_item/1` makes before the importer is entered at all.
+  # The same fact `{:source_missing, _}` reports from inside placement, found
+  # by the scan instead of by the write, which is the point of finding it.
+  def describe_error(:files_missing),
+    do: "This item's files are gone. Nothing can be imported from it until they come back."
+
   # The refusal this whole phase is built around, so it says what to do
   # rather than just what failed.
   def describe_error({:cross_filesystem, _source, _destination}),
@@ -1251,6 +1277,48 @@ defmodule Ambry.Inbox do
   def ignore_item(%InboxItem{} = item), do: update_item(item, %{status: :ignored})
 
   def restore_item(%InboxItem{} = item), do: update_item(item, %{status: :pending})
+
+  @doc """
+  Whether this item's files are all still there.
+
+  One answer, because the badge, the import and the re-open control all ask
+  it and two of them disagreeing is worse than any of them being wrong.
+  """
+  defdelegate item_files_present?(item), to: Reconciliation, as: :present?
+
+  @doc """
+  Puts an imported item back in the queue, so its decisions can be made again.
+
+  There is no undo for an import, and this is deliberately not one: nothing
+  in the library is touched, no files move, and the recording goes on playing
+  exactly what it was playing. All that changes is that this item is work
+  again. Getting a replaced audiobook back onto its old files is then an
+  ordinary import — open it, point the replace decision at the recording,
+  Add — rather than a reversal mechanism with its own rules.
+
+  **Its claim on the audiobook is dropped.** `media_id` and
+  `superseded_by_id` both go, because a pending item has not imported
+  anything: leaving them would have the queue holding a row that says it
+  produced a recording it is no longer the record of, which is the half-truth
+  this whole area has been about. The draft stays exactly as it was, since it
+  is the operator's curation and re-opening is not a reason to throw it away.
+
+  Refused when the files are gone. There is nothing to make decisions about,
+  and the only thing re-opening could produce is an item that cannot import.
+  """
+  def reopen_item(%InboxItem{status: :imported} = item) do
+    if Reconciliation.present?(item) do
+      item
+      |> InboxItem.changeset(%{status: :pending, media_id: nil, issue: nil})
+      |> Ecto.Changeset.put_change(:superseded_by_id, nil)
+      |> InboxItem.versioned()
+      |> Repo.update()
+    else
+      {:error, :files_missing}
+    end
+  end
+
+  def reopen_item(%InboxItem{}), do: {:error, :not_imported}
 
   def delete_item(%InboxItem{} = item), do: Repo.delete(item)
 
