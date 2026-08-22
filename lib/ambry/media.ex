@@ -448,9 +448,12 @@ defmodule Ambry.Media do
   def get_media!(id),
     do:
       Media
-      |> preload([:book, :media_narrators, :media_tracks, :recording_group])
+      |> preload([:book, :media_narrators, :recording_group, media_tracks: :library_root])
       |> Repo.get!(id)
 
+  # Tracks carry the root their paths are relative to, and the form says
+  # which one that is, so the root comes along rather than being fetched
+  # per track by whoever renders them.
   @doc """
   Gets a media and the book with all its details.
   """

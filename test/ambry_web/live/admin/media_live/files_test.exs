@@ -46,15 +46,38 @@ defmodule AmbryWeb.Admin.MediaLive.FilesTest do
     assert html =~ "Streaming files"
   end
 
-  # An import's shape: tracks, and neither of the transcode columns.
-  defp imported_media do
-    media = insert(:media, book: build(:book), status: :ready)
+  test "the files say which library root they are in", %{conn: conn} do
+    media = imported_media(root: insert(:root, name: "Audiobooks"))
 
-    insert(:media_track,
-      media: media,
-      index: 0,
-      path: "/uploads/source_media/#{Ecto.UUID.generate()}/The Way of Kings.m4b"
-    )
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+    assert has_element?(view, "[data-role='files-header'] [data-role='place']", "Audiobooks")
+  end
+
+  # A track can sit outside every root, and a badge that named one anyway
+  # would state a fact the database does not hold.
+  test "a recording outside every root names none", %{conn: conn} do
+    media = imported_media()
+
+    {:ok, view, _html} = live(conn, ~p"/admin/audiobooks/#{media}/edit")
+
+    assert has_element?(view, "[data-role='files-header']")
+    refute has_element?(view, "[data-role='files-header'] [data-role='place']")
+  end
+
+  # An import's shape: tracks, and neither of the transcode columns.
+  defp imported_media(opts \\ []) do
+    media = insert(:media, book: build(:book), status: :ready)
+    root = Keyword.get(opts, :root)
+
+    # `media_tracks_path_resolvable`: a path under a root is relative to it,
+    # and a path with no root is an absolute one under uploads.
+    path =
+      if root,
+        do: "Sanderson/The Way of Kings/The Way of Kings.m4b",
+        else: "/uploads/source_media/#{Ecto.UUID.generate()}/The Way of Kings.m4b"
+
+    insert(:media_track, media: media, index: 0, library_root: root, path: path)
 
     {:ok, media} =
       media.id

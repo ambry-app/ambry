@@ -17,6 +17,33 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
   setup :register_and_log_in_admin_user
 
+  describe "the item card" do
+    # What this item is and what is in it were never two subjects, so they are
+    # one card. The containment is the assertion: a sibling card would satisfy
+    # any test that only looked for the file list somewhere on the page.
+    test "the files are in the item card, not a card of their own", %{conn: conn} do
+      item = probed_item()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(view, "[data-role='item-card'] [data-role='files-header']")
+    end
+
+    # The tag names where these paths are, so it belongs on the list of them
+    # rather than beside the title.
+    test "the source is named on the file list", %{conn: conn} do
+      item = probed_item() |> Repo.preload(:source)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      assert has_element?(
+               view,
+               "[data-role='files-header'] [data-role='place']",
+               item.source.name
+             )
+    end
+  end
+
   describe "the invariant" do
     test "an unsettled item can't be imported", %{conn: conn} do
       item = probed_item()
