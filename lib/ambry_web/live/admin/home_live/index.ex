@@ -56,6 +56,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
   alias Ambry.Library
   alias Ambry.Media
   alias Ambry.People
+  alias Ambry.Wanted
 
   # Signals arrive in bursts — a queue draining forty items is forty of them
   # — and the answer to a burst is one reload.
@@ -123,6 +124,7 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
       jobs: Jobs.summary(),
       failures: Jobs.recent_failures(),
       media_problems: Media.problem_counts(),
+      watches: Wanted.summary(),
       inventory: inventory()
     )
   end
@@ -395,6 +397,22 @@ defmodule AmbryWeb.Admin.HomeLive.Index do
       <p class="text-xs text-zinc-400">{render_slot(@inner_block)}</p>
     </.link>
     """
+  end
+
+  @doc """
+  What the Upcoming card says when nothing is due.
+
+  Not "all clear" — nothing is wrong when a book simply isn't out yet. The
+  card earns its place by naming the next one, because *am I waiting on
+  anything?* is a real question and a blank card is not an answer to it.
+  """
+  def next_words(%{next: nil, upcoming_count: 0}), do: "Not waiting for anything."
+
+  def next_words(%{next: nil}), do: "Waiting, but nothing has a date yet."
+
+  def next_words(%{next: watch}) do
+    "Nothing out yet. Next: #{watch.edition.title}, " <>
+      Calendar.strftime(watch.expected_release_date, "%b %-d")
   end
 
   # An empty state states itself, on the rail, rather than leaving a blank

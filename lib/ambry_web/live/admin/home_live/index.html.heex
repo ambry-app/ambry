@@ -18,6 +18,35 @@
           </.all_clear>
         </.card>
 
+        <%!-- A watch six months out is a fact, not a bad state, so the
+              headline counts only what is due: the date the provider promised
+              has been and gone and nobody has said what happened. That is the
+              tile test — it can be in a bad state, and clicking it lands where
+              you would fix it.
+
+              Queue-shaped rather than problem-shaped, so nothing-due still
+              renders: "what am I waiting for next" is worth the glance, and a
+              card that vanished would take the answer with it. --%>
+        <.card label="Upcoming" navigate={~p"/admin/watches"} link_words="See what you're watching">
+          <div :if={@watches.due_count > 0}>
+            <.headline_stat count={@watches.due_count} tone={:amber} role="watches-due-count">
+              {(@watches.due_count == 1 && "book's date has passed") || "books' dates have passed"}
+            </.headline_stat>
+            <ul class="space-y-1 pt-3 pl-3">
+              <li
+                :for={watch <- Enum.take(@watches.due, 3)}
+                class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-300"
+                data-role="due-watch"
+              >
+                {watch.edition.title}
+              </li>
+            </ul>
+          </div>
+          <.all_clear :if={@watches.due_count == 0}>
+            {next_words(@watches)}
+          </.all_clear>
+        </.card>
+
         <.card label="Problems">
           <div :if={problem_rows(assigns) != []} class="space-y-2">
             <.link
