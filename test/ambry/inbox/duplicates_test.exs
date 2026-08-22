@@ -63,6 +63,106 @@ defmodule Ambry.Inbox.DuplicatesTest do
     end
   end
 
+  describe "dismiss/2 and restore/2" do
+    # The pair production actually had this argument about: the importer folds
+    # "Saga" and "Trilogy" together, correctly, and these are still two real
+    # series the operator keeps apart.
+    defp mistborn do
+      saga = insert(:series, name: "The Mistborn Saga")
+      trilogy = insert(:series, name: "The Mistborn Trilogy")
+
+      {saga, trilogy}
+    end
+
+    test "a dismissed set stops being a finding" do
+      {saga, trilogy} = mistborn()
+
+      assert Duplicates.count() == 1
+
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+
+      assert Duplicates.check() == []
+      assert Duplicates.count() == 0
+    end
+
+    test "a dismissed set is still readable, so it can be taken back" do
+      {saga, trilogy} = mistborn()
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+
+      assert %{found: [], dismissed: [group]} = Duplicates.report()
+      assert group.kind == :series
+      assert Enum.map(group.records, & &1.id) == Enum.sort([saga.id, trilogy.id])
+
+      # It carries what points at it exactly as a finding does, because the
+      # question it answers is the same one.
+      assert [%{uses: %{books: 0}}, %{uses: %{books: 0}}] = group.records
+    end
+
+    test "restore puts it back" do
+      {saga, trilogy} = mistborn()
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+      :ok = Duplicates.restore(:series, [saga.id, trilogy.id])
+
+      assert %{found: [_group], dismissed: []} = Duplicates.report()
+      assert Duplicates.count() == 1
+    end
+
+    # The property the whole design turns on. A dismissal settles the set that
+    # was looked at, and a set that grew is not that set.
+    test "a set that gains a member is a finding again" do
+      {saga, trilogy} = mistborn()
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+      assert Duplicates.count() == 0
+
+      third = insert(:series, name: "Mistborn")
+
+      assert %{found: [group], dismissed: []} = Duplicates.report()
+
+      assert Enum.map(group.records, & &1.id) ==
+               Enum.sort([saga.id, trilogy.id, third.id])
+    end
+
+    test "the order the members are given in does not matter" do
+      {saga, trilogy} = mistborn()
+
+      :ok = Duplicates.dismiss(:series, [trilogy.id, saga.id])
+
+      assert Duplicates.count() == 0
+    end
+
+    # The page it is clicked from can be open twice.
+    test "dismissing the same set twice is one dismissal" do
+      {saga, trilogy} = mistborn()
+
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+
+      assert Duplicates.count() == 0
+      assert %{dismissed: [_one]} = Duplicates.report()
+    end
+
+    # Nothing sweeps a dismissal whose members are gone, and nothing needs to:
+    # it can never match a group again.
+    test "a dismissal outliving its members is inert, not wrong" do
+      {saga, trilogy} = mistborn()
+      :ok = Duplicates.dismiss(:series, [saga.id, trilogy.id])
+
+      Ambry.Repo.delete!(trilogy)
+
+      assert %{found: [], dismissed: []} = Duplicates.report()
+      assert Duplicates.count() == 0
+    end
+
+    test "one kind's dismissal does not settle another kind's set" do
+      one = insert(:book, title: "The Princess Bride")
+      two = insert(:book, title: "Princess Bride")
+
+      :ok = Duplicates.dismiss(:series, [one.id, two.id])
+
+      assert Duplicates.count() == 1
+    end
+  end
+
   describe "scanned/0" do
     # A report of nothing has to be able to say what nothing covers, or it
     # reads the same as a report that never ran.

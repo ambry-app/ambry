@@ -803,11 +803,26 @@ defmodule Ambry.Inbox do
   defdelegate duplicates, to: Duplicates, as: :check
 
   @doc """
+  The sets still asking a question and the sets already answered, in one pass.
+  """
+  defdelegate duplicates_report, to: Duplicates, as: :report
+
+  @doc """
   How many such sets there are, and how many records were examined.
   """
   defdelegate duplicate_count, to: Duplicates, as: :count
 
   defdelegate duplicates_scanned, to: Duplicates, as: :scanned
+
+  @doc """
+  Records a set of records as deliberately distinct, and puts one back.
+
+  Two series that fold to one key may be two real series; the report cannot
+  tell, and neither may it stop saying so. This is where the operator says.
+  """
+  defdelegate dismiss_duplicates(kind, record_ids), to: Duplicates, as: :dismiss
+
+  defdelegate restore_duplicates(kind, record_ids), to: Duplicates, as: :restore
 
   @doc """
   How a provider record is referred to: its provider and that provider's id.

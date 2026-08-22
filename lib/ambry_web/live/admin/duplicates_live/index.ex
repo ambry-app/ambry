@@ -23,11 +23,34 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   context certainly may not. Each record says what points at it, because the
   question a pair raises is which one can go, and that is answered by the one
   nothing references.
+
+  ## The one thing it can be told
+
+  A set can be marked intentional, because some correct findings have no
+  record to remove: the importer's rule folds a companion series into its
+  parent, and two spellings of one shelf that an operator keeps apart stay
+  found forever otherwise. That is the only action here, and it is the
+  opposite of a merge — it says these are two things, not one.
+
+  Marked sets fold rather than vanish, and the empty state says how many
+  there are. A page whose whole job is to be believed cannot let "nothing
+  found" and "nothing you have not already waved off" read identically, which
+  is the same argument that puts the scanned counts at the top.
   """
 
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Inbox
+
+  # The order the sections are laid out in, and the whitelist a dismissal's
+  # `kind` param is matched against. One list, because a kind the page can
+  # draw and a kind it will accept are the same list.
+  @kinds ~w(person author narrator book series)a
+
+  @doc """
+  The kinds, in the order their sections appear.
+  """
+  def kinds, do: @kinds
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -40,9 +63,36 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @impl Phoenix.LiveView
   def handle_event("reload", _params, socket), do: {:noreply, load(socket)}
 
-  defp load(socket) do
-    assign(socket, groups: Inbox.duplicates(), scanned: Inbox.duplicates_scanned())
+  def handle_event("dismiss", %{"kind" => kind, "ids" => ids}, socket) do
+    Inbox.dismiss_duplicates(kind(kind), ids(ids))
+
+    {:noreply,
+     socket
+     |> load()
+     |> put_flash(:info, "Marked intentional. It is in the fold at the bottom of this page.")}
   end
+
+  def handle_event("restore", %{"kind" => kind, "ids" => ids}, socket) do
+    Inbox.restore_duplicates(kind(kind), ids(ids))
+
+    {:noreply, socket |> load() |> put_flash(:info, "Back in the report.")}
+  end
+
+  defp load(socket) do
+    report = Inbox.duplicates_report()
+
+    assign(socket,
+      found: report.found,
+      dismissed: report.dismissed,
+      scanned: Inbox.duplicates_scanned()
+    )
+  end
+
+  # Matched against the kinds rather than `to_existing_atom/1`: the page is
+  # admin-only, but a param is a param, and the list is five words long.
+  defp kind(value), do: Enum.find(@kinds, &(to_string(&1) == value))
+
+  defp ids(value), do: value |> String.split(",") |> Enum.map(&String.to_integer/1)
 
   @doc """
   One record in a set: what it is called, and what still points at it.
@@ -93,6 +143,29 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   The groups of one kind, in the order the sections are laid out.
   """
   def of_kind(groups, kind), do: Enum.filter(groups, &(&1.kind == kind))
+
+  @doc """
+  A set's members, as the value the dismiss and undo buttons carry.
+  """
+  def ids_value(%{records: records}), do: Enum.map_join(records, ",", & &1.id)
+
+  @doc """
+  What an empty report is allowed to claim.
+
+  "Nothing here twice" stops being true the moment a set has been marked
+  intentional: those records *are* here twice and the operator has said it is
+  fine. Saying the plain thing anyway would make this page the one thing it
+  may not be, which is wrong while looking reassuring.
+  """
+  def all_clear_words([]), do: "Nothing in the library is here twice."
+
+  def all_clear_words(_dismissed), do: "Nothing here twice that you have not already answered."
+
+  @doc """
+  The fold's summary.
+  """
+  def dismissed_words([_one]), do: "1 set marked intentional"
+  def dismissed_words(dismissed), do: "#{length(dismissed)} sets marked intentional"
 
   @doc """
   The heading a kind's section wears, and the sentence under it.
