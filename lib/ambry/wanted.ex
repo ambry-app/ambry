@@ -29,42 +29,31 @@ defmodule Ambry.Wanted do
   alias Ambry.Wanted.Watch
 
   @doc """
-  Every watch, loudest first.
+  Every watch, loudest first: what is still coming, soonest first, then what
+  has been settled. A watch with no date sorts after the dated ones.
 
-  Ordering is by who is waiting on whom, matching the admin dashboard: due
-  first, then what is still coming in date order, then what has been settled.
-  A watch with no date sorts after the dated ones.
+  Due watches need no rank of their own -- due is an upcoming watch whose date
+  has passed, so ordering the upcoming ones by date floats them to the top.
+
+  Ordered in SQL, not by `Enum.sort_by/2`: a `Date` inside a sort-key tuple is
+  compared in Erlang term order, which ranks the struct's `day` above its
+  `year`. The title tiebreaker only settles watches sharing a status and a
+  date, so the list is stable between reloads.
   """
   def list_watches(opts \\ []) do
-    today = Keyword.get(opts, :today, Date.utc_today())
-
     Watch
     |> maybe_filter_status(Keyword.get(opts, :status))
+    |> order_by([w],
+      asc: fragment("CASE ? WHEN 'upcoming' THEN 0 WHEN 'released' THEN 1 ELSE 2 END", w.status),
+      asc_nulls_last: w.expected_release_date,
+      asc: fragment("? ->> 'title'", w.edition)
+    )
     |> Repo.all()
     |> Repo.preload(:media)
-    |> Enum.sort_by(&sort_key(&1, today))
   end
 
   defp maybe_filter_status(query, nil), do: query
   defp maybe_filter_status(query, status), do: where(query, [w], w.status == ^status)
-
-  defp sort_key(watch, today) do
-    {status_rank(watch, today), date_rank(watch), watch.edition.title || ""}
-  end
-
-  defp status_rank(watch, today) do
-    cond do
-      Watch.due?(watch, today) -> 0
-      watch.status == :upcoming -> 1
-      watch.status == :released -> 2
-      true -> 3
-    end
-  end
-
-  # `:infinity` would not compare against a Date. A far-future sentinel keeps
-  # undated watches last without special-casing the comparison.
-  defp date_rank(%Watch{expected_release_date: nil}), do: ~D[9999-12-31]
-  defp date_rank(%Watch{expected_release_date: date}), do: date
 
   @doc "The watches whose expected date has arrived and that nobody has settled."
   def list_due(today \\ Date.utc_today()) do
