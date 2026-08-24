@@ -209,7 +209,7 @@ defmodule Ambry.Wanted.SearchTest do
       {candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "Neuromancer"})
 
       assert candidates == []
-      assert Enum.any?(notes, &(&1 =~ "2 already published"))
+      assert notes == ["2 already released not shown."]
     end
 
     test "an undated record is not evidence of the future either" do
@@ -222,7 +222,7 @@ defmodule Ambry.Wanted.SearchTest do
       {candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "Someday"})
 
       assert candidates == []
-      assert Enum.any?(notes, &(&1 =~ "no announced date"))
+      assert notes == ["1 with no date not shown."]
     end
 
     test "today is not the future; something out this morning is already out" do
@@ -243,9 +243,10 @@ defmodule Ambry.Wanted.SearchTest do
     end
   end
 
-  # A provider that can find the book but not list its recordings has nothing
-  # to offer a watch, and saying so beats a silent absence.
-  test "says when a provider could not contribute rather than staying quiet" do
+  # Finding the book is not finding an audiobook. A work-level provider that
+  # cannot then say which recordings the work has is not asked at all, rather
+  # than asked and then apologised for.
+  test "a provider that cannot list a work's recordings is never asked" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config -> {:ok, []} end)
     no_hardcover_results()
 
@@ -253,9 +254,11 @@ defmodule Ambry.Wanted.SearchTest do
       {:ok, [%Provider.Book{provider: "rreading_glasses", id: "w1", title: "A Book"}]}
     end)
 
-    {_candidates, _outcomes, notes} = Search.candidates(%Provider.Query{title: "A Book"})
+    {_candidates, outcomes, notes} = Search.candidates(%Provider.Query{title: "A Book"})
 
-    assert Enum.any?(notes, &(&1 =~ "audio editions"))
+    refute_called(Ambry.Metadata.Providers.RreadingGlasses.search_books(_, _))
+    refute Enum.any?(outcomes, &(&1["id"] =~ "rreading_glasses"))
+    assert notes == []
   end
 
   @tag :capture_log

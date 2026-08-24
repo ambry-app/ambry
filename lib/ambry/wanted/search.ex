@@ -2,13 +2,15 @@ defmodule Ambry.Wanted.Search do
   @moduledoc """
   Finding an audiobook to watch, across every provider that can name one.
 
-  **Every enabled provider that can produce audio editions is asked**, in the
+  **A provider is asked when it can produce audio editions**, in the
   registry's configured order. That is the whole selection rule; nothing here
-  names a provider.
+  names a provider. Finding the book is not finding an audiobook, so a
+  work-level provider that cannot then say which recordings a work has is not
+  asked at all — it would cost a request and contribute nothing.
 
-  What differs between them is shape. Some answer with recordings directly,
-  and nothing needs expanding. Some answer with works, so each is expanded
-  through `editions/2` into the audio editions it has.
+  What differs between the ones that are asked is shape. Some answer with
+  recordings directly, and nothing needs expanding. Some answer with works,
+  so each is expanded through `editions/2` into the audio editions it has.
 
   Asking all of them matters because they disagree about what exists, in both
   directions: a catalogue of what is *for sale* carries preorders and drops
@@ -23,8 +25,7 @@ defmodule Ambry.Wanted.Search do
 
   Only what has not come out yet: a watch is a thing to be reminded about, so
   candidates are filtered to a known future release date, and undated records
-  go too. This is the one place that hides results, so it says how many and
-  why.
+  go too. This is the one place that hides results, so it says how many.
 
   Every matched work is opened, never the first few: a work-level search ranks
   by its own idea of relevance and the recording the operator wants can sit
@@ -35,6 +36,7 @@ defmodule Ambry.Wanted.Search do
   alias Ambry.Inbox
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
+  alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search
   alias Ambry.Wanted.Edition
 
@@ -51,8 +53,8 @@ defmodule Ambry.Wanted.Search do
   Every recording the enabled providers can offer for this query.
 
   Answers `{candidates, outcomes, notes}`: candidates best first whoever
-  found them, one outcome map per provider asked, and any notes about coverage
-  this search knowingly cut.
+  found them, one outcome map per provider asked, and any notes about what
+  was found and not shown.
   """
   def candidates(%Provider.Query{} = query, opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
@@ -86,16 +88,13 @@ defmodule Ambry.Wanted.Search do
     {dated, undated} = Enum.split_with(dropped, & &1.published)
 
     [
-      Enum.join(
-        Enum.reject(
-          [
-            dated != [] && "#{length(dated)} already published",
-            undated != [] && "#{length(undated)} with no announced date"
-          ],
-          &(&1 == false)
-        ),
-        ", "
-      ) <> ", not shown. A watch is for something still to come."
+      [
+        dated != [] && "#{length(dated)} already released",
+        undated != [] && "#{length(undated)} with no date"
+      ]
+      |> Enum.filter(&is_binary/1)
+      |> Enum.join(", ")
+      |> Kernel.<>(" not shown.")
     ]
   end
 
@@ -112,12 +111,25 @@ defmodule Ambry.Wanted.Search do
   end
 
   defp work_level(query, hints, opts) do
-    {found, outcomes} = Search.books(query, Keyword.put(opts, :level, :work))
-
-    Enum.reduce(found, {[], outcomes, []}, fn {entry, works}, {candidates, outs, notes} ->
+    Enum.reduce(edition_capable(), {[], [], []}, fn entry, {candidates, outs, notes} ->
+      {works, outcome} = Search.books_one(entry, query, opts)
       {expanded, entry_notes} = expand(entry, works, hints)
-      {candidates ++ expanded, outs, notes ++ entry_notes}
+      {candidates ++ expanded, outs ++ List.wrap(outcome), notes ++ entry_notes}
     end)
+  end
+
+  # Selected before anything is asked, rather than after: a provider that
+  # finds the book and cannot say which recordings it has has nothing to
+  # offer a watch, and asking it anyway spends a request to earn a line
+  # apologising for itself.
+  defp edition_capable do
+    [level: :work, capability: :book_search]
+    |> Registry.enabled()
+    |> Enum.filter(
+      &Enum.any?(&1.capabilities, fn capability ->
+        capability in [:editions, :editions_bulk]
+      end)
+    )
   end
 
   # Every matched work is opened, never the first few: "open the promising
@@ -125,13 +137,9 @@ defmodule Ambry.Wanted.Search do
   defp expand(_entry, [], _hints), do: {[], []}
 
   defp expand(entry, works, hints) do
-    cond do
-      :editions_bulk in entry.capabilities -> expand_bulk(entry, works, hints)
-      :editions in entry.capabilities -> expand_one_by_one(entry, works, hints)
-      # Finding the book but not its recordings leaves nothing to watch, and
-      # saying so beats a silent absence.
-      true -> {[], [no_editions_note(entry)]}
-    end
+    if :editions_bulk in entry.capabilities,
+      do: expand_bulk(entry, works, hints),
+      else: expand_one_by_one(entry, works, hints)
   end
 
   defp expand_bulk(entry, works, hints) do
@@ -174,12 +182,8 @@ defmodule Ambry.Wanted.Search do
     {candidates, []}
   end
 
-  defp no_editions_note(entry) do
-    "#{entry.display_name} can find books but not their audio editions, so it offered nothing here."
-  end
-
   defp could_not_open_note(entry) do
-    "#{entry.display_name} found books but could not be asked what recordings they have."
+    "#{entry.display_name} could not list the recordings it found."
   end
 
   # Scored through matching's own scorer rather than a second one written

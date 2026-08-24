@@ -159,7 +159,7 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       view |> form("#watch-search-form", search: %{title: "Nothing"}) |> render_submit()
 
       assert has_element?(view, "[data-role='provider-outcomes']", "Audible: 0")
-      assert has_element?(view, "*", "Nothing came back that is still to come.")
+      assert has_element?(view, "*", "Nothing upcoming found.")
     end
 
     test "a recording that is already out is not offered as a watch", %{conn: conn} do
@@ -185,8 +185,8 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
 
       view |> form("#watch-search-form", search: %{title: "Old"}) |> render_submit()
 
-      assert has_element?(view, "*", "1 already published")
-      assert has_element?(view, "*", "Nothing came back that is still to come.")
+      assert has_element?(view, "*", "1 already released not shown.")
+      assert has_element?(view, "*", "Nothing upcoming found.")
     end
 
     test "watching a result keeps the provider's record", %{conn: conn} do

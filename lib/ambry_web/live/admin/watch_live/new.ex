@@ -2,33 +2,19 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   @moduledoc """
   Finding an audiobook to watch.
 
-  ## One ranked list, whoever answered
+  Every provider that can produce audio editions is asked, and what they say
+  comes back as one list ranked by `Ambry.Wanted.Search`, best first. Which
+  database found a record is a fact about the record and wears the badge the
+  import form gives it; it is not a heading, and it is not an axis to sort
+  by. Which book a recording is of, where a provider named one, is a fact on
+  the row.
 
-  Every enabled provider that can name a recording is asked, and what they
-  say comes back as one list ranked by `Ambry.Wanted.Search`, best first.
-  Which database found a record is a fact about the record and wears the
-  badge the import form gives it; it is not a heading, and it is not an axis
-  to sort by.
+  Everything here is a recording that has not been published, so a book whose
+  audiobooks all came out years ago legitimately produces no candidates.
 
-  Grouping by provider was the first shape here, and it asked the operator to
-  compare across scales: a provider either can produce audio editions or it
-  cannot, and the ones that can are all asked, so a run of headings ranked
-  each provider's guesses against a different yardstick and then asked for a
-  judgement across them. Which book a recording is of, where a provider named
-  one, is a fact on the row instead.
-
-  ## Only what has not come out yet
-
-  Everything here is a recording that has not been published. A book whose
-  audiobooks all came out years ago legitimately produces no candidates, and
-  the page says *that* rather than "nothing found", which would read as the
-  provider not having it.
-
-  ## Outcomes are shown even when they are empty
-
-  A provider that was rate-limited and a provider that genuinely has nothing
-  look identical in a list of results, and they mean opposite things. The
-  per-provider outcome line says which happened.
+  Outcomes are shown even when they are empty: a provider that was
+  rate-limited and one that genuinely has nothing look identical in a list of
+  results and mean opposite things.
   """
 
   use AmbryWeb, :admin_live_view
@@ -142,9 +128,7 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   Modelled on the import form's `candidate_facts/1` and separate from it
   because a watch knows two things a library record cannot: when it is
   expected, and which book a work-level provider says it is a recording of.
-  The runtime leads what is left, since for an audiobook it is identity, and
-  it is what tells two recordings of one book apart when the title and even
-  the narrator agree.
+  The runtime leads what is left, since for an audiobook it is identity.
   """
   def candidate_facts(candidate) do
     [
@@ -163,8 +147,7 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   @doc """
   When a candidate is expected.
 
-  Every candidate that reaches this page has a future date — the search drops
-  anything already published, and anything undated — so there is no
+  Every candidate that reaches this page has a future date, so there is no
   already-out case to render.
   """
   def date_words(date), do: Calendar.strftime(date, "%b %-d, %Y")
