@@ -49,7 +49,7 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
         label: "Base URL",
         type: :string,
         default: "https://api.bookinfo.pro",
-        help: "Public instance by default; point at a self-hosted rreading-glasses to switch."
+        help: "Public instance by default; a self-hosted one works too."
       }
     ]
   end

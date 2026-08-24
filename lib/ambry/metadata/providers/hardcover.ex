@@ -45,9 +45,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
         label: "API token",
         type: :secret,
         default: nil,
-        help:
-          "Free token from #{@token_url}. Hardcover tokens expire after one year, " <>
-            "and a reminder appears here as expiry approaches."
+        help: "Free token from #{@token_url}. Expires after a year."
       }
     ]
   end

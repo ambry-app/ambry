@@ -25,9 +25,8 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
       <div class="-mb-4 max-w-4xl space-y-14">
         <.form_section title="Direct play">
           <:blurb>
-            Direct-play audiobooks are served as their original files, with no transcoding or
-            packaging. Leave this off until every client app understands tracks; older builds
-            can't play them.
+            Audiobooks served as the files they already are. Older client builds can't play
+            them.
           </:blurb>
 
           <.field_group>
@@ -48,9 +47,8 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
 
         <.form_section title="Search index">
           <:blurb>
-            Search keeps itself current: every write marks what it changed, and the change is
-            indexed a moment later. Rebuilding is for after an upgrade that changes what a
-            record holds, or for when you'd rather see it done than take our word for it.
+            The index keeps itself current. Rebuild after an upgrade that changes what a
+            record holds.
           </:blurb>
 
           <.field_group>
@@ -77,14 +75,11 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
           autocomplete="off"
         >
           <.form_section title="Library naming">
-            <:blurb>
-              How managed audiobooks are organized inside a library root. Files imported from a
-              downloads folder are placed here; external collections are never reorganized.
-            </:blurb>
+            <:blurb>How imported audiobooks are organized inside a library root.</:blurb>
 
             <.field_group
               label="Folder template"
-              hint={"Available: #{Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with several authors or series uses the first one. Empty parts collapse."}
+              hint={Enum.map_join(NamingTemplate.tokens(), " ", &"{#{&1}}")}
             >
               <.input field={@template_form[:template]} />
 
@@ -111,9 +106,8 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
     enabled? = !socket.assigns.direct_play_publishing
     {:ok, _setting} = Settings.set_direct_play_publishing(enabled?)
 
-    # Turning it on releases everything that piled up behind it. Turning it
-    # off deliberately does nothing to what's already published — the switch
-    # governs the act of publishing, not the recordings that got through.
+    # Turning it on releases what piled up behind it. Turning it off governs
+    # the act of publishing, not the recordings that already got through.
     if enabled?, do: {:ok, _job} = Media.publish_pending_direct_play_async()
 
     {:noreply, assign_settings(socket)}
@@ -153,16 +147,15 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
     |> assign_template(Settings.library_naming_template())
   end
 
-  # Pending is normally zero and briefly not — the window between a write and
-  # the drain is milliseconds — so a count that is up says "still going",
-  # never "broken". It is only worth reading if it stays up.
+  # A count that is up says "still going", never "broken": it is only worth
+  # reading if it stays up.
   defp index_blurb(%{pending: 0}), do: "Up to date."
 
   defp index_blurb(%{pending: pending}),
     do: "Catching up on #{pending} #{ngettext("change", "changes", pending)}."
 
-  # A live preview against a worked example, because a template's failure mode
-  # is a folder tree you don't notice is wrong until it's full of files.
+  # A template's failure mode is a folder tree nobody notices is wrong until
+  # it is full of files, so it renders against an example as it is typed.
   @example %{
     author: "Brandon Sanderson",
     series: "The Stormlight Archive",
@@ -179,8 +172,7 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
       case error do
         nil ->
           {:ok, folder} = NamingTemplate.render(template, @example)
-          # With the token, because the preview's whole job is showing what
-          # the tree actually looks like — and every file in it carries one.
+          # With the token: every file in a root carries one.
           {:ok, filename} = NamingTemplate.filename(@example, "book.m4b", %{token: "7bKq"})
           Path.join([folder, filename])
 
@@ -196,18 +188,11 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   end
 
   defp template_error(:blank), do: "it can't be empty"
-
-  defp template_error(:absolute),
-    do: "it can't start with /; paths are relative to a library root"
-
+  defp template_error(:absolute), do: "it can't start with /"
   defp template_error(:traversal), do: "it can't contain .."
   defp template_error(:no_title_token), do: "it needs {title}, or every book shares one folder"
   defp template_error({:unknown_token, token}), do: "there's no {#{token}} token"
 
-  defp publishing_blurb(true), do: "Scanned audiobooks can be made visible to clients."
-
-  defp publishing_blurb(false),
-    do:
-      "Audiobooks can be scanned, but one with only direct-play files can't be marked ready. " <>
-        "The old transcoding pipeline is unaffected."
+  defp publishing_blurb(true), do: "New audiobooks can be published."
+  defp publishing_blurb(false), do: "Audiobooks with only direct-play files stay unpublished."
 end

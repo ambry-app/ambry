@@ -43,9 +43,7 @@ defmodule Ambry.Metadata.Providers.Tmdb do
         label: "API key",
         type: :secret,
         default: nil,
-        help:
-          "Free key from #{@signup_url}. Either the v3 API key or the " <>
-            "v4 read access token works."
+        help: "Free key from #{@signup_url}. The v3 key or the v4 read token."
       }
     ]
   end
