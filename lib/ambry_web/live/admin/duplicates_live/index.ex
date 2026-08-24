@@ -17,14 +17,14 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   import, so a report with even less context may not either. Each record says
   what points at it, because the question a pair raises is which one can go.
 
-  A set can be marked intentional, because some correct findings have no
-  record to remove: the importer's rule folds a companion series into its
+  A set can be marked "not a duplicate", because some correct findings have
+  no record to remove: the importer's rule folds a companion series into its
   parent, and two spellings of one shelf that an operator keeps apart stay
   found forever otherwise. It is the opposite of a merge — it says these are
   two things, not one.
 
-  Marked sets fold rather than vanish, and the empty state says how many there
-  are.
+  Those sets fold rather than vanish, and the report says "no new duplicates"
+  rather than "no duplicates" while any are folded away.
   """
 
   use AmbryWeb, :admin_live_view
@@ -138,43 +138,26 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @doc """
   What an empty report is allowed to claim.
 
-  "Nothing here twice" stops being true the moment a set has been marked
-  intentional: those records are here twice and the operator has said it is
+  "No duplicates" stops being true the moment a set has been marked
+  otherwise: those records are here twice and the operator has said it is
   fine.
   """
-  def all_clear_words([]), do: "Nothing in the library is here twice."
-
-  def all_clear_words(_dismissed), do: "Nothing here twice that you have not already answered."
-
-  @doc """
-  The fold's summary.
-  """
-  def dismissed_words([_one]), do: "1 set marked intentional"
-  def dismissed_words(dismissed), do: "#{length(dismissed)} sets marked intentional"
+  def all_clear_words([]), do: "No duplicates found."
+  def all_clear_words(_dismissed), do: "No new duplicates found."
 
   @doc """
-  The heading a kind's section wears, and the sentence under it.
-
-  Kept together because the two have to agree about what the section is
-  for.
+  The fold's summary, in the words of the button that fills it.
   """
-  def section(:person),
-    do: {"People", "One person, twice. Their photo, bio and credits are split between the two."}
+  def dismissed_words(dismissed), do: "#{length(dismissed)} marked not a duplicate"
 
-  def section(:author),
-    do: {"Authors", "One author name, twice. A book credited to each has no author in common."}
-
-  def section(:narrator),
-    do: {"Narrators", "One narrator name, twice. Neither has the other's recordings."}
-
-  def section(:book),
-    do:
-      {"Books", "One book, twice. Each holds its own audiobooks, so neither page shows them all."}
-
-  # Deliberately hedged: `same_series?/2` folds filler words, so it will pair
-  # a real "…: Audio Immersion Tunnel" companion series with its parent.
-  def section(:series),
-    do: {"Series", "These may be one series under two names, or two that merely rhyme."}
+  @doc """
+  The heading a kind's section wears.
+  """
+  def section(:person), do: "Duplicate people"
+  def section(:author), do: "Duplicate authors"
+  def section(:narrator), do: "Duplicate narrators"
+  def section(:book), do: "Duplicate books"
+  def section(:series), do: "Duplicate series"
 
   @doc """
   What points at a record, as a line to read.
@@ -184,7 +167,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   """
   def uses(%{uses: uses}) do
     case Enum.reject(uses, fn {_word, count} -> count == 0 end) do
-      [] -> "Nothing points at this one"
+      [] -> "Unused"
       counted -> counted |> Enum.sort() |> Enum.map_join(" · ", &counted_words/1)
     end
   end

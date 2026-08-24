@@ -15,7 +15,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
 
       {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
 
-      assert has_element?(view, "[data-role='all-clear']", "Nothing in the library is here twice")
+      assert has_element?(view, "[data-role='all-clear']", "No duplicates found.")
       assert has_element?(view, "[data-role='scanned']", "1 person")
       assert has_element?(view, "[data-role='scanned']", "1 book")
     end
@@ -28,7 +28,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
 
       refute has_element?(view, "[data-role='all-clear']")
-      assert has_element?(view, "[data-role='section-person']", "People")
+      assert has_element?(view, "[data-role='section-person']", "Duplicate people")
 
       # One card, two rows in it.
       assert view |> element("[data-role='section-person']") |> render() =~ "duplicate-set"
@@ -45,7 +45,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
       {:ok, view, _html} = live(conn, ~p"/admin/duplicates")
 
       assert has_element?(view, "[data-role='duplicate-record']", "1 narrator")
-      assert has_element?(view, "[data-role='duplicate-record']", "Nothing points at this one")
+      assert has_element?(view, "[data-role='duplicate-record']", "Unused")
     end
 
     test "each record links to where it is edited", %{conn: conn} do
@@ -70,7 +70,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
       render_click(view, "reload")
 
       refute has_element?(view, "[data-role='all-clear']")
-      assert has_element?(view, "[data-role='section-book']", "Books")
+      assert has_element?(view, "[data-role='section-book']", "Duplicate books")
     end
   end
 
@@ -89,7 +89,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
       render_click(view, "dismiss", %{"kind" => "series", "ids" => ids})
 
       refute has_element?(view, "[data-role='section-series']")
-      assert has_element?(view, "[data-role='dismissed']", "1 set marked intentional")
+      assert has_element?(view, "[data-role='dismissed']", "1 marked not a duplicate")
       assert has_element?(view, "[data-role='dismissed-set']", "The Mistborn Saga")
     end
 
@@ -102,11 +102,11 @@ defmodule AmbryWeb.Admin.DuplicatesLive.IndexTest do
       assert has_element?(
                view,
                "[data-role='all-clear']",
-               "Nothing here twice that you have not already answered"
+               "No new duplicates found."
              )
 
       refute view |> element("[data-role='all-clear']") |> render() =~
-               "Nothing in the library is here twice"
+               "No duplicates found."
     end
 
     test "undo puts it back in the report", %{conn: conn, ids: ids} do
