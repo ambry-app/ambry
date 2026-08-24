@@ -29,7 +29,7 @@ defmodule AmbryWeb.Admin.WatchLive.Index do
   defp load_watches(socket) do
     today = Date.utc_today()
 
-    assign(socket, watches: Wanted.list_watches(today: today), today: today)
+    assign(socket, watches: Wanted.list_watches(), today: today)
   end
 
   @impl Phoenix.LiveView

@@ -133,12 +133,26 @@ defmodule Ambry.WantedTest do
           })
         )
 
-      titles =
-        [today: ~D[2026-08-22]]
-        |> Wanted.list_watches()
-        |> Enum.map(& &1.edition.title)
+      titles = Wanted.list_watches() |> Enum.map(& &1.edition.title)
 
       assert titles == ["Overdue", "Soon", "Far"]
+    end
+
+    test "orders by the whole date, not the day of the month" do
+      for {id, date} <- [
+            {"december", ~D[2026-12-01]},
+            {"next-year", ~D[2027-01-15]},
+            {"september", ~D[2026-09-30]}
+          ] do
+        {:ok, _} =
+          Wanted.create_watch(
+            attrs(%{provider_id: id, expected_release_date: date, edition: edition(id)})
+          )
+      end
+
+      titles = Wanted.list_watches() |> Enum.map(& &1.edition.title)
+
+      assert titles == ["september", "december", "next-year"]
     end
 
     test "an undated watch sorts after the dated ones" do
@@ -154,10 +168,7 @@ defmodule Ambry.WantedTest do
           })
         )
 
-      titles =
-        [today: ~D[2026-08-22]]
-        |> Wanted.list_watches()
-        |> Enum.map(& &1.edition.title)
+      titles = Wanted.list_watches() |> Enum.map(& &1.edition.title)
 
       assert titles == ["Dated", "Undated"]
     end
@@ -169,10 +180,7 @@ defmodule Ambry.WantedTest do
       {:ok, done} = Wanted.create_watch(attrs(%{provider_id: "done", edition: edition("Done")}))
       {:ok, _} = Wanted.mark_released(done)
 
-      titles =
-        [today: ~D[2026-08-22]]
-        |> Wanted.list_watches()
-        |> Enum.map(& &1.edition.title)
+      titles = Wanted.list_watches() |> Enum.map(& &1.edition.title)
 
       assert titles == ["Waiting", "Done"]
       assert waiting.status == :upcoming
