@@ -10,20 +10,11 @@
 }
 
 
-/* The row a form just sent you back to (see hooks/focus-row.js). A keyframe
-   rather than a hook adding and removing ring classes: the animation cleans
-   up after itself, and the ring can fade out instead of blinking off.
-   `ring-2 ring-inset` in §1's terms, drawn as the box-shadow a ring already
-   is. */
-@keyframes ambry-row-flash {
-  from {
-    box-shadow: inset 0 0 0 2px theme(colors.brand.dark);
-  }
-  to {
-    box-shadow: inset 0 0 0 2px transparent;
-  }
-}
-
-.row-flash {
-  animation: ambry-row-flash 1.6s ease-out;
+/* The row a form just sent you back to, and the card a person pill jumps to
+   (see js/flash-row.js). Only the colour lives here: the animation itself is
+   driven from JS, because a class a hook adds is not in the HTML the server
+   renders and the next patch takes it straight back off. `ring-2 ring-inset`
+   in §1's terms, drawn as the box-shadow a ring already is. */
+:root {
+  --row-flash-ring: theme(colors.brand.dark);
 }
