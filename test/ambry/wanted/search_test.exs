@@ -261,6 +261,34 @@ defmodule Ambry.Wanted.SearchTest do
     assert notes == []
   end
 
+  # Opening the works is a second call, and it fails on its own: a provider
+  # that answered the search and was then rate-limited has thinned the list
+  # without the search outcome knowing. It reports under its own kind, like
+  # every other post-search call.
+  @tag :capture_log
+  test "a provider that answered the search and then could not be opened says so" do
+    patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config -> {:ok, []} end)
+
+    patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _query, _config ->
+      {:ok, [%Provider.Book{provider: "hardcover", id: "w1", title: "A Book"}]}
+    end)
+
+    patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn _ids, _config ->
+      {:error, :rate_limited}
+    end)
+
+    {candidates, outcomes, notes} = Search.candidates(%Provider.Query{title: "A Book"})
+
+    assert candidates == []
+    assert notes == []
+
+    opened = Enum.find(outcomes, &(&1["id"] == "hardcover:editions"))
+
+    assert opened["status"] == "failed"
+    assert opened["name"] == "Hardcover editions"
+    assert Enum.find(outcomes, &(&1["id"] == "hardcover"))["status"] == "ok"
+  end
+
   @tag :capture_log
   test "a failed provider is reported, not mistaken for having nothing" do
     patch(Ambry.Metadata.Providers.Audible, :search_books, fn _query, _config ->
