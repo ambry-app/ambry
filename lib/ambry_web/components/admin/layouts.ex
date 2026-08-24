@@ -18,8 +18,7 @@ defmodule AmbryWeb.Admin.Layouts do
     <%!-- `fixed`, not a flex child of an `h-screen` shell: the nav is the one
           thing on the page that genuinely doesn't scroll, and saying so here
           is what lets the document scroll everywhere else. `inset-y-0` is a
-          real viewport height now that `h-screen` is no longer a JS-measured
-          custom property. --%>
+          real viewport height. --%>
     <nav
       id="side-bar"
       class="z-[70] fixed inset-y-0 left-0 flex w-64 -translate-x-full transform flex-col bg-zinc-900 opacity-0 duration-100 ease-out lg:transform-none lg:opacity-100"
@@ -37,10 +36,9 @@ defmodule AmbryWeb.Admin.Layouts do
         </.link>
       </div>
       <%!-- The links scroll, the logo and the way out don't. The nav is
-            ~720px of items, so on a short laptop window it used to be
-            silently clipped by the shell's `overflow-hidden` — and the way
-            out was an `absolute bottom-0` block sitting on top of whatever
-            it overlapped. --%>
+            ~720px of items, so on a short laptop window anything else
+            silently clips it, and an `absolute bottom-0` way out ends up
+            sitting on top of whatever it overlaps. --%>
       <div class="grow overflow-y-auto">
         <%!-- Grouped by how the admin is actually used: the daily intake loop,
               the catalog it feeds, and the once-a-quarter machinery — instead

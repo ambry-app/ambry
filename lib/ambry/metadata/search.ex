@@ -4,10 +4,10 @@ defmodule Ambry.Metadata.Search do
   question, and report per-provider what came back — including from the ones
   that couldn't answer.
 
-  This is the searching half of what `Ambry.Inbox.Lookup` used to do, pulled
-  down to the metadata layer because it was never inbox-specific: the same
+  The searching half of provider curation, at the metadata layer because it
+  is not inbox-specific: the same
   "search all providers once, records are evidence, outcomes are visible"
-  paradigm is what the legacy book/person/media forms converge on, and they
+  paradigm is what the book, person and audiobook forms use, and they
   can't reach inbox internals (nor should they — nothing here knows what an
   inbox item is).
 
@@ -98,7 +98,7 @@ defmodule Ambry.Metadata.Search do
   Returns `{found, outcomes}` where `found` is a list of `{registry_entry,
   %Provider.Chapters{}}` pairs. Only ever a *title* source — provider
   timestamps describe the provider's own edition and are never applied to a
-  timeline (roadmap 1h).
+  timeline.
   """
   def chapters(asin, opts \\ []) do
     refresh = Keyword.get(opts, :refresh, true)

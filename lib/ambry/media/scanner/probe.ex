@@ -1,25 +1,15 @@
 defmodule Ambry.Media.Scanner.Probe do
   @moduledoc """
-  Reads what an audio file actually *is*: container, codec, size, duration,
-  and any embedded chapter markers.
+  Reads what an audio file is: container, codec, size, duration, and any
+  embedded chapter markers. Nothing is decoded, repackaged or written.
 
-  Nothing is decoded, repackaged, or written: the file is measured and left
-  alone.
-
-  ## Durations
-
-  A container's claimed duration is only trustworthy when something
-  produced that container to a known recipe. Arbitrary source files are not
-  so cooperative: a VBR mp3 with no Xing/VBRI
-  header has no duration to report, so ffprobe extrapolates one from the first
-  frame's bitrate and can be minutes wrong over a long book.
-
-  So the container's word is taken only for formats that genuinely know
-  (MP4/M4B sample tables, FLAC's STREAMINFO, Ogg granule positions, WAV's
-  fixed byte rate, Matroska's header). Everything else is decode-counted once,
-  here at scan time, and the gap between the claimed and the real duration is
-  the tell for seek accuracy: a container that guessed the length wrong has no
-  index to seek by either, which is exactly the VBR-mp3-without-Xing case.
+  A container's claimed duration is only trusted for formats that genuinely
+  index one (MP4 sample tables, FLAC STREAMINFO, Ogg granule positions, WAV,
+  Matroska). A VBR mp3 with no Xing header has none, and ffprobe's
+  extrapolation from the first frame can be minutes wrong over a long book,
+  so everything else is decode-counted once, here. The gap between claimed
+  and real is also the tell for seek accuracy: a container that guessed the
+  length has no index to seek by.
   """
 
   alias Ambry.Media.Chapters.Utils
@@ -61,10 +51,8 @@ defmodule Ambry.Media.Scanner.Probe do
   @tolerance_fraction Decimal.new("0.005")
 
   @doc """
-  Probes a single audio file.
-
-  Returns `{:ok, %Probe{}}`, or `{:error, reason}` if the file can't be read
-  or carries no audio stream we can measure.
+  Probes a single audio file. `{:error, reason}` if it cannot be read or
+  carries no measurable audio stream.
   """
   def run(path, opts \\ []) do
     with {:ok, %File.Stat{size: size}} <- File.stat(path),
@@ -75,14 +63,7 @@ defmodule Ambry.Media.Scanner.Probe do
   end
 
   @doc """
-  The tags of one file, without measuring it.
-
-  `run/2` decode-counts every VBR mp3 with no index, because a duration it
-  can trust is worth reading the whole file for. Tags sit in the container
-  header and are not: this is one ffprobe, and it answers for a file whose
-  duration `run/2` would refuse to guess at.
-
-  Returns `{:ok, %Tags{}}` or `{:error, reason}`.
+  The tags of one file, without measuring it: one ffprobe, no decode pass.
   """
   def tags(path, opts \\ []) do
     with {:ok, json} <- ffprobe(path),

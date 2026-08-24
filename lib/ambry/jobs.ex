@@ -2,59 +2,32 @@ defmodule Ambry.Jobs do
   @moduledoc """
   What the background queues are doing, in the terms the operator asks it in.
 
-  Everything slow in Ambry happens in a job — probing files, asking the
-  metadata providers, copying bytes into a library root, packaging, thumbnails
-  — and until this existed the admin could not tell "still working" from
-  "done" from "failed and you will never know". The per-record answer already
-  existed (`Ambry.Inbox.Progress` puts a scrim on a busy row); this is the
-  same question asked of the server as a whole.
+  Everything slow in Ambry happens in a job, and this answers two questions
+  without leaving the page: *is the server busy?* and *did something break?*
+  Anything more detailed is Oban Web's, mounted at `/admin/oban`.
 
-  ## Deliberately not Oban Web
+  **Idle queues are still in the summary.** A query grouping the job table
+  alone cannot tell an idle queue from one deleted from the config. Whether an
+  idle row is *rendered* is the caller's decision.
 
-  Oban Web is mounted at `/admin/oban` and is better at every detail than
-  anything reimplemented here. This exists to answer two questions without
-  leaving the page — *is the server busy?* and *did something break?* — and to
-  link through when the answer is yes. So it reports counts per queue and a
-  short list of recent failures, and nothing else.
+  **"Recently" is the pruner's word.** Oban deletes finished jobs after a day,
+  so a failure count is always "in about the last day". Anything that has to
+  outlive that is written onto the record it concerns.
 
-  ## Idle queues are still in the summary
+  ## Watching, rather than polling
 
-  The summary lists every *configured* queue, including the ones holding
-  nothing — a query that groups the job table alone cannot tell an idle queue
-  from one that was deleted from the config, and the caller deserves to know
-  which it is. Whether an idle row gets *rendered* is the caller's decision;
-  the overview drops them and says "nothing running" in one line instead.
+  `subscribe/0` puts a process on the two signals Oban already emits:
 
-  ## "Recently" is the pruner's word, not ours
+    * **`Oban.Notifier`, `:insert` channel** — fires on insert, and when the
+      Stager promotes `scheduled` rows to `available`, so "queued" is live.
+    * **`[:oban, :job, :start | :stop | :exception]` telemetry**, republished
+      through `Ambry.PubSub` by one global handler attached at boot, so the
+      cost is one broadcast per job rather than a handler per viewer.
 
-  The Oban pruner deletes finished jobs after a day, so a failure count is
-  always "in about the last day" and there is no honest way to say more from
-  this table. Anything that has to outlive that is written onto the record it
-  concerns — an inbox item's `issue`, a recording's `missing_since` — and the
-  overview reads those separately.
-
-  ## Watching, rather than asking every few seconds
-
-  `subscribe/0` puts a process on the two signals Oban already emits, so a
-  display can react to a job moving instead of checking whether one has:
-
-    * **`Oban.Notifier`, `:insert` channel** — Oban's own pub/sub, which on
-      Postgres is `LISTEN/NOTIFY`. Fires when jobs are inserted, and also
-      when the Stager promotes `scheduled` rows to `available`, so "queued"
-      is live without anyone announcing it by hand at eight call sites.
-    * **`[:oban, :job, :start | :stop | :exception]` telemetry** — the
-      execution transitions. `attach_telemetry/0` hangs one global handler
-      on these at boot and republishes them through `Ambry.PubSub`, so the
-      cost is one broadcast per job rather than one telemetry handler per
-      viewer, and a subscriber that crashes cannot take a handler down
-      inside the process running somebody's import.
-
-  **Between them they cover every transition a queue makes on its own.**
-  What they do not cover is the housekeeping: `Oban.Plugins.Lifeline`
-  rescuing a job orphaned by a dead node, and `Oban.Plugins.Pruner` deleting
-  a discarded one a day later. Neither announces itself, so a display should
-  still hold a slow heartbeat — but slow, minutes rather than seconds,
-  because those are the only two things it is covering for.
+  Between them they cover every transition a queue makes on its own. They do
+  not cover the housekeeping plugins (Lifeline rescuing an orphaned job,
+  Pruner deleting a discarded one), so a display should still hold a
+  heartbeat, in minutes rather than seconds.
   """
 
   use Boundary, deps: [Ambry, Ambry.PubSub], exports: [PubSub.JobActivity]
@@ -72,10 +45,8 @@ defmodule Ambry.Jobs do
   ]
 
   @doc """
-  Republishes Oban's job telemetry through `Ambry.PubSub`. Called once at boot.
-
-  Idempotent: `:telemetry` refuses a duplicate handler id, and a second call
-  in the same VM (a test, a release upgrade) is a no-op rather than an error.
+  Republishes Oban's job telemetry through `Ambry.PubSub`. Called once at
+  boot, and idempotent: `:telemetry` refuses a duplicate handler id.
   """
   def attach_telemetry do
     case :telemetry.attach_many(
@@ -102,10 +73,9 @@ defmodule Ambry.Jobs do
   @doc """
   Watch for anything that would change what `summary/0` returns.
 
-  The caller will receive `%Ambry.Jobs.PubSub.JobActivity{}` structs and
-  Oban's own `{:notification, :insert, payload}` messages. Both mean the same
-  thing — go and look again — so a caller is free to treat them alike, and
-  should debounce: a queue draining forty items emits forty of these.
+  Delivers `%Ambry.Jobs.PubSub.JobActivity{}` structs and Oban's own
+  `{:notification, :insert, payload}` messages. Both mean "go and look
+  again", so debounce: a queue draining forty items emits forty of them.
   """
   def subscribe do
     :ok = PubSub.subscribe(JobActivity.topic())
@@ -115,13 +85,9 @@ defmodule Ambry.Jobs do
   @doc """
   Per-queue counts, plus the totals.
 
-  Four numbers per queue, because they mean four different things to somebody
-  deciding whether to wait:
-
     * `running` — executing right now
     * `queued` — available or scheduled, so it will run without help
-    * `retrying` — failed and will try again on its own (the metadata queue
-      lives here whenever a provider is rate-limiting)
+    * `retrying` — failed and will try again on its own
     * `failed` — discarded or cancelled; it will not try again
 
   Only `failed` is a call to action. The rest are the server working.
@@ -134,9 +100,8 @@ defmodule Ambry.Jobs do
         counted |> Map.get(queue, empty_counts()) |> Map.put(:queue, queue)
       end)
 
-    # A queue that was removed from the config but still holds rows would
-    # otherwise vanish from a display whose whole job is "is anything left
-    # running", so unknown queues are appended rather than dropped.
+    # Unknown queues are appended rather than dropped: one removed from the
+    # config while still holding rows would otherwise vanish.
     stragglers =
       counted
       |> Map.drop(configured_queues())
@@ -150,10 +115,8 @@ defmodule Ambry.Jobs do
   @doc """
   The most recent jobs that gave up, newest first.
 
-  A count says something broke; this says what, which is the difference
-  between a widget the operator reads and one they learn to ignore. The error
-  is the last line of Oban's formatted exception, which is the part that names
-  the failure rather than the stack that led to it.
+  A count says something broke; this says what. The error is the last line of
+  Oban's formatted exception, which names the failure rather than the stack.
   """
   def recent_failures(limit \\ 5) do
     from(j in "oban_jobs",
@@ -180,9 +143,8 @@ defmodule Ambry.Jobs do
   @doc """
   Whether anything at all is in flight.
 
-  `retrying` counts as busy: a job mid-backoff is going to run again and
-  change something underneath whoever is looking, which is the only reason
-  this question gets asked.
+  `retrying` counts as busy: a job mid-backoff will run again and change
+  something underneath whoever is looking.
   """
   def busy?(%{running: running, queued: queued, retrying: retrying}),
     do: running + queued + retrying > 0
@@ -212,9 +174,8 @@ defmodule Ambry.Jobs do
 
   defp empty_counts, do: %{running: 0, queued: 0, retrying: 0, failed: 0}
 
-  # Read from the config rather than from Oban's running state: this is asked
-  # by a LiveView on every refresh, and it is a question about how the server
-  # is set up, not about what the supervisor is doing this millisecond.
+  # From the config rather than Oban's running state: a question about how the
+  # server is set up, asked on every LiveView refresh.
   defp configured_queues do
     :ambry
     |> Application.get_env(Oban, [])

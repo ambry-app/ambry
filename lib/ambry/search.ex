@@ -7,11 +7,10 @@ defmodule Ambry.Search do
   Nothing calls this module to keep the index current. Row triggers on the
   library's tables fill `Ambry.Search.Queue`, `Ambry.Search.Listener` notices
   and `Ambry.Search.Drain` rebuilds what changed. That is a deliberate
-  inversion: index maintenance used to be twelve hand-placed calls in the
-  contexts' `with` chains, and any write by another path — the inbox importer
-  most of all, which its boundary forbids from calling this module — drifted
-  the index silently. The server rebuilt the whole index on every boot to hide
-  it.
+  inversion. Hand-placed maintenance calls in the contexts' `with` chains
+  leave the index to drift silently whenever a write takes another path, and
+  the inbox importer is one such path: its boundary forbids it from calling
+  this module at all. Triggers cannot be bypassed that way.
 
   A write is therefore reflected in search a moment after it commits, not
   within the same call. Nothing in the app may depend on that moment being
@@ -93,11 +92,10 @@ defmodule Ambry.Search do
 
   User search is `:all` — every word you typed has to appear somewhere — with
   `partial: true` on the last word. The partial is not a search-as-you-type
-  affordance here (this page is submitted, not live); it replaces the `ILIKE
-  '%…%'` arm this query used to carry beside the tsquery. That arm was
-  load-bearing in one direction only: `sander` found Sanderson through the
-  substring, never through the tsquery, and dropping it without a prefix
-  match would have been a regression.
+  affordance here (this page is submitted, not live). It is what a substring
+  `ILIKE '%…%'` arm would otherwise be needed for, in the one direction such
+  an arm is load-bearing: `sander` finds Sanderson through a prefix match and
+  never through the bare tsquery.
   """
   def query(query_string) do
     Query.build(query_string, joiner: :all, partial: true, types: @user_facing_types)

@@ -2,25 +2,19 @@ defmodule Ambry.Wanted.Watch do
   @moduledoc """
   An audiobook the operator is waiting for.
 
-  ## Identity is the provider's, not Amazon's
+  **Identity is the provider's, never an ASIN.** Most audio editions that have
+  ever existed do not have one, and where one exists it differs per regional
+  marketplace for the same recording. The ASIN lives in the snapshot as a
+  matching key instead.
 
-  A watch is keyed on `provider` + `provider_id`, never on ASIN. Most audio
-  editions that have ever existed do not have one — the 1984 Books on Tape
-  recordings of *Neuromancer* predate Amazon — and where an ASIN does exist it
-  differs per Audible marketplace for the same recording. The ASIN lives in
-  the snapshot as a matching key instead, alongside title, narrators and
-  publisher.
+  Three states:
 
-  ## Three states, and what each one means
-
-    * `:upcoming` — waiting. If `expected_release_date` has passed this is
+    * `:upcoming` — waiting. Once `expected_release_date` has passed this is
       *due*: the date arrived, which is not the same as the book existing.
-      Being due is the whole point of the feature; it is what nags.
-    * `:released` — it exists. Set by the operator, or when an import
-      satisfies it.
+    * `:released` — it exists. Set by the operator, or by an import.
     * `:dismissed` — stop nagging, without pretending it arrived. A watch is
       never deleted on a change of mind, because "did I already decide about
-      this?" is a question the operator will otherwise ask twice.
+      this?" is otherwise asked twice.
   """
 
   use Ecto.Schema
@@ -62,10 +56,8 @@ defmodule Ambry.Wanted.Watch do
   end
 
   @doc """
-  The changeset for the fields the operator edits after the fact.
-
-  The date is editable because publishers move dates and providers lag behind
-  them; the operator usually knows before the provider does.
+  The changeset for the fields the operator edits after the fact. The date is
+  editable because publishers move dates and providers lag behind them.
   """
   def edit_changeset(watch, attrs) do
     watch
@@ -76,11 +68,9 @@ defmodule Ambry.Wanted.Watch do
   @doc """
   The changeset for settling a watch against a recording.
 
-  Separate from `edit_changeset/2` on purpose: that one is the operator's
-  form, and `media_id` is not theirs to type. It is set by the import that
-  answered the watch, and casting it in the form changeset would both invite a
-  crafted parameter and — as this started out — silently drop the link when
-  the form changeset was reused here.
+  Separate from `edit_changeset/2`, which is the operator's form: `media_id`
+  is set by the import that answered the watch, and casting it there would
+  invite a crafted parameter.
   """
   def settle_changeset(watch, attrs) do
     watch
@@ -92,9 +82,8 @@ defmodule Ambry.Wanted.Watch do
   @doc """
   Whether the expected date has arrived.
 
-  Deliberately not called `released?`. All this knows is that a date passed —
-  whether the recording exists is a question only the operator or an import
-  can answer, and conflating the two is how a list starts lying.
+  Deliberately not `released?`: all this knows is that a date passed, and
+  whether the recording exists is the operator's or an import's to say.
   """
   def due?(watch, today \\ Date.utc_today())
 

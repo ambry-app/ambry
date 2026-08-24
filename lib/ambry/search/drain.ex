@@ -66,16 +66,14 @@ defmodule Ambry.Search.Drain do
   @doc """
   Waits for the index to reflect everything written so far.
 
-  In production a no-op: `Ambry.Search.Listener` has already drained, or is
-  about to, and no read should be waiting on it. In test there is no listener
-  — the SQL sandbox holds every write in a transaction that never commits, so
-  the `NOTIFY` the enqueue trigger raises is never delivered and an Oban job
-  never runs — so this drains inline.
+  A no-op when the app is running: `Ambry.Search.Listener` has already
+  drained or is about to. In test there is no listener, because the SQL
+  sandbox holds every write in a transaction that never commits and the
+  `NOTIFY` is never delivered, so this drains inline.
 
-  Called from `Ambry.Search.Query.build/2`, which every read path composes
-  from, rather than from the tests themselves. A test that writes and then
-  searches is then in the same position as a caller a millisecond later,
-  without having to know that a queue exists.
+  Called from `Ambry.Search.Query.build/2` rather than from the tests
+  themselves, so a test that writes and then searches never has to know a
+  queue exists.
   """
   if Application.compile_env(:ambry, [Ambry.Search, :settle_inline], false) do
     def settle do
@@ -90,9 +88,8 @@ defmodule Ambry.Search.Drain do
   Drains the queue until it is empty, returning how many references it took.
 
   Each batch claims and rebuilds inside one transaction, so a rebuild that
-  raises puts its references back rather than dropping them on the floor. The
-  loop is bounded by the queue: nothing re-enqueues what it just drained,
-  because `search_index` has no trigger on it.
+  raises puts its references back. The loop is bounded by the queue, since
+  `search_index` has no trigger on it.
   """
   def run(opts \\ []) do
     batch_size = Keyword.get(opts, :batch_size, @batch_size)
@@ -292,15 +289,12 @@ defmodule Ambry.Search.Drain do
   @doc """
   Marks the whole library dirty and hands the work to a background job.
 
-  What the reindex button calls. **Not** a synchronous drain: a library of
-  any size is minutes of rebuilding, and a button that blocks until it is
-  done is a button that times out.
+  What the reindex button calls. Not a synchronous drain: a library of any
+  size is minutes of rebuilding.
 
   The job is inserted explicitly rather than left to the listener, because
-  filling the queue by hand raises no `NOTIFY` — only the row triggers do,
-  and this writes the queue directly. Without it the work would sit until the
-  cron backstop noticed, up to a minute later. (That gap is real: it is how
-  the dev index sat empty after a backfill migration.)
+  filling the queue by hand raises no `NOTIFY` — only the row triggers do.
+  Without it the work would sit until the cron backstop noticed.
   """
   def reindex_all! do
     :ok = Queue.enqueue_all!()
@@ -312,10 +306,8 @@ defmodule Ambry.Search.Drain do
   @doc """
   What the index holds, and whether it is behind.
 
-  `pending` is normally zero and briefly not: a write enqueues, the listener
-  drains, and the window between them is milliseconds. A number that stays
-  up is the one symptom worth showing an operator — it means nothing is
-  draining.
+  `pending` is normally zero and briefly not. A number that stays up means
+  nothing is draining.
   """
   def stats do
     %{

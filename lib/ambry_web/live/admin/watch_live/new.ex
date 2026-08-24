@@ -2,37 +2,26 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   @moduledoc """
   Finding an audiobook to watch.
 
-  ## Grouped by provider, then by the book each recording is of
+  ## One ranked list, whoever answered
 
-  A provider that answers with works can return several books for one search —
-  a novel, a study guide about it, a graphic adaptation — and their recordings
-  are not alternatives to each other. Grouping under the work says which book
-  each recording *is*, which is the question a flat list leaves the operator to
-  answer by reading titles.
+  Every enabled provider that can name a recording is asked, and what they
+  say comes back as one list ranked by `Ambry.Wanted.Search`, best first.
+  Which database found a record is a fact about the record and wears the
+  badge the import form gives it; it is not a heading, and it is not an axis
+  to sort by.
 
-  Headings appear only when a provider found more than one work, because a
-  lone heading repeats what the rows beneath it already say.
-
-  ## Every provider that can name a recording, side by side
-
-  Results are grouped by the provider that gave them and nothing is ranked
-  across providers. There is no primary source: a provider either can produce
-  audio editions or it cannot, and the ones that can are all asked. What
-  differs is shape — some answer with recordings, some answer with works that
-  have to be opened — and shape is not standing.
-
-  That matters most for exactly what this page is for, because providers are
-  differently blind about the future and the past. A recording that is on
-  preorder somewhere may be absent from a catalogue of what has been
-  published; a recording from 1984 may be absent from a catalogue of what is
-  for sale. Ranking one above the other would hide whichever half the operator
-  happened to need.
+  Grouping by provider was the first shape here, and it asked the operator to
+  compare across scales: a provider either can produce audio editions or it
+  cannot, and the ones that can are all asked, so a run of headings ranked
+  each provider's guesses against a different yardstick and then asked for a
+  judgement across them. Which book a recording is of, where a provider named
+  one, is a fact on the row instead.
 
   ## Only what has not come out yet
 
   Everything here is a recording that has not been published. A book whose
   audiobooks all came out years ago legitimately produces no candidates, and
-  the page says *that* rather than "nothing found" — which would read as the
+  the page says *that* rather than "nothing found", which would read as the
   provider not having it.
 
   ## Outcomes are shown even when they are empty
@@ -43,6 +32,8 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   """
 
   use AmbryWeb, :admin_live_view
+
+  import AmbryWeb.Admin.Decisions, only: [provider_outcomes_row: 1]
 
   alias Ambry.Metadata.Provider
   alias Ambry.Wanted
@@ -146,49 +137,24 @@ defmodule AmbryWeb.Admin.WatchLive.New do
   defp blank_query?(_query), do: false
 
   @doc """
-  Candidates grouped by the provider that gave them, then by the work each
-  came from.
+  A candidate's distinguishing facts, in one line.
 
-  Answers `[{provider, [{work_title | nil, [candidate]}]}]`, everything in the
-  order the providers returned it.
-
-  A recording-level provider answers with recordings that belong to no work it
-  named, so those group under `nil` and render without a heading. Inventing a
-  heading for them would be inventing a fact.
+  Modelled on the import form's `candidate_facts/1` and separate from it
+  because a watch knows two things a library record cannot: when it is
+  expected, and which book a work-level provider says it is a recording of.
+  The runtime leads what is left, since for an audiobook it is identity, and
+  it is what tells two recordings of one book apart when the title and even
+  the narrator agree.
   """
-  def by_provider_and_work(candidates) do
-    candidates
-    |> Enum.group_by(& &1.provider)
-    |> Enum.sort_by(fn {provider, _candidates} -> provider end)
-    |> Enum.map(fn {provider, for_provider} -> {provider, by_work(for_provider)} end)
-  end
-
-  defp by_work(candidates) do
-    grouped = Enum.group_by(candidates, & &1.work_title)
-
-    candidates
-    |> Enum.map(& &1.work_title)
-    |> Enum.uniq()
-    |> Enum.map(&{&1, grouped[&1]})
-  end
-
-  @doc """
-  Whether a provider's results are worth splitting under work headings.
-
-  Only when it found more than one work. A single heading above the recordings
-  it contains says nothing the recordings do not already say, and a search
-  that returned one book should not look like it returned a category.
-  """
-  def show_work_headings?(groups) do
-    groups |> Enum.count(fn {work, _candidates} -> work end) > 1
-  end
-
-  @doc "How many recordings a group holds, in words."
-  def recordings_words(candidates) do
-    case length(candidates) do
-      1 -> "1 recording"
-      n -> "#{n} recordings"
-    end
+  def candidate_facts(candidate) do
+    [
+      date_words(candidate.published),
+      runtime(candidate.edition),
+      candidate.edition.publisher,
+      candidate.work_title
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
   end
 
   @doc "What to call the provider a record came from."

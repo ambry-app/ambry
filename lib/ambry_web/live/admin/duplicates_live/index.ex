@@ -2,40 +2,29 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @moduledoc """
   Whether the library is holding anything twice.
 
-  ## Why it is a page and not a badge
-
-  Never having duplicates is a standing goal, and every mechanism serving it
-  — the seeder linking rather than creating, `Seed.relink/2`, the import
-  form's pre-flight — is best effort. A goal that is only ever *pursued* is
-  one you have to take on faith. This is the page that answers it, so the
-  answer can be looked at rather than believed.
+  Never having duplicates is a standing goal, and every mechanism serving it —
+  the seeder linking rather than creating, `Seed.relink/2`, the import form's
+  pre-flight — is best effort. This is the page that answers it, so the answer
+  can be looked at rather than believed.
 
   Which is why an empty report is not an empty page: it says how many records
-  it examined. "Nothing found" and "nothing ran" look identical otherwise,
-  and the reassuring one is the one you need to be able to trust.
-
-  ## What it does not do
+  it examined, since "nothing found" and "nothing ran" look identical
+  otherwise.
 
   It does not merge, and it does not offer to. Two records of one name may be
-  two spellings of one person or two people who share a name, and the library
-  cannot tell them apart — `Ambry.Inbox.Preflight` won't automate that
-  judgement at the point of import, so a report that has read even less
-  context certainly may not. Each record says what points at it, because the
-  question a pair raises is which one can go, and that is answered by the one
-  nothing references.
-
-  ## The one thing it can be told
+  two spellings of one person or two people who share a name, and
+  `Ambry.Inbox.Preflight` won't automate that judgement at the point of
+  import, so a report with even less context may not either. Each record says
+  what points at it, because the question a pair raises is which one can go.
 
   A set can be marked intentional, because some correct findings have no
   record to remove: the importer's rule folds a companion series into its
   parent, and two spellings of one shelf that an operator keeps apart stay
-  found forever otherwise. That is the only action here, and it is the
-  opposite of a merge — it says these are two things, not one.
+  found forever otherwise. It is the opposite of a merge — it says these are
+  two things, not one.
 
-  Marked sets fold rather than vanish, and the empty state says how many
-  there are. A page whose whole job is to be believed cannot let "nothing
-  found" and "nothing you have not already waved off" read identically, which
-  is the same argument that puts the scanned counts at the top.
+  Marked sets fold rather than vanish, and the empty state says how many there
+  are.
   """
 
   use AmbryWeb, :admin_live_view
@@ -43,8 +32,7 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   alias Ambry.Inbox
 
   # The order the sections are laid out in, and the whitelist a dismissal's
-  # `kind` param is matched against. One list, because a kind the page can
-  # draw and a kind it will accept are the same list.
+  # `kind` param is matched against.
   @kinds ~w(person author narrator book series)a
 
   @doc """
@@ -97,11 +85,9 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @doc """
   One record in a set: what it is called, and what still points at it.
 
-  The whole row is the link where there is somewhere to go, which is the
-  overview's problem-row idiom rather than §3a's — these are not records in a
-  list, they are the members of one finding, and a 224px action rail beside
-  two lines of text would be the loudest thing on a page whose best day is
-  saying nothing.
+  The whole row is the link where there is somewhere to go: the overview's
+  problem-row idiom rather than §3a's, because these are the members of one
+  finding rather than records in a list.
   """
   attr :kind, :atom, required: true
   attr :record, :map, required: true
@@ -153,9 +139,8 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   What an empty report is allowed to claim.
 
   "Nothing here twice" stops being true the moment a set has been marked
-  intentional: those records *are* here twice and the operator has said it is
-  fine. Saying the plain thing anyway would make this page the one thing it
-  may not be, which is wrong while looking reassuring.
+  intentional: those records are here twice and the operator has said it is
+  fine.
   """
   def all_clear_words([]), do: "Nothing in the library is here twice."
 
@@ -170,8 +155,8 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @doc """
   The heading a kind's section wears, and the sentence under it.
 
-  Kept together because the two have to agree about what the section is for,
-  and split across a template they drifted the first time this was written.
+  Kept together because the two have to agree about what the section is
+  for.
   """
   def section(:person),
     do: {"People", "One person, twice. Their photo, bio and credits are split between the two."}
@@ -194,8 +179,8 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @doc """
   What points at a record, as a line to read.
 
-  A record nothing references says so in words rather than as a zero, because
-  that is the one this page exists to help you act on.
+  A record nothing references says so in words rather than as a zero, since
+  that is the one to act on.
   """
   def uses(%{uses: uses}) do
     case Enum.reject(uses, fn {_word, count} -> count == 0 end) do
@@ -210,10 +195,9 @@ defmodule AmbryWeb.Admin.DuplicatesLive.Index do
   @doc """
   Where a record is edited.
 
-  An author and a narrator are edited on the person behind them — there is no
-  page of their own — and a narrator always has one. An author may have none
-  (a bare name nobody has attached a human to yet) or several (a composite),
-  and neither of those has a single place to go, so the row is not a link.
+  An author and a narrator are edited on the person behind them, and a
+  narrator always has one. An author may have none or several, and neither of
+  those has a single place to go, so the row is not a link.
   """
   def route(:person, record), do: ~p"/admin/people/#{record.id}/edit"
   def route(:book, record), do: ~p"/admin/books/#{record.id}/edit"

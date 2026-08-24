@@ -1,39 +1,25 @@
 defmodule Ambry.Library do
   @moduledoc """
-  Where the library physically lives (roadmap 3a).
+  Where the library physically lives.
 
   Two registries, deliberately separate because they are separate concepts:
 
     * **Sources** (`Ambry.Library.Source`) — watched folders audiobooks
       arrive from. Read, never written. A path and nothing else: how import
       brings files out of one is a fact about the *pairing* with a root, so
-      it is remembered per pairing (`Ambry.Library.ImportPreference`)
-      rather than configured on either end.
+      it is remembered per pairing (`Ambry.Library.ImportPreference`).
     * **Library roots** (`Ambry.Library.Root`) — the folders the library's
       audio is organized into, and the only place Ambry serves from.
       Written, never watched. At least one is required to import anything.
 
-  This module is also the place that answers "can these two paths share a
-  hardlink?".
+  This module also answers "can these two paths share a hardlink?". Several
+  roots is a first-class arrangement, since a hardlink cannot cross a
+  filesystem and downloads and library are routinely on different volumes.
+  The same-filesystem check gates every hardlink and fails loudly rather than
+  falling back to a copy, which would double storage silently.
 
-  ## Why more than one root is a first-class arrangement
-
-  In production the downloads folder and the uploads folder are on two
-  different NAS boxes. A hardlink cannot cross a filesystem, so no single
-  root can serve both the legacy transcoded library and new hardlinked
-  imports. Multiple roots merging into one logical library isn't a
-  convenience here, it's the only arrangement that works.
-
-  The consequence worth stating plainly: a same-filesystem check has to gate
-  every hardlink, and it has to **fail loudly** rather than quietly falling
-  back to a full copy. A silent copy doubles storage, which is the exact
-  thing this phase exists to stop.
-
-  The legacy uploads library is deliberately not registered here. It isn't
-  organized by the naming template and Phase 4's reclaim owns migrating it;
-  until then it keeps resolving through `Ambry.Paths` unchanged. Images
-  (covers, person photos) also stay in `Ambry.Paths`' internal storage —
-  they're derived, re-fetchable artifacts, not library content.
+  Upload-era library files are not registered here and keep resolving through
+  `Ambry.Paths`, as do images.
   """
 
   use Boundary,
@@ -53,13 +39,9 @@ defmodule Ambry.Library do
     @moduledoc """
     What a source or root looks like on disk right now.
 
-    Deliberately not stored: a NAS that was mounted when the row was written
-    tells you nothing about whether it's mounted now, and a stale "healthy"
-    is worse than no answer.
-
-    `device` and `mount` together identify what a path can be hardlinked
-    with — see `Ambry.Library.same_filesystem?/2` for why it takes both.
-    `mount` is nil where the system offers no mount table.
+    Deliberately not stored: a volume mounted when the row was written says
+    nothing about now. `device` and `mount` together identify what a path can
+    be hardlinked with; `mount` is nil where there is no mount table.
     """
     defstruct [:exists?, :directory?, :writable?, :device, :mount]
   end
@@ -96,10 +78,9 @@ defmodule Ambry.Library do
   @doc """
   Removes a source from the registry. Never touches the files it points at.
 
-  Refused with `{:error, {:referenced, %{inbox_items: n}}}` while inbox
-  items still resolve their paths through it — the database would refuse
-  too (`on_delete: :restrict`), but a count is an explanation and a
-  constraint violation is not.
+  Refused with `{:error, {:referenced, %{inbox_items: n}}}` while inbox items
+  still resolve their paths through it. `on_delete: :restrict` backs the same
+  rule, but a count is an explanation and a constraint violation is not.
   """
   def delete_source(%Source{} = source) do
     case references_to(source) do
@@ -145,12 +126,9 @@ defmodule Ambry.Library do
   @doc """
   Removes a root from the registry.
 
-  This never touches the files it points at — deleting a row is not how an
-  operator says "delete my library". Refused with
+  This never touches the files it points at. Refused with
   `{:error, {:referenced, %{media: n, media_tracks: n}}}` while recordings
-  still resolve their paths through it; the database's
-  `on_delete: :restrict` backs the same rule, but a count is an
-  explanation and a constraint violation is not.
+  still resolve their paths through it.
   """
   def delete_root(%Root{} = root) do
     case root_references(root) do
@@ -174,11 +152,8 @@ defmodule Ambry.Library do
   @doc """
   Records what an import from `source` into `root` just did.
 
-  Called once the import has committed, not when the operator picks: what
-  the next import should propose is what the last one *actually did*, and a
-  choice made on a release that then failed to place is not that. See
-  `Ambry.Library.ImportPreference` for why this is remembered rather than
-  configured.
+  Called once the import has committed, not when the operator picks: what the
+  next import proposes is what the last one actually did.
   """
   def remember_placement(%Source{} = source, %Root{} = root, policy) do
     attrs = %{
@@ -235,18 +210,16 @@ defmodule Ambry.Library do
   Resolves a stored path to an absolute disk path.
 
   Takes the root (record, id, or `nil` for the legacy uploads case) and the
-  stored string. Rejects a relative path containing `..` or starting with
-  `/` **before anything else** — `Path.join/2` traverses upward happily and
-  discards a joined-on absolute path entirely, and resolved paths feed
-  `File.rm_rf`.
+  stored string. Rejects a relative path containing `..` or starting with `/`
+  **before anything else**: `Path.join/2` traverses upward happily, and
+  resolved paths feed `File.rm_rf`.
   """
   def resolve(nil, "/uploads/" <> _rest = web_path), do: {:ok, Paths.web_to_disk(web_path)}
   def resolve(nil, path), do: {:error, {:unresolvable, path}}
 
   def resolve(%Root{path: base}, relative), do: resolve_in(base, relative)
 
-  # Inbox item paths are relative to the *source* they were discovered in —
-  # a source is a location too, it's just never a place media lives.
+  # Inbox item paths are relative to the source they were discovered in.
   def resolve(%Source{path: base}, relative), do: resolve_in(base, relative)
 
   def resolve(root_id, relative) when is_integer(root_id) do
@@ -265,11 +238,8 @@ defmodule Ambry.Library do
   end
 
   @doc """
-  Same, raising on anything unresolvable.
-
-  For invariants the schema is meant to guarantee — a caller that has no
-  better answer than crashing should crash here, before the bad path
-  reaches the filesystem.
+  Same, raising on anything unresolvable, before a bad path reaches the
+  filesystem.
   """
   def resolve!(root, path) do
     case resolve(root, path) do
@@ -295,10 +265,8 @@ defmodule Ambry.Library do
   @doc """
   The root an absolute path lives in, with its relative form.
 
-  Longest-prefix match, matched on a path-segment boundary, so nested
-  locations resolve deterministically. For the backfill and the import
-  boundary only — runtime code reads the FK rather than inferring a
-  location.
+  Longest-prefix match on a path-segment boundary. For the import boundary
+  only; runtime code reads the FK rather than inferring a location.
   """
   def locate(absolute) when is_binary(absolute) do
     list_roots()
@@ -313,9 +281,8 @@ defmodule Ambry.Library do
   @doc """
   Every registered path, source or root.
 
-  Cleanup uses these as pruning stops: a registered folder's existence is
-  configuration, not leftover clutter, so empty-parent pruning never removes
-  one.
+  Cleanup uses these as pruning stops: a registered folder is configuration,
+  not leftover clutter.
   """
   def registered_paths do
     Enum.map(list_sources(), & &1.path) ++ Enum.map(list_roots(), & &1.path)
@@ -324,18 +291,8 @@ defmodule Ambry.Library do
   @doc """
   Every registered location Ambry currently cannot read, with why.
 
-  An unmounted NAS is the failure the rest of the system is careful to
-  survive quietly — discovery counts a source it couldn't open rather than
-  failing the run, so one dead mount doesn't stop the others — and the cost
-  of that care is that nothing ever says so out loud. This is where it gets
-  said.
-
-  A disabled source is skipped: it is not being scanned on purpose, so
-  whether its path resolves today is not a fact about anything. Roots are
-  always checked, because a root that has gone away breaks playback of
-  everything already in it.
-
-  Reads the filesystem, once per location. There are a handful of them.
+  A disabled source is skipped, since it is not being scanned on purpose;
+  roots are always checked. Reads the filesystem, once per location.
   """
   def unreachable_locations do
     sources = Enum.map(list_sources(enabled: true), &{:source, &1})
@@ -351,8 +308,7 @@ defmodule Ambry.Library do
   end
 
   # Imports write into roots and only read from sources, so a read-only mount
-  # is a problem for one and unremarkable for the other. Everything else is
-  # the same question asked twice.
+  # is a problem for one and unremarkable for the other.
   defp trouble(_kind, %Status{exists?: false}), do: :missing
   defp trouble(_kind, %Status{directory?: false}), do: :not_a_directory
   defp trouble(:root, %Status{writable?: false}), do: :read_only
@@ -397,22 +353,16 @@ defmodule Ambry.Library do
   @doc """
   Whether two paths can be hardlinked between.
 
-  Two checks, because `link(2)` refuses in two different ways and each one
-  is invisible to the other check:
+  Two checks, because `link(2)` refuses in two ways and each is invisible to
+  the other test:
 
     * **different `st_dev`** — different filesystems, and also btrfs
-      subvolumes, which share a mount but carry their own device and refuse
-      cross-subvolume links;
+      subvolumes, which share a mount but carry their own device;
     * **same `st_dev`, different mounts** — two mounts of one NFS export
       share a superblock and the kernel still refuses to link across them.
-      This is the case a device comparison alone gets confidently wrong,
-      and it matters here because in production the same export can be
-      mounted more than once.
 
-  Returns `{:error, reason}` rather than `false` when the question can't be
-  answered — a missing mount must not read as "different filesystem, fall
-  back to copying", because copying is exactly the storage doubling this
-  phase exists to prevent.
+  Returns `{:error, reason}` rather than `false` when the question cannot be
+  answered: "I couldn't tell" must not read as "copy instead".
   """
   def same_filesystem?(source, destination) do
     with {:ok, source_device} <- device(source),
@@ -431,8 +381,7 @@ defmodule Ambry.Library do
           {:ok, source_mount.id == destination_mount.id}
         end
 
-      # No mountinfo (not Linux): device equality is the best available
-      # answer, which is exactly what this check was before mounts existed.
+      # No mountinfo (not Linux): device equality is the best answer there is.
       :unavailable ->
         {:ok, true}
     end
@@ -441,13 +390,9 @@ defmodule Ambry.Library do
   @doc """
   The filesystem a path lives on.
 
-  Deliberately strict about the path existing. It's tempting to walk up to
-  the nearest existing ancestor so a not-yet-created destination can be asked
-  about, but that turns an unmounted volume into a confident wrong answer:
-  `/mnt/nas-b/library` on an unmounted `/mnt/nas-b` would report the root
-  filesystem's device, and writing there fills the OS disk instead of the
-  NAS. Callers ask about a registered path, which exists whenever the volume
-  is mounted — that's the whole point of checking.
+  Deliberately strict about the path existing: an unmounted volume's mount
+  point reports the root filesystem's device, and writing there fills the OS
+  disk. Callers ask about a registered path.
   """
   def device(path) do
     case File.stat(path) do

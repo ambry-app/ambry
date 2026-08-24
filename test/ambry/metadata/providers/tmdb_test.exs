@@ -41,7 +41,7 @@ defmodule Ambry.Metadata.Providers.TmdbTest do
                provider: "tmdb",
                id: "1252351",
                name: "Ty Franck",
-               description: "Writing — The Expanse, Some Film",
+               description: "Writing · The Expanse, Some Film",
                image_url: "https://image.tmdb.org/t/p/original/tyfranck-profile.jpg"
              } = franck
 

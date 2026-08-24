@@ -2,12 +2,10 @@ defmodule AmbryWeb.Components.EntityOption do
   @moduledoc """
   One row of a picker's list, and the option shape behind it.
 
-  Two components draw this row — `AmbryWeb.Components.EntityResolver`, where
-  you type and the server searches, and `AmbryWeb.Components.EntityDropdown`,
-  where you click and choose from what's there. They are different controls
-  answering the same question, so a row of one has to be indistinguishable
-  from a row of the other; leaving each to draw its own is how two lists of
-  audiobooks end up with the cover in different places.
+  Two controls draw this row, `AmbryWeb.Components.EntityResolver` and
+  `AmbryWeb.Components.EntityDropdown`, so a row of one is indistinguishable
+  from a row of the other. Left to draw their own, two lists of audiobooks end
+  up with the cover in different places.
 
   ## The option shape
 
@@ -16,36 +14,23 @@ defmodule AmbryWeb.Components.EntityOption do
       %{id: 1, label: "A Court of Thorns and Roses", image: "/path.webp",
         detail: "GraphicAudio · 2022"}
 
-  `image` renders a thumbnail, `detail` a muted second line — the
-  disambiguation lives there, so labels stay short. `trailer` is a muted
-  aside on the label's own line, for the one fact that separates two
-  same-titled records (a series and its number) when the detail line is
-  already full.
-
-  ## Shape
+  `image` renders a thumbnail and `detail` a muted second line, where the
+  disambiguation lives so labels stay short. `trailer` is a muted aside on the
+  label's own line, for the one fact separating two same-titled records when
+  the detail line is full.
 
   `shape: :round` for a person, `:square` (the default) for anything with a
-  cover. A portrait is a circle everywhere else in the app — the search
-  results tile, the credit chips, the person decision's face — and a picker
-  row is not the place to be the exception. Round ones also anchor
-  `object-top`, because a head is at the top of a portrait and a square crop
-  of a tall image takes the chin.
+  cover; a portrait is a circle everywhere else in the app. Round ones anchor
+  `object-top`, because a square crop of a tall portrait takes the chin.
 
-  When any option in a list has an image, imageless rows hold the space with
-  an empty tinted shape so the column stays aligned. **Not a letter**: the
-  app has no lettered-avatar idiom, and inventing one here would have been
-  the second thing this row did that nothing else does.
-
-  The tint is translucent rather than a zinc step, because the row it sits on
-  has two grounds: the list is `zinc-800` and a hovered or arrow-keyed row is
-  `zinc-700`. Any fixed step is invisible against one of them — `zinc-800`
-  disappears into the list, `zinc-700` into the hover. `white/10` lifts off
-  both.
+  Where any option has an image, imageless rows hold the space with an empty
+  tinted shape. **Not a letter**: the app has no lettered-avatar idiom. The
+  tint is translucent, because the row sits on two grounds (`zinc-800` in the
+  list, `zinc-700` when hovered) and any fixed step disappears into one.
 
   An option may also carry `query`: **what the record is found by, when that
-  differs from how it is displayed.** Only the resolver reads it — a dropdown
-  never searches — but it belongs to the option, not to the control, so
-  contexts build one option shape for both.
+  differs from how it is displayed.** Only the resolver reads it, but it
+  belongs to the option, so contexts build one shape for both controls.
   """
 
   use Phoenix.Component
@@ -77,10 +62,8 @@ defmodule AmbryWeb.Components.EntityOption do
 
   @doc """
   The inside of one option row: thumbnail, label, and the marks that say what
-  is chosen.
-
-  The `<li>` around it belongs to the caller, because the two controls differ
-  in what makes a row clickable.
+  is chosen. The `<li>` around it belongs to the caller, since the two
+  controls differ in what makes a row clickable.
   """
   def option_row(assigns) do
     ~H"""

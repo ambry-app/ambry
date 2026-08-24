@@ -124,7 +124,7 @@ defmodule AmbrySchema.Media do
     @desc "Container as probed, e.g. \"mov,mp4,m4a,3gp,3g2,mj2\""
     field :format, :string
 
-    @desc "Audio codec as probed, e.g. \"aac\". Clients decide playability from this and `mime` — nothing here is assumed playable"
+    @desc "Audio codec as probed, e.g. \"aac\". Clients decide playability from this and `mime`; nothing here is assumed playable"
     field :codec, :string
 
     field :duration, non_null(:float), resolve: Resolvers.resolve_decimal(:duration)

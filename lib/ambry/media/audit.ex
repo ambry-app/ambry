@@ -83,11 +83,8 @@ defmodule Ambry.Media.Audit do
   end
 
   @doc """
-  Audit the filesystem to see if there are any large media files not referenced
-  by any media objects.
-
-  Also returns a list of all broken media (referencing missing files or
-  folders).
+  Finds large files in the uploads tree that no recording references, and
+  recordings whose files are missing.
   """
   def orphaned_files_audit do
     existing_folders =
@@ -97,11 +94,9 @@ defmodule Ambry.Media.Audit do
 
     existing_files = Paths.media_disk_path() |> File.ls!() |> MapSet.new()
 
-    # Transcoded recordings only. This audit is entirely about the uploads
-    # tree — a transcode's inputs under `source_media/`, its outputs under
-    # `media/` — and an imported recording has neither, so it would read as
-    # broken in all five columns. `Ambry.Media.Reconciliation` is what
-    # watches the files an imported recording is served from.
+    # Transcoded recordings only: an imported recording has no files in the
+    # uploads tree and would read as broken. `Ambry.Media.Reconciliation`
+    # watches those.
     placed = from(t in MediaTrack, select: t.media_id)
 
     query =

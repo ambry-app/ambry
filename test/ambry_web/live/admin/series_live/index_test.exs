@@ -75,7 +75,7 @@ defmodule AmbryWeb.Admin.SeriesLive.IndexTest do
 
       refute has_element?(view, "[data-role='series-name']", series.name)
       assert has_element?(view, "[data-role='empty-message']", "No series yet.")
-      assert render(view) =~ "Series deleted successfully"
+      assert render(view) =~ "Deleted #{series.name}."
     end
   end
 

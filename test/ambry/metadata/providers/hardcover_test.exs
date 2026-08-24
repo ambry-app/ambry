@@ -185,7 +185,7 @@ defmodule Ambry.Metadata.Providers.HardcoverTest do
 
       assert [{:warning, message}] = Hardcover.config_notices(%{api_token: fake_token(exp)})
       assert message =~ "expires on"
-      assert message =~ "regenerate"
+      assert message =~ "Regenerate"
     end
 
     test "expired token yields an error" do

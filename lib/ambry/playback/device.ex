@@ -34,11 +34,9 @@ defmodule Ambry.Playback.Device do
 
     field :type, Ecto.Enum, values: @device_types
 
-    # Device identification
     field :brand, :string
     field :model_name, :string
 
-    # Browser info (web clients)
     field :browser, :string
     field :browser_version, :string
 

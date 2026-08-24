@@ -32,6 +32,18 @@
 
       <.form_footer>
         <.button>Save</.button>
+
+        <:danger :if={@live_action == :edit}>
+          <.button
+            type="button"
+            color={:red}
+            phx-click="delete"
+            data-confirm="Delete this universe? Its books stay in the library."
+            data-role="delete-universe"
+          >
+            Delete
+          </.button>
+        </:danger>
       </.form_footer>
     </.simple_form>
   </div>

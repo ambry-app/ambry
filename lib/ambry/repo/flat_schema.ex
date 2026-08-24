@@ -25,8 +25,8 @@ defmodule Ambry.Repo.FlatSchema do
 
       Cheap when nothing is filtering: the flat views put their credit arrays
       in the target list as correlated subqueries, and the planner drops every
-      one of them for a bare count — measured, it is a plain seq scan of the
-      base table. A *searched* count does build them, because the search reads
+      one of them for a bare count, leaving a plain seq scan of the base
+      table. A *searched* count does build them, because the search reads
       them, which makes it the same work the page query is already doing.
       """
       def count_query(filters \\ %{}) do
@@ -45,8 +45,8 @@ defmodule Ambry.Repo.FlatSchema do
       # direction is matched literally rather than by position:
       # `PaginationHelpers.sort_to_order/2` builds `{field, direction}`, and
       # Ecto's own keyword shape is `{direction, field}`. Ordering the clauses
-      # this way is what tells them apart; it used to be an accident of the
-      # fallback clause accepting whatever was left.
+      # this way is what tells them apart, rather than leaving it to a
+      # fallback clause accepting whatever is left.
       def order(query, nil), do: from(r in query, order_by: [asc: :id])
 
       def order(query, {field, :asc}), do: from(r in query, order_by: [asc: ^field, asc: :id])

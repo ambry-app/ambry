@@ -3,7 +3,7 @@
     <.list_controls new_path={~p"/admin/watches/new"} />
   </:subheader>
 
-  <.flex_table rows={@watches}>
+  <.flex_table rows={@watches} focus={@focus}>
     <:empty>
       Nothing on the horizon.
       <.brand_link navigate={~p"/admin/watches/new"}>
@@ -13,15 +13,15 @@
 
     <:row :let={watch}>
       <.index_row record_id={watch.id} navigate={~p"/admin/watches/#{watch}/edit"}>
+        <:cover>
+          <.row_cover src={watch.edition.cover_url} />
+        </:cover>
+
         <:headline>
           <span data-role="watch-title">{watch.edition.title}</span>
         </:headline>
 
         <:badges>
-          <%!-- The state is the only reason to open this page, so it is the
-                first thing on the row that isn't the book's name. "Date
-                passed" rather than "Released": all this knows is that the
-                day the provider promised has been and gone. --%>
           <.badge :if={state(watch, @today) == :due} color={:yellow} data-role="watch-due-badge">
             Date passed
           </.badge>
@@ -37,8 +37,6 @@
           narrators={credited(watch.edition.narrators)}
         />
 
-        <%!-- The fourth, variable line — with the credits, not in the rail.
-              See `meta_line/2`. --%>
         <p
           class="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-zinc-400"
           data-role="watch-meta"
@@ -46,10 +44,6 @@
           {meta_line(watch, @today)}
         </p>
 
-        <%!-- Three verbs at most, and short enough that two sit side by side
-              in the 224px rail. Forgetting a watch outright lives on the form:
-              it is rare, it is irreversible, and "Dismiss" is what the
-              operator almost always means. --%>
         <:action
           :if={watch.status == :upcoming}
           icon="fa-check"
@@ -80,6 +74,16 @@
         </:action>
         <:action navigate={~p"/admin/watches/#{watch}/edit"} icon="fa-pencil" role="edit-watch">
           Edit
+        </:action>
+        <:action
+          icon="fa-trash"
+          color={:red}
+          click="delete"
+          value={watch.id}
+          confirm={"Forget \"#{watch.edition.title}\"? Nothing will record that you decided about it. Dismissing keeps that record."}
+          role="delete-watch"
+        >
+          Forget
         </:action>
       </.index_row>
     </:row>

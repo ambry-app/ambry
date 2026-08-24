@@ -22,22 +22,22 @@ defmodule Ambry.Search.Index do
   ## Rebuilding is also pruning
 
   `index!/2` is given the ids the drain thinks are dirty, not the ids that
-  exist. A book that was deleted arrives here as an id with no row, and the
-  answer is to delete its record — which is how deletion works now that
-  nothing calls a `Search.delete/1` by hand.
+  exist. A deleted book arrives here as an id with no row, and the answer is
+  to delete its record: that is the whole of how deletion works, and nothing
+  calls a `Search.delete/1` by hand.
 
   ## Everything that exists is indexed, including empty shelves
 
-  A series or universe with no books used to be left out, so that user search
-  would not offer a dead link. That rule cannot survive the admin lists
-  moving onto the index: an empty series is *precisely* what an operator
-  opens the series list to find, and it would have been the one row search
+  Leaving a series or universe with no books out of the index would stop user
+  search offering a dead link, and that is not worth what it costs the admin
+  lists, which read the same index: an empty series is *precisely* what an
+  operator opens the series list to find, and it would be the one row search
   could not reach.
 
-  Nothing is lost by dropping it. `AmbryWeb.SearchLive` already hides a
-  series none of whose books have a ready edition, which an empty one
-  trivially is — the prune was a second copy of a rule the view already
-  enforces, in the one place where it was wrong.
+  Nothing is lost by indexing them. `AmbryWeb.SearchLive` already hides a
+  series none of whose books has a ready edition, which an empty one trivially
+  is, so pruning here would be a second copy of a rule the view enforces, in
+  the one place where it is wrong.
   """
 
   import Ecto.Query

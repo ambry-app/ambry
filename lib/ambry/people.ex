@@ -56,12 +56,6 @@ defmodule Ambry.People do
     * `:is_narrator` - Boolean.
 
   `order` should be a valid atom key, or a tuple like `{:name, :desc}`.
-
-  ## Examples
-
-      iex> list_people()
-      {[%PersonFlat{}, ...], true}
-
   """
   def list_people(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :name) do
     over_limit = limit + 1
@@ -81,16 +75,7 @@ defmodule Ambry.People do
   @doc """
   How many people the library holds, and how many of them write and read.
 
-  Named for what it is rather than `count_people`, which now answers the
-  list's question — one number, under the list's filters. Note that `total`
-  will not always be `authors` + `narrators`, because people are sometimes
-  both, which is the other reason this was never a count.
-
-  ## Examples
-
-      iex> people_summary()
-      %{authors: 3, narrators: 2, total: 4}
-
+  `total` is not `authors` + `narrators`: people are often both.
   """
   @spec people_summary :: %{total: integer(), authors: integer(), narrators: integer()}
   def people_summary do
@@ -105,12 +90,9 @@ defmodule Ambry.People do
   end
 
   @doc """
-  Returns the number of people, under the same filters `list_people/4` lists
-  with — so a list can say what page it is of.
+  The number of people, under the same filters `list_people/4` lists with.
 
-  A plain integer, and a different question from `people_summary/0`: that one
-  answers "what is in the library" for the overview, in three numbers that
-  deliberately don't add up (a person is often both an author and a narrator).
+  A different question from `people_summary/0`.
   """
   @spec count_people(map()) :: integer()
   def count_people(filters \\ %{}) do
@@ -121,34 +103,18 @@ defmodule Ambry.People do
   Gets a single person.
 
   Raises `Ecto.NoResultsError` if the Person does not exist.
-
-  ## Examples
-
-      iex> get_person!(123)
-      %Person{}
-
-      iex> get_person!(456)
-      ** (Ecto.NoResultsError)
-
   """
   def get_person!(id), do: Person |> preload(^@person_direct_assoc_preloads) |> Repo.get!(id)
 
   @doc """
   The people already in the library carrying exactly this name.
 
-  Case-insensitive and exact — a *name* is the only handle an import has on a
-  human, and anything fuzzier answers the wrong question: "who might this be"
-  is a judgement for the operator, while "do we already have them" has to be
-  certain before it's allowed to skip asking the providers.
+  Case-insensitive and exact: "do we already have them" has to be certain
+  before it is allowed to skip asking the providers, and "who might this be"
+  is a judgement for the operator.
 
-  Returns a list rather than one person because two humans really can share a
-  name, and that is precisely the case nothing should resolve automatically.
-
-  ## Examples
-
-      iex> people_named("Andy Weir")
-      [%Person{}]
-
+  Returns a list, because two humans really can share a name and that is the
+  case nothing should resolve automatically.
   """
   def people_named(name) when is_binary(name) do
     Person
@@ -160,14 +126,6 @@ defmodule Ambry.People do
 
   @doc """
   Creates a person.
-
-  ## Examples
-
-      iex> create_person(%{field: value})
-      {:ok, %Person{}}
-
-      iex> create_person(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
 
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
@@ -193,14 +151,6 @@ defmodule Ambry.People do
   @doc """
   Updates a person.
 
-  ## Examples
-
-      iex> update_person(person, %{field: new_value})
-      {:ok, %Person{}}
-
-      iex> update_person(person, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
   """
@@ -219,9 +169,8 @@ defmodule Ambry.People do
     end)
   end
 
-  # Unlinking a pen name from a person must not leave an author with no people
-  # behind: authors that lost their last link are deleted (blocked with an
-  # error if they're still in use by books).
+  # An author with no people behind it cannot exist, so one that lost its
+  # last link is deleted, or blocked if books still use it.
   defp delete_orphaned_authors(%Person{} = person, %Ecto.Changeset{} = changeset) do
     previously_linked_ids = Enum.map(person.author_people, & &1.author_id)
 
@@ -283,21 +232,6 @@ defmodule Ambry.People do
 
   @doc """
   Deletes a person.
-
-  ## Examples
-
-      iex> delete_person(person)
-      :ok
-
-      iex> delete_person(person)
-      {:error, :has_authored_books}
-
-      iex> delete_person(person)
-      {:error, :has_narrated_media}
-
-      iex> delete_person(person)
-      {:error, %Ecto.Changeset{}}
-
   """
   def delete_person(%Person{} = person) do
     Repo.transact(fn ->
@@ -319,9 +253,8 @@ defmodule Ambry.People do
   end
 
   # Deleting a person cascades their author links away, so authors exclusive
-  # to this person are deleted up front (composite authors shared with other
-  # people survive). Deletion is blocked if an exclusive author still has
-  # books.
+  # to them are deleted up front, or the deletion is blocked if one still has
+  # books. Composite authors shared with other people survive.
   defp delete_exclusive_authors(%Person{} = person) do
     exclusive_authors =
       Repo.all(
@@ -370,12 +303,6 @@ defmodule Ambry.People do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking person changes.
-
-  ## Examples
-
-      iex> change_person(person)
-      %Ecto.Changeset{data: %Person{}}
-
   """
   def change_person(%Person{} = person, attrs \\ %{}) do
     Person.changeset(person, attrs)
@@ -384,14 +311,6 @@ defmodule Ambry.People do
   @doc """
   Schedules an Oban job to generate thumbnails for a person asynchronously.
   Only schedules the job if the person has an image path but no thumbnails.
-
-  ## Examples
-
-      iex> generate_thumbnails_async(person)
-      {:ok, %Oban.Job{}}
-
-      iex> generate_thumbnails_async(person_with_thumbnails)
-      {:ok, :noop}
   """
   def generate_thumbnails_async(%Person{image_path: image_path, thumbnails: nil} = person)
       when is_binary(image_path) do
@@ -403,12 +322,9 @@ defmodule Ambry.People do
   def generate_thumbnails_async(_person), do: {:ok, :noop}
 
   @doc """
-  Generate a `%Thumbnails{}` for the given image_web_path and then store it on
-  the given person.
+  Generates thumbnails for `image_web_path` and stores them on the person.
 
-  Fails if the given person's image_web_path does not match the given
-  image_web_path, which could happen if the person's image_path was changed
-  while the thumbnail generation was in progress.
+  Fails if the person's image has changed since generation started.
   """
   def update_person_thumbnails!(person_id, image_web_path) do
     thumbnails = Ambry.Thumbnails.generate_thumbnails!(image_web_path)

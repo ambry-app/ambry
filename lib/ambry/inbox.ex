@@ -4,71 +4,48 @@ defmodule Ambry.Inbox do
 
   **The inbox is the only road into the library.** Discovery finds candidates
   and records what they are; import is what creates real records and touches
-  files. Nothing here copies, links, moves, or organizes anything — an item
+  files. Nothing here copies, links, moves or organizes anything: an item
   references its files exactly where they landed.
 
-  Why a queue rather than auto-import: Radarr can usually auto-import because
-  its identification has a strong prior — it initiated the grab, or it's
-  matching a conventionally-named release against a monitored library.
-  Audiobooks have far weaker naming conventions and there's no wanted list to
-  match against, so the uncertain case is the common case. Automation's job is
+  A queue rather than auto-import because audiobooks have weak naming
+  conventions, so the uncertain case is the common case. Automation's job is
   to make confirmation one click, not to skip the human.
 
   ## Discovery shape
 
-  A downloads folder does not say consistently where one release ends and
-  the next begins, so the walk decides from what it finds. A folder holding
-  audio directly *is* the release; a folder whose subfolders are plainly
-  parts ("Disc 02", "3 of 5") is still one release; anything else is a
-  container to look inside. Loose files at any level are their own release.
-
-  That's measured against a real downloads tree rather than assumed — see
-  `directory_candidate/1`.
+  A downloads folder does not say consistently where one release ends and the
+  next begins, so the walk decides from what it finds
+  (`directory_candidate/1`). A folder holding audio directly *is* the release;
+  a folder whose subfolders are plainly parts ("Disc 02", "3 of 5") is still
+  one release; anything else is a container to look inside. Loose files are
+  their own release.
 
   ## What a scan may change, and what it may not
 
-  The walk runs hourly over folders the operator is working in, so what it
-  is *allowed* to do matters more than what it finds. **Ownership decides,
-  not the walk**: every file the queue already holds belongs to something,
-  and the grouping the walk proposes is consulted only for files that belong
-  to nothing.
+  **Ownership decides, not the walk.** Every file the queue already holds
+  belongs to something, and the walk's proposed grouping is consulted only for
+  files that belong to nothing. A scan may create items from unowned files,
+  give an unowned file to the item owning the folder above it, and drop a file
+  no candidate in the whole walk claimed. It may never move a file between
+  items, and it never changes what an imported item holds.
 
-  **The library owns nothing here.** Discovery hides no file on the grounds
-  that a recording was once imported from it — a release the library already
-  holds is exactly what an operator upgrading it to direct play wants to
-  see, and the queue is the work list. That provenance is still read; it
-  pre-fills the import form's replace decision instead of removing the row.
+  That is what makes a split *and* a combine durable without a marker, by
+  construction rather than by a rule the code remembers: `record_candidate/4`
+  groups by owner before looking at anything else.
 
-  A scan may therefore do exactly three things:
+  Discovery hides no file because a recording was imported from it: a release
+  the library already holds is exactly what an operator upgrading it to direct
+  play wants to see. That provenance pre-fills the import form's replace
+  decision instead.
 
-    * create items from files nothing owns,
-    * give an unowned file to the item that owns the folder above it,
-    * drop a file that is gone from its owner (which marks that item's draft
-      stale, since the draft describes files that moved under it), where
-      "gone" means no candidate in the whole walk claimed it.
-
-  It may never move a file from one item to another, and it never changes
-  what an imported item holds.
-
-  Recording *whether* an item's files are still there is a separate pass with
-  a separate rule — see `Ambry.Inbox.Reconciliation`. It runs over every item
-  of the source, imported ones included, because "can this be re-opened" is a
-  question about an imported item that something has to be able to answer. It
-  asks the filesystem rather than the walk's claims: ownership says which
-  item a file belongs to, existence says whether it is there, and reading one
-  as the other is how the two come to disagree. That is what makes a split *and* a combine durable
-  without a marker: once the operator says five folders are five releases, or
-  that three are one, the files are owned, and re-walking the folder that
-  holds them has nothing to say. It is a property of the construction rather
-  than a rule the code has to remember — `record_candidate/4` groups by owner
-  before it looks at anything else, and settles what each owner holds only
-  once the walk is over.
+  Whether an item's files are still there is a separate pass with a separate
+  rule (`Ambry.Inbox.Reconciliation`), which asks the filesystem rather than
+  the walk's claims.
   """
 
   use Boundary,
     deps: [Ambry, Ambry.Library, Ambry.Media, Ambry.Wanted],
-    # The draft tree is exported because it IS the import form's data model —
-    # the form renders and edits it directly. Import stays internal.
+    # The draft tree IS the import form's data model. Import stays internal.
     exports: [InboxItem, {Draft, []}]
 
   import Ecto.Query
@@ -103,8 +80,7 @@ defmodule Ambry.Inbox do
   require Logger
 
   @doc """
-  Lists inbox items, most recent first — of whatever "recent" means for the
-  view being asked for.
+  Lists inbox items, most recent first.
 
   Options: `:status`, `:filter` (matches the path and what the draft says the
   item is), `:offset`, `:limit`.
@@ -129,18 +105,9 @@ defmodule Ambry.Inbox do
     {items_to_return, items != items_to_return}
   end
 
-  # The queue and the history are sorted by two different clocks, and using
-  # one for both is what put a release imported this morning below one
-  # imported last week.
-  #
-  # A **pending** item is waiting to be looked at, so the interesting moment
-  # is when it was found: newest discoveries first.
-  #
-  # An **imported or ignored** item is a record of something the operator
-  # did, so the interesting moment is when they did it — `updated_at`, which
-  # is stamped by the status change itself. Discovery can't muddy it:
-  # `record_candidate/4` skips a folder whose files are already imported, and
-  # nothing else touches a settled row.
+  # Two clocks: a pending item is waiting to be looked at and sorts by when
+  # it was found; an imported or ignored one is a record of something the
+  # operator did and sorts by `updated_at`.
   defp newest_first(status) when status in [:imported, :ignored],
     do: [desc: :updated_at, desc: :id]
 
@@ -149,8 +116,8 @@ defmodule Ambry.Inbox do
   @doc """
   How many items a list would have, under the filters it lists with.
 
-  Takes the same options as `list_items/1` and ignores the paging ones, so
-  the queue's "of 355" cannot drift from what the queue is showing.
+  Takes `list_items/1`'s options and ignores the paging ones, so the total
+  cannot drift from what the queue is showing.
   """
   def count_items(opts \\ []) do
     InboxItem
@@ -174,20 +141,11 @@ defmodule Ambry.Inbox do
   @doc """
   What the pending pile is made of.
 
-  `count_by_status/0` sizes the tabs; this answers the question the operator
-  opens the admin with, which is how much of the queue is *theirs*. "Pending"
-  is three different errands wearing one word:
+  Three errands wearing one word: **ready** (waiting on a human to press
+  Add), **decisions needed**, and **unprepared** (no draft yet, so waiting on
+  the machine).
 
-    * **ready** — the machine settled every decision and the only thing left
-      is a human agreeing. Still work: nothing auto-publishes, so somebody
-      has to look and press Add.
-    * **decisions needed** — the machine couldn't settle something.
-    * **unprepared** — no draft, so nobody has asked yet. This one is
-      *waiting on the machine*, not on the operator, which is why the
-      overview reports it beside the jobs rather than beside the other two.
-
-  `issues` cuts across all three: an item can be ready and still carry the
-  record of something that went wrong. It is counted, not subtracted.
+  `issues` cuts across all three and is counted, not subtracted.
   """
   def queue_summary do
     counts =
@@ -201,11 +159,8 @@ defmodule Ambry.Inbox do
       })
       |> Repo.one()
 
-    # The three buckets partition the pile, so the middle one is what the
-    # other two leave behind rather than its own count — a query that asked
-    # for it separately could disagree with the total by a row inserted
-    # between the two, and a summary that doesn't add up is worse than a
-    # coarse one.
+    # The middle bucket is what the other two leave behind: counted
+    # separately it could disagree with the total.
     Map.put(
       counts,
       :decisions_needed,
@@ -216,14 +171,11 @@ defmodule Ambry.Inbox do
   @doc """
   How the providers have been answering, across the queue that's still open.
 
-  One row per recorded outcome id — `hardcover` searched, `hardcover:details`
-  hydrated — because those succeed and fail independently and rolling them
-  together is exactly the mistake `Ambry.Metadata.Outcome` exists to prevent.
+  One row per recorded outcome id, because a search and a details call
+  succeed and fail independently (`Ambry.Metadata.Outcome`).
 
-  Read from the items themselves rather than a log: an outcome is written
-  where it is *used*, so this is the same evidence the import form shows,
-  aggregated. It therefore describes the open queue, not all history — an
-  imported item's troubles are over and don't belong in a health reading.
+  Read from the items rather than a log, so it is the same evidence the import
+  form shows, and describes the open queue rather than all history.
   """
   def provider_health do
     """
@@ -259,10 +211,8 @@ defmodule Ambry.Inbox do
   @doc """
   One item, carrying the source its `path` and `files` are relative to.
 
-  Preloaded here rather than by each caller: every one of them either
-  resolves a path or renders where the item came from, and an item without
-  its source is a struct whose two most-used columns can't be read. The write
-  path has said this for as long as it has taken a row lock (`with_item/2`).
+  Preloaded here, since without it the item's two most-used columns cannot be
+  read.
   """
   def get_item!(id), do: InboxItem |> Repo.get!(id) |> Repo.preload(:source)
 
@@ -275,13 +225,11 @@ defmodule Ambry.Inbox do
   @doc """
   Scans every watched source for candidates.
 
-  Idempotent by design: an item's path is its identity, so rescanning updates
-  the files of a known item rather than duplicating it, never resurrects a
-  ignored one, and never re-offers files the library already has.
+  Idempotent: an item's path is its identity, so a rescan updates a known
+  item rather than duplicating it and never resurrects an ignored one.
 
-  A source that can't be read doesn't fail the run — one unmounted NAS
-  shouldn't stop the others from being scanned — but it is counted, because
-  "found nothing" and "couldn't look" must not look the same to the operator.
+  A source that cannot be read is counted rather than failing the run, because
+  "found nothing" and "couldn't look" must not look the same.
 
   Returns `{:ok, %{created: n, updated: n, skipped: n, unreachable: n}}`.
   """
@@ -295,11 +243,9 @@ defmodule Ambry.Inbox do
   @doc """
   Scans one source.
 
-  A source is the only way into the inbox. Scanning a bare path used to be
-  possible and produced items with no source, which meant absolute stored
-  paths, no placement default, and a whole second shape for every function
-  that touches an item's files to handle. It was never reachable from the
-  UI, so the exception bought nothing and cost that.
+  Scanning a bare path is deliberately not possible: an item with no source
+  means absolute stored paths, no placement default, and a second shape for
+  every function that touches an item's files.
   """
   def discover(%Source{} = source) do
     with {:ok, counts} <- scan(source) do
@@ -328,8 +274,8 @@ defmodule Ambry.Inbox do
     if File.dir?(source.path) do
       ledger = ledger()
 
-      # Two passes, because an owner can span several candidates and only the
-      # whole walk knows what it still holds — see `record_candidate/4`.
+      # Two passes: an owner can span several candidates, and only the whole
+      # walk knows what it still holds (`record_candidate/4`).
       {creations, claims} =
         source.path
         |> candidates()
@@ -337,9 +283,8 @@ defmodule Ambry.Inbox do
 
       results = List.flatten(creations) ++ Enum.map(claims, &refresh_claim/1)
 
-      # After the walk, and asking the disk rather than the claims: whether a
-      # file exists and which item owns it are different questions, and this
-      # one has to be answerable for an item the walk deliberately skips.
+      # After the walk, asking the disk rather than the claims: this has to
+      # be answerable for an item the walk skips.
       {:ok, %{missing: missing, healed: healed}} = Reconciliation.reconcile_source(source)
 
       {:ok,
@@ -360,9 +305,8 @@ defmodule Ambry.Inbox do
   Records what an item's files actually are: direct-play facts plus whatever
   the file claims about itself.
 
-  This never fails the item — an unreadable or unsupported candidate keeps
-  its place in the queue with an `issue` explaining why, because the operator
-  needs to see it to act on it.
+  Never fails the item. An unreadable candidate keeps its place with an
+  `issue` explaining why, because the operator has to see it to act on it.
   """
   def probe_item(%InboxItem{} = item, opts \\ []) do
     item = Repo.preload(item, :source)
@@ -374,8 +318,7 @@ defmodule Ambry.Inbox do
       end
 
     with {:ok, item} <- update_item(item, attrs) do
-      # tags are what matching leans on, so it follows probing rather than
-      # racing it
+      # tags are what matching leans on, so it follows probing
       {:ok, _job} = match_item_async(item, opts)
       {:ok, item}
     end
@@ -384,31 +327,18 @@ defmodule Ambry.Inbox do
   @doc """
   Re-reads one item from disk and re-asks every provider about it.
 
-  The operator's "this is wrong, look at it again" action, and it has to mean
-  all three of the things it sounds like it means. It replaced two buttons
-  that between them did none of them:
+  "This is wrong, look at it again", which has to mean three things:
 
-    * **Re-read the files.** "Re-probe" ran ffprobe over the file list
-      captured at *discovery*, so a release the operator had since fixed on
-      disk — parts joined into one m4b, a stray file removed — probed exactly
-      the same way forever. Only a full source scan refreshed the list.
-    * **Ask the providers again, for real.** Provider answers are cached for
-      thirty days, so re-matching re-derived identical records from identical
-      cached responses and finished in milliseconds. The button could not
-      find anything new by construction. This one passes `refresh: true` all
-      the way down to `Metadata.Cache`.
-    * **Actually run.** `RunMatch` is `unique` over a 60-second window, and
-      Oban answers a uniqueness conflict with `{:ok, %{job | conflict?: true}}`
-      — an insert that looks successful and does nothing. Since re-probing
-      also enqueues a match, the two old buttons in sequence were *guaranteed*
-      to no-op with a cheerful flash. Operator-initiated work opts out of
-      uniqueness and reports what really happened.
+    * **Re-read the files**, not re-probe the list captured at discovery, or
+      a release fixed on disk probes the same way forever.
+    * **Ask the providers again, for real**: `refresh: true` all the way down
+      to `Metadata.Cache`.
+    * **Actually run.** `RunMatch` is `unique` over a 60-second window and
+      Oban answers a conflict with an insert that looks successful and does
+      nothing, so operator-initiated work opts out of uniqueness.
 
-  What it deliberately does NOT do is re-seed the draft: `prepare_draft/1`
-  leaves an existing one alone, so new evidence appears in the form as
-  un-ticked records rather than overwriting a decision. Curation outranks
-  re-derivation — but the caller should say so, or "nothing happened" is the
-  only available reading.
+  It does not re-seed the draft: new evidence appears as un-ticked records
+  rather than overwriting a decision, and the caller should say so.
   """
   def rescan_item(%InboxItem{} = item) do
     with {:ok, item} <- refresh_files(item) do
@@ -419,8 +349,8 @@ defmodule Ambry.Inbox do
   @doc """
   Re-reads and re-queries one item in the background.
 
-  Refused once the item is in the library: the probe rebuilds an untouched
-  draft, and an imported item's draft is the record of what was imported.
+  Refused once imported: an imported item's draft is the record of what was
+  imported.
   """
   def rescan_item_async(%InboxItem{status: :imported}), do: {:error, :already_imported}
 
@@ -428,12 +358,9 @@ defmodule Ambry.Inbox do
     %{inbox_item_id: item.id, refresh: true} |> RunProbe.new() |> Oban.insert()
   end
 
-  # The files on disk, now, rather than the ones discovery happened to see.
-  #
-  # Left alone when the walk comes back empty: an NFS mount that is briefly
-  # away must not be recorded as "this release has no audio in it", and a
-  # genuinely empty folder is reported by probing instead. The walk speaks
-  # absolutes; what gets stored is the source-relative form.
+  # The files on disk now, not the ones discovery happened to see. Left alone
+  # when the walk comes back empty, so a share that is briefly away is not
+  # recorded as a release with no audio. Stored source-relative.
   defp refresh_files(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
 
@@ -459,12 +386,8 @@ defmodule Ambry.Inbox do
   @doc """
   Sets columns on an item, on the row as it is now.
 
-  Takes an id or an item, and reads the row again either way: the callers
-  here are jobs that computed `attrs` from something slow — a probe, a fan-out
-  to four metadata providers — and the copy they set out with is minutes old
-  by the time they have an answer. What they are writing does not depend on
-  what the row said in the meantime, so the fresh row is simply the right
-  thing to write onto.
+  Reads the row again whether given an id or an item, since callers are jobs
+  whose copy is minutes old.
   """
   def update_item(item_or_id, attrs)
 
@@ -475,25 +398,21 @@ defmodule Ambry.Inbox do
   end
 
   # The row as committed, held for the rest of the transaction. Everything
-  # that reads an item, changes it and writes it back goes through here —
-  # `Ambry.Inbox.Lookup` and `Ambry.Inbox.Importer` take the same lock for
-  # the same reason.
+  # that reads an item, changes it and writes it back goes through here.
   defp with_item(id, fun) do
     Repo.transact(fn ->
       InboxItem
       |> where([i], i.id == ^id)
       |> lock("FOR UPDATE")
       |> Repo.one!()
-      # The item callers got back before always carried its source, and
-      # plenty of them go on to resolve a path with it.
+      # Callers go on to resolve paths with it.
       |> Repo.preload(:source)
       |> fun.()
     end)
   end
 
-  # Every write from this module reads its row first, under that lock, so
-  # `unchanged?/1` is answerable here and a sweep that found nothing to do
-  # leaves no trace at all.
+  # Every write reads its row first under that lock, so `unchanged?/1` is
+  # answerable and a sweep with nothing to do leaves no trace.
   defp write(changeset) do
     if InboxItem.unchanged?(changeset),
       do: {:ok, changeset.data},
@@ -511,25 +430,16 @@ defmodule Ambry.Inbox do
   @doc """
   Proposes what an item is: which work, and which recording.
 
-  Runs after probing, since the embedded tags it leans on come from there.
-  Never fails the item — providers being unreachable means fewer candidates,
-  not a broken queue entry.
+  Runs after probing, since the tags it leans on come from there. Never fails
+  the item: unreachable providers mean fewer candidates.
   """
   def match_item(%InboxItem{} = item, opts \\ []) do
     with {:ok, item} <- update_item(item, AutoMatch.match(item, opts)) do
-      # Staging the import is the point of matching — proposals nothing turns
-      # into decisions are just data sitting in a column.
-      #
-      # A draft that already exists is **brought up to date**, not left alone:
-      # matching has just replaced the evidence, and a retry that finally
-      # reaches a provider buys nothing if the records it returns never reach
-      # the form.
-      #
-      # Which update depends on whether a human has been here. An untouched
-      # draft is rebuilt outright, because the retry's new record is not
-      # *ticked* and re-deriving from the ticked set would ignore it. Once the
-      # operator has decided anything, their draft is re-derived around them
-      # instead — `resettle/2` keeps every curated choice.
+      # Matching has just replaced the evidence, so an existing draft is
+      # brought up to date rather than left alone. An untouched one is rebuilt
+      # outright, because a retry's new record is not ticked and re-deriving
+      # from the ticked set would ignore it; once a human has decided
+      # anything, `resettle/2` re-derives around them.
       cond do
         is_nil(item.draft) ->
           rebuild_draft(item)
@@ -546,11 +456,9 @@ defmodule Ambry.Inbox do
   @doc """
   Which providers were asked about this item and couldn't answer.
 
-  Not "found nothing" — that is an answer. This is the provider that was down,
-  rate-limited or misconfigured, across every level: the work, the recording,
-  and each person. `RunMatch` reads it to decide whether it is actually
-  finished, because a match that reached three of four databases has not got
-  what it set out to get.
+  Not "found nothing", which is an answer: this is the provider that was
+  down, rate-limited or misconfigured, at any level. `RunMatch` reads it to
+  decide whether it is actually finished.
   """
   def unreached_providers(%InboxItem{matches: matches}) when is_map(matches) do
     people = matches |> Map.get("people", %{}) |> Map.values()
@@ -568,10 +476,8 @@ defmodule Ambry.Inbox do
   @doc """
   Proposes matches for one item in the background.
 
-  A refreshing run opts out of `RunMatch`'s uniqueness window. That window
-  exists to collapse the storm of duplicate jobs a rescan of a whole source
-  produces; an operator who clicked a button meant it, and silently dropping
-  their job is how "look for matches again" came to do nothing at all.
+  A refreshing run opts out of `RunMatch`'s uniqueness window, which exists
+  to collapse the duplicate jobs a whole-source rescan produces.
   """
   def match_item_async(%InboxItem{} = item, opts \\ []) do
     if Keyword.get(opts, :refresh, false) do
@@ -586,23 +492,15 @@ defmodule Ambry.Inbox do
   @doc """
   Re-derives queued drafts that the library just moved under.
 
-  **A draft is a snapshot of the library taken when the item was matched**, and
-  import executes it exactly. So two queued items implying the same new
-  person, identity or series each created their own: measured on a real batch
-  of seven, Em Grosland narrates both Monk & Robot books and arrived as two
-  People and two Narrators, and "Monk and Robot" arrived as two Series. Books
-  are the same bug waiting for two recordings of one work — the split library
-  the whole work-identity design exists to prevent.
+  A draft is a snapshot of the library taken when the item was matched, and
+  import executes it exactly. Without this, two queued items implying the same
+  new person each create their own.
 
-  The seeder's rule was never wrong; it ran against stale facts. So this
-  re-points references rather than deciding: `Seed.relink/2` turns a credit or
-  series that meant to *create* something into a *link* when exactly one thing
-  of that name now exists, and changes nothing else. The affected credit
-  visibly becomes "link the existing Em Grosland" **before** the operator
-  imports it, so import still executes only what the form showed.
-
-  Deliberately narrower than a re-seed, which would also re-open questions the
-  operator had already answered — see `Seed.relink/2`.
+  It re-points references rather than deciding: `Seed.relink/2` turns a credit
+  or series that meant to *create* something into a *link* when exactly one
+  thing of that name now exists, and the affected credit says so before the
+  operator imports. Narrower than a re-seed, which would re-open answered
+  questions.
   """
   def refresh_siblings(%InboxItem{} = imported) do
     case sibling_names(imported.draft) do
@@ -630,10 +528,8 @@ defmodule Ambry.Inbox do
     |> Enum.uniq()
   end
 
-  # A cheap candidate filter over the stored draft, not a precise one — a
-  # false positive costs an idempotent re-derivation that changes nothing,
-  # while scanning every pending item would cost a full rebuild each on a
-  # queue that is hundreds long during a cold start.
+  # A cheap candidate filter: a false positive costs an idempotent
+  # re-derivation, and scanning every pending item costs a rebuild each.
   defp siblings_of(names, %InboxItem{} = imported) do
     condition =
       Enum.reduce(names, dynamic(false), fn name, acc ->
@@ -651,9 +547,8 @@ defmodule Ambry.Inbox do
 
   defp escape_like(value), do: String.replace(value, ~r/[\\%_]/, "\\\\\\0")
 
-  # Never fatal: the import succeeded, and a sibling that won't re-derive is a
-  # stale proposal to fix on the form, not a reason to fail the import that
-  # already committed.
+  # Never fatal: a sibling that won't re-derive is a stale proposal to fix on
+  # the form, not a reason to fail an import that already committed.
   defp refresh_draft(%InboxItem{} = item) do
     case update_draft_with(item, &Seed.relink/2) do
       {:ok, _item} ->
@@ -666,12 +561,10 @@ defmodule Ambry.Inbox do
   end
 
   @doc """
-  Stages the import: turns what we found into a tree of decisions.
+  Stages the import: turns what was found into a tree of decisions.
 
   Runs after matching, and is what the queue's Ready badge and the import
-  form both read. Rebuilding is destructive to curation by definition, so it
-  only ever happens when there is no draft yet — an operator's choices are
-  not something a background job may overwrite.
+  form both read. Only ever builds where there is no draft yet.
   """
   # An imported item's draft is the record of what was imported; nothing may
   # touch it, healing included.
@@ -684,24 +577,17 @@ defmodule Ambry.Inbox do
       draft, fresh -> draft |> refresh_destination(fresh) |> refresh_replacement(fresh)
     end)
     |> case do
-      # Imported while this caller was holding the row. Healing an imported
-      # item is a no-op, not a failure — the form asks for this on mount and
-      # a read-only page is a perfectly good answer.
+      # Imported while this caller held the row. A no-op, not a failure: the
+      # form asks on mount and a read-only page is a fine answer.
       {:error, :already_imported} -> {:ok, item}
       result -> result
     end
   end
 
-  # A decision the operator has not answered is a *default*, and a default
-  # frozen at match time is the wrong default the moment anything it was
-  # derived from changes. A draft is written once and then only read, so
-  # nothing would ever revise it: import the first of three hundred queued
-  # releases, correct the policy while you're there, and the other two
-  # hundred and ninety-nine would keep proposing the old one forever.
-  #
-  # So the unanswered ones are re-derived here, on every prepare. The
-  # answered ones are never touched — that is the entire distinction the
-  # `chosen` and `curated` flags exist to draw.
+  # An unanswered decision is a default, and one frozen at match time is
+  # wrong the moment what it was derived from changes. So unanswered
+  # decisions are re-derived on every prepare and answered ones never are,
+  # which is what `chosen` and `curated` exist to draw.
   defp refresh_destination(%Draft{} = draft, item) do
     %{draft | destination: Seed.redefault(draft.destination || %Destination{}, item)}
   end
@@ -713,8 +599,8 @@ defmodule Ambry.Inbox do
   @doc """
   Throws away the staged import and seeds a fresh one from current evidence.
 
-  The operator's escape hatch when a draft was built against the wrong match
-  and editing it would be more work than starting over. Never automatic.
+  The escape hatch when a draft was built against the wrong match. Never
+  automatic.
   """
   def rebuild_draft(%InboxItem{} = item) do
     update_draft_with(item, fn _discarded, fresh -> Seed.build(fresh) end)
@@ -723,21 +609,12 @@ defmodule Ambry.Inbox do
   @doc """
   Applies a transformation to the draft the row actually holds.
 
-  **The way to change a draft.** Everything that changes one is a function of
-  the draft and the item — `Seed.relink/2` re-points a credit at a row that
-  now exists, `Draft.Edit.choose_field/4` records an answer, `Seed.build/1`
-  starts over — so the transformation can simply be handed the committed
-  draft instead of one the caller read earlier and may have been holding for
-  a while.
+  **The way to change a draft.** The transformation is handed the *committed*
+  draft rather than one the caller read earlier, so a sweep over hundreds of
+  drafts cannot write back minutes-old copies.
 
-  That is the whole fix for the class of bug this had: a sweep that read
-  three hundred drafts and then wrote them back one at a time was writing
-  minutes-old copies, and any answer given in between vanished without a
-  trace. Under the lock there is no in-between — the draft the function is
-  given is the draft the write lands on.
-
-  The transformation may return `nil` for "nothing to write". Note it runs
-  inside the transaction: keep it to library reads, never a provider call.
+  May return `nil` for "nothing to write". Runs inside the transaction, so
+  keep it to library reads and never a provider call.
   """
   def update_draft_with(item_or_id, fun)
 
@@ -756,18 +633,10 @@ defmodule Ambry.Inbox do
   defp write_draft(item, %Draft{} = draft),
     do: item |> InboxItem.put_draft(draft |> reconcile_people(item) |> dump()) |> write()
 
-  # **Every referenced key has a decision, on every write.** A person exists
-  # because a credit references their key (`Draft.referenced_keys/1`), so an
-  # edit that touches `person_keys` can leave the two out of step: restoring a
-  # removed credit references keys whose decisions were swept when it was
-  # removed, and its people then render as nothing at all, because
-  # `Draft.people_for/2` can only drop a key it cannot resolve. Seven call
-  # sites each remembered to reconcile; the symptom of the one that forgets is
-  # not an error, it is a pill that quietly isn't there.
-  #
-  # Only the gap is repaired, never the whole set. A blanket reseed on every
-  # write is the same rule stated more strongly and it is wrong: re-deriving a
-  # settled draft moves values nobody touched, which ten tests say plainly.
+  # Every referenced key has a decision, on every write: an edit touching
+  # `person_keys` can otherwise leave the two out of step, and
+  # `Draft.people_for/2` silently drops what it cannot resolve. Only the gap
+  # is repaired, never the whole set.
   defp reconcile_people(%Draft{} = draft, %InboxItem{} = item) do
     case Draft.referenced_keys(draft) -- Enum.map(draft.people, & &1.key) do
       [] -> draft
@@ -778,17 +647,12 @@ defmodule Ambry.Inbox do
   @doc """
   Saves the import form's own params.
 
-  The one draft write that cannot be replayed against a newer draft, and so
-  the one that can be refused: its attrs are a rendered form, built against a
-  particular draft and meaningful only against that one. Everything else goes
-  through `update_draft_with/2`, which re-derives instead.
+  The one draft write that cannot be replayed against a newer draft, since
+  its attrs are a rendered form. Everything else goes through
+  `update_draft_with/2`, which re-derives.
 
   Returns `{:error, :stale}` when the row has moved since the form was
-  rendered. The form's answer is to reload and say so — applying the params
-  anyway is exactly the silent overwrite the version exists to stop.
-
-  Every save recomputes readiness, so the queue can never claim an item is
-  importable when its draft says otherwise.
+  rendered. Every save recomputes readiness.
   """
   def update_draft(%InboxItem{status: :imported}, _attrs), do: {:error, :already_imported}
 
@@ -811,10 +675,9 @@ defmodule Ambry.Inbox do
   @doc """
   Every set of library records that name the same thing.
 
-  Not an inbox report by subject — it covers records the upload flow created
-  years before this queue existed — but the definition of *the same* lives
-  here, in the rules the importer links by, and there may only be one of it.
-  See `Ambry.Inbox.Duplicates`.
+  Covers every record in the library, however it got there, but the
+  definition of *the same* is the importer's and lives here. See
+  `Ambry.Inbox.Duplicates`.
   """
   defdelegate duplicates, to: Duplicates, as: :check
 
@@ -834,7 +697,7 @@ defmodule Ambry.Inbox do
   Records a set of records as deliberately distinct, and puts one back.
 
   Two series that fold to one key may be two real series; the report cannot
-  tell, and neither may it stop saying so. This is where the operator says.
+  tell. This is where the operator says.
   """
   defdelegate dismiss_duplicates(kind, record_ids), to: Duplicates, as: :dismiss
 
@@ -848,28 +711,21 @@ defmodule Ambry.Inbox do
   @doc """
   Whether two spellings mean one human, as one comparable key.
 
-  Matching's own rule, so the edit forms decide "is this record about the
-  person I asked about" exactly the way an import decides it — initials,
-  punctuation and accents all fold.
+  Matching's own rule, so the edit forms decide it exactly the way an import
+  does: initials, punctuation and accents all fold.
   """
   defdelegate person_key(name), to: AutoMatch
 
   @doc """
-  Scoring hints from a library record's own fields — what lets the edit
-  forms rank provider records exactly the way matching ranks them against
-  an item's tags. (The scoring itself is `score_records/3`; its true home
-  is the metadata layer, and it lives here only because moving the
-  battle-tested scorer wholesale wasn't worth the risk the day the edit
-  forms started needing it.)
+  Scoring hints from a library record's own fields, so the edit forms rank
+  provider records the way matching ranks them against an item's tags. The
+  scoring itself is `score_records/3`.
   """
   defdelegate form_hints(fields), to: AutoMatch
 
   @doc """
-  What this item's tags and release name say it is — the same hints matching
-  searched with.
-
-  The import form seeds its search boxes from these, so a re-search starts
-  from what was actually looked for rather than from nothing.
+  What this item's tags and release name say it is: the same hints matching
+  searched with, so the form's boxes start from what was actually looked for.
   """
   defdelegate hints(item), to: AutoMatch
 
@@ -913,14 +769,11 @@ defmodule Ambry.Inbox do
   @doc """
   What import will do with this item's bytes, decided before it's asked.
 
-  Placement can fail for reasons no amount of curation fixes — a downloads
-  folder on a different NAS from its library root, a destination already
-  occupied, no root registered at all. Those used to surface as an error at
-  the moment the operator clicked import. Working them out up front is what
-  lets the form refuse to offer a button that fails, and it tells the
-  operator *where the file is going* before they commit to it.
+  Placement can fail for reasons no amount of curation fixes: a different
+  filesystem from the library root, an occupied destination, no root at all.
+  Working them out up front lets the form refuse to offer a button that fails.
 
-  Returns a map with a human `:summary` and a `:blocker` — nil when placement
+  Returns a map with a human `:summary` and a `:blocker`, nil when placement
   will work.
   """
   def destination_preflight(%InboxItem{} = item) do
@@ -932,9 +785,8 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # The draft's choice, or the default the seed put there. There is no
-  # source-level fallback any more: how the files come in is a fact about
-  # the pairing, so with no root settled there is nothing to fall back to.
+  # The draft's choice, or the default the seed put there. No source-level
+  # fallback: with no root settled there is no pairing to recall.
   defp chosen_policy(%InboxItem{draft: %{destination: %{policy: policy}}})
        when not is_nil(policy), do: policy
 
@@ -950,8 +802,7 @@ defmodule Ambry.Inbox do
   end
 
   # "No root chosen" and "no root exists" are different problems with
-  # different fixes — the picker is sitting right above one of the two
-  # messages, and it used to be told there was nothing to pick.
+  # different fixes.
   defp chosen_root(_item) do
     case Library.list_roots() do
       [] -> {:error, :no_library_root}
@@ -959,10 +810,9 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # The refusal this whole phase exists for: a hardlink cannot cross a
-  # filesystem, and silently copying instead is the storage doubling the
-  # roadmap set out to eliminate. Worth knowing before the click, not after.
-  # Symlink deliberately gets no blocker: it has no precondition to fail.
+  # A hardlink cannot cross a filesystem, and silently copying instead is the
+  # storage doubling this exists to prevent. Symlink gets no blocker: it has
+  # no precondition to fail.
   defp hardlink_blocker(item, :hardlink, root) do
     case hardlinkable(item, root) do
       {:ok, true} -> nil
@@ -973,9 +823,8 @@ defmodule Ambry.Inbox do
 
   defp hardlink_blocker(_item, _policy, _root), do: nil
 
-  # Asked of the item's real files rather than its source's path: the
-  # default is derived from the pairing, but the answer that gates a
-  # placement has to be about the bytes being placed.
+  # Asked of the item's real files, not its source's path: the answer that
+  # gates a placement has to be about the bytes being placed.
   defp hardlinkable(%InboxItem{files: [_ | _]} = item, root),
     do: Library.same_filesystem?(Path.dirname(first_file(item)), root.path)
 
@@ -1003,9 +852,9 @@ defmodule Ambry.Inbox do
   @doc """
   Approves an item into the library.
 
-  Creates the whole entity graph in one transaction — book, credits, series,
-  the recording and its tracks — with the files referenced where they lie.
-  Nothing is published: the recording is created `pending`.
+  Creates the whole entity graph in one transaction: book, credits, series,
+  the recording and its tracks. Nothing is published; the recording is
+  created `pending`.
   """
   def import_item(%InboxItem{} = item) do
     if Reconciliation.present?(item), do: do_import_item(item), else: {:error, :files_missing}
@@ -1014,29 +863,23 @@ defmodule Ambry.Inbox do
   defp do_import_item(%InboxItem{} = item) do
     case Importer.import_item(item) do
       {:ok, media} ->
-        # Bookkeeping, and it runs after the records are committed. Neither
-        # of these may fail the import — the library already holds the
-        # recording, so a job reported as failed would be a lie the operator
-        # acts on — and neither may skip the other, so they are guarded
-        # separately. `Placement.finalize/1` states the same rule one call
-        # further in, for the same reason.
+        # Bookkeeping, after the records are committed. Neither may fail the
+        # import, and neither may skip the other.
         after_commit(item, "remember the placement", fn -> remember_placement(item) end)
         after_commit(item, "relink sibling drafts", fn -> refresh_siblings(item) end)
         {:ok, media}
 
       {:error, reason} = error ->
-        # A flash lasts one page load; these workers run `max_attempts: 1`,
-        # so a discarded job lasts a day. Neither tells the operator anything
-        # tomorrow, so the reason goes on the item itself.
+        # A flash lasts one page load and a discarded job a day, so the
+        # reason goes on the item itself.
         update_item(item, %{issue: describe_error(reason)})
         error
     end
   end
 
-  # Work that happens once the import has committed is untidy when it
-  # fails, not broken. `RunImport` is `max_attempts: 1`, so a raise here
-  # would discard the job for a release the library actually has, and take
-  # the *other* piece of bookkeeping down with it.
+  # Post-commit work is untidy when it fails, not broken: `RunImport` is
+  # `max_attempts: 1`, so a raise here discards the job for a release the
+  # library has.
   defp after_commit(%InboxItem{} = item, what, work) do
     work.()
     :ok
@@ -1050,10 +893,8 @@ defmodule Ambry.Inbox do
       :ok
   end
 
-  # What the next import from this source should propose is what this one
-  # did. Remembered after the fact rather than when the operator picked: a
-  # choice made on a release that then failed to place is not what the
-  # source does.
+  # Remembered after the fact rather than when the operator picked: a choice
+  # made on a release that then failed to place is not what the source does.
   defp remember_placement(%InboxItem{} = item) do
     %InboxItem{source: source, draft: draft} = Repo.preload(item, :source)
 
@@ -1074,14 +915,9 @@ defmodule Ambry.Inbox do
   defp moved?(%ImportPreference{library_root_id: id, policy: p}, %Root{id: id}, p), do: false
   defp moved?(%ImportPreference{}, _root, _policy), do: true
 
-  # The default just moved, and every queued item that was following the old
-  # one is now proposing the wrong thing. Opening each would fix it, but the
-  # queue's Ready badge reads a stored column — so nothing would look
-  # different until the operator opened all three hundred, which is the
-  # opposite of what remembering a choice is for.
-  #
-  # Only runs when the memory actually changed, which after the first import
-  # from a source is almost never.
+  # The default just moved, so every queued item following it proposes the
+  # wrong thing, and the Ready badge reads a stored column. Only runs when the
+  # memory actually changed.
   defp refresh_queued_destinations(%Source{} = source) do
     InboxItem
     |> where([i], i.source_id == ^source.id and i.status == :pending)
@@ -1094,26 +930,15 @@ defmodule Ambry.Inbox do
   @doc """
   Queues the import and hands the operator back their afternoon.
 
-  Placing a release is the longest thing the inbox does — every file
-  re-probed, then every byte copied — and running it inside the form meant
-  the operator watched a spinner they could kill by closing the tab. The job
-  belongs to the server; the row says what is happening to it.
+  Placing a release is the longest thing the inbox does, so the job belongs
+  to the server; run inside the form it would be a spinner the operator can
+  kill by closing the tab.
 
-  Refuses an item that is already in the library, since the queued job would
-  only rediscover that a minute later and write it onto the row as an issue.
-
-  ## The pre-flight
-
-  Also refuses, once, when the draft would create something the library may
-  already have, returning `{:error, {:collisions, findings}}` — see
-  `Ambry.Inbox.Preflight`. A draft is a snapshot of a library that keeps
-  moving, and this is the last moment anything is asked before rows are
-  created.
-
-  It asks again rather than trusting a flag: pass the findings back as
-  `:acknowledged` and the import proceeds only if the library still says
-  exactly that. Anything that appeared while the operator was reading is a
-  collision they were never shown, so it stops them again.
+  Refuses an item already in the library, and refuses once when the draft
+  would create something the library may already have
+  (`{:error, {:collisions, findings}}`, see `Ambry.Inbox.Preflight`). Pass the
+  findings back as `:acknowledged` and the import proceeds only if the library
+  still says exactly that.
   """
   def import_item_async(item, opts \\ [])
 
@@ -1136,8 +961,7 @@ defmodule Ambry.Inbox do
   @doc """
   Says what went wrong in a sentence the operator can act on.
 
-  Shared between the flash shown at the time and the `issue` recorded on the
-  item, so the row tomorrow says exactly what the toast said today.
+  Shared between the flash and the `issue` recorded on the item.
   """
 
   def describe_error(:no_published_date),
@@ -1152,27 +976,20 @@ defmodule Ambry.Inbox do
 
   def describe_error({:source_missing, _path}), do: "The file has gone away since it was found."
 
-  # The refusal `import_item/1` makes before the importer is entered at all.
   # The same fact `{:source_missing, _}` reports from inside placement, found
-  # by the scan instead of by the write, which is the point of finding it.
+  # by the scan instead of by the write.
   def describe_error(:files_missing),
     do: "This item's files are gone. Nothing can be imported from it until they come back."
 
-  # The refusal this whole phase is built around, so it says what to do
-  # rather than just what failed.
+  # Says what to do rather than only what failed.
   def describe_error({:cross_filesystem, _source, _destination}),
     do:
       "These files and the library root are on different filesystems, so they can't be " <>
         "hardlinked. Choose copy or move, or a root on the same disk."
 
-  # Occupied by a recording is now a *bug*, not a curation problem. Every
-  # recording's name carries its own token, so two of them cannot render to
-  # one path however the operator curates them — if this happens, two records
-  # claim one file and no amount of editing metadata will fix it.
-  #
-  # Occupied by a file no record references is the ordinary case that remains:
-  # an interrupted import's copy landed and its transaction rolled back, which
-  # is placement's documented worst case. The two need opposite advice.
+  # Occupied by a recording is a bug: every recording's name carries its own
+  # token. Occupied by an unreferenced file is the ordinary case, an import
+  # whose copy landed and whose transaction rolled back.
   def describe_error({:destination_exists, path}) do
     if file_in_use?(path) do
       "Another audiobook's files are already at #{path}. That should be " <>
@@ -1199,9 +1016,8 @@ defmodule Ambry.Inbox do
 
   def describe_error(:not_held), do: "This item doesn't hold that file any more."
 
-  # The invariant, phrased for a human. It names the count rather than the
-  # decisions because the form lists them properly — this is the flash you get
-  # if you somehow reached import from the queue.
+  # Names the count rather than the decisions, because the form lists them
+  # properly and this is only reachable from the queue.
   def describe_error({:unresolved, outstanding}) do
     count = length(outstanding)
 
@@ -1209,9 +1025,8 @@ defmodule Ambry.Inbox do
       "Open it to see what."
   end
 
-  # What the queue's own import button says. The findings themselves need the
-  # form, which is where the answer ("link that book instead") can be given,
-  # so this counts them and sends the operator there.
+  # The findings need the form, which is where the answer can be given, so
+  # this counts them and sends the operator there.
   def describe_error({:collisions, findings}) do
     count = length(findings)
 
@@ -1231,13 +1046,11 @@ defmodule Ambry.Inbox do
   @doc """
   The audiobooks these items became, keyed by **item** id.
 
-  One query for a page of items, like `progress/1` — the queue renders an
-  imported row as the audiobook it produced, and a query per row is how a
-  list page gets slow quietly.
+  One query for a page of items, since the queue renders an imported row as
+  the audiobook it produced.
 
-  An imported item can have no audiobook: deleting one nilifies the link
-  rather than taking the record of the import with it, so a missing key here
-  is a fact the row has to be able to state.
+  An imported item can have no audiobook, because deleting one nilifies the
+  link rather than taking the record of the import with it.
   """
   def audiobooks(items) do
     media_ids = items |> Enum.map(& &1.media_id) |> Enum.reject(&is_nil/1)
@@ -1282,29 +1095,24 @@ defmodule Ambry.Inbox do
   Whether this item's files are all still there.
 
   One answer, because the badge, the import and the re-open control all ask
-  it and two of them disagreeing is worse than any of them being wrong.
+  it and two of them disagreeing is worse than any being wrong.
   """
   defdelegate item_files_present?(item), to: Reconciliation, as: :present?
 
   @doc """
   Puts an imported item back in the queue, so its decisions can be made again.
 
-  There is no undo for an import, and this is deliberately not one: nothing
-  in the library is touched, no files move, and the recording goes on playing
-  exactly what it was playing. All that changes is that this item is work
-  again. Getting a replaced audiobook back onto its old files is then an
-  ordinary import — open it, point the replace decision at the recording,
-  Add — rather than a reversal mechanism with its own rules.
+  Not an undo: nothing in the library is touched, no files move, and the
+  recording goes on playing what it was playing. All that changes is that this
+  item is work again, so putting a replaced audiobook back on its old files is
+  then an ordinary import rather than a reversal mechanism with its own rules.
 
-  **Its claim on the audiobook is dropped.** `media_id` and
-  `superseded_by_id` both go, because a pending item has not imported
-  anything: leaving them would have the queue holding a row that says it
-  produced a recording it is no longer the record of, which is the half-truth
-  this whole area has been about. The draft stays exactly as it was, since it
-  is the operator's curation and re-opening is not a reason to throw it away.
+  **Its claim on the audiobook is dropped**, because a pending item has not
+  imported anything. The draft stays exactly as it was: it is the operator's
+  curation.
 
-  Refused when the files are gone. There is nothing to make decisions about,
-  and the only thing re-opening could produce is an item that cannot import.
+  Refused when the files are gone, since re-opening could only produce an item
+  that cannot import.
   """
   def reopen_item(%InboxItem{status: :imported} = item) do
     if Reconciliation.present?(item) do
@@ -1325,32 +1133,21 @@ defmodule Ambry.Inbox do
   @doc """
   Splits a wrongly-grouped item into several, `by: :folder` or `by: :file`.
 
-  The grouping heuristic is folder-based — a folder holding audio directly is
-  one release, and a folder of "1 of 5" subfolders is one release in parts —
-  and it has two known failures, at two different grains. Two unrelated
-  single-file books can share a folder; and a set can be *five recordings*
-  rather than one in five parts, which is exactly what a GraphicAudio release
-  is. The operator is the one who can tell, so the split asks them at which
-  grain it was wrong:
+  The folder-based grouping fails at two grains: two unrelated single-file
+  books can share a folder, and a set of subfolders can be five recordings
+  rather than one release in five parts. Only the operator can tell, so the
+  split asks at which grain it was wrong:
 
-    * `:folder` — one item per folder the files live in. The five parts of
-      The Way of Kings become five items of seven files each, each free to
-      take its own part number in a set.
-    * `:file` — one item per file, the finest grain there is, for the folder
-      that was never one release at all.
+    * `:folder` — one item per folder, each free to take its own part number.
+    * `:file` — one item per file, for a folder that was never one release.
 
-  Children are inserted in the shape discovery gives an item of that grain
-  (`path` = the folder, or the file), with a fresh probe and the match that
-  follows it queued, because the parent's probe, tags and matches described
-  its first file only.
+  Children are inserted in the shape discovery gives an item of that grain,
+  with a fresh probe and match queued: the parent's described its first file
+  only. A split survives rescans without a marker, because discovery respects
+  a finer partition that already exists (`record_candidate/4`).
 
-  A split survives rescans without any marker: discovery respects a finer
-  partition that already exists — see `record_candidate/4`.
-
-  Refused once imported (the item is the record of what was imported), below
-  two files, and when the chosen grain wouldn't actually divide anything —
-  splitting a single-folder item by folder is a no-op, and doing it silently
-  would delete and recreate the item for nothing.
+  Refused once imported, below two files, and when the chosen grain would not
+  divide anything, which would delete and recreate the item for nothing.
   """
   def split_item(item, by \\ :file)
 
@@ -1369,28 +1166,23 @@ defmodule Ambry.Inbox do
   @doc """
   Takes one file out of an item's audiobook, or puts it back.
 
-  A release can ship the same part twice — Oathbringer's second part carries
-  `STORMLIGHT0302P06.mp3` and `STORMLIGHT0302P06_CD.mp3`, the same forty
-  minutes at two bitrates — and nothing but a listener can tell. Splitting
-  doesn't help (the rest is one audiobook) and neither does ignoring (that
-  takes the whole item out), so this is the grain in between.
+  A release can ship the same part twice at two bitrates, and nothing but a
+  listener can tell. Splitting does not help (the rest is one audiobook) and
+  neither does ignoring (that takes the whole item out), so this is the grain
+  in between.
 
-  **The file is not let go of.** It stays in `files`, which is what
-  discovery reads to decide who owns what; an item that shortened its list
-  instead would be handed the file back as an inbox item of its own on the
-  next scan, and every scan after that. It is listed and struck through
-  rather than hidden for the same reason a split is visible: the operator
-  decided something, and a form that quietly showed six of seven files would
-  be lying about what it holds.
+  **The file is not let go of.** It stays in `files`, which is what discovery
+  reads to decide ownership: an item that shortened its list would be handed
+  the file back as an item of its own on the next scan, and every scan after.
+  It is listed and struck through rather than hidden, because a form that
+  quietly showed six of seven files would be lying about what it holds.
 
-  The recording changes, so the item is read again — its duration, size and
-  chapter marks are all measured across the files. That is the same path a
-  file appearing on disk takes: an untouched draft is rebuilt around the new
-  reading, and a curated one is left alone and says it is out of date.
+  The recording changes, so the item is read again. An untouched draft is
+  rebuilt around the new reading; a curated one is left alone and says it is
+  out of date.
 
-  Refused on an imported item (its files are the record of what was
-  imported), for a file the item doesn't hold, and for the last one standing:
-  an audiobook with no audio in it is not a decision, it's an empty item.
+  Refused on an imported item, for a file the item doesn't hold, and for the
+  last one standing.
   """
   def exclude_file(%InboxItem{} = item, file), do: set_included(item, file, false)
 
@@ -1425,14 +1217,12 @@ defmodule Ambry.Inbox do
   The other items this one would be combined with, and the folder they'd
   become — or nil when there is nothing to offer.
 
-  The offer is *the folder that holds this item*, and everything the queue
-  still has waiting under it. That is the shape the mistake comes in: a
-  release whose parts sit in subfolders the walk couldn't read as parts, so
-  it handed back one item per subfolder.
+  The offer is *the folder holding this item* and everything the queue still
+  has waiting under it, which is the shape the mistake comes in: a release
+  whose parts sit in subfolders the walk could not read as parts.
 
-  Nothing is offered for an item at the top of its source. Every item there
-  shares the source root, and "combine with the other 283 things you
-  downloaded" is not a question worth asking.
+  Nothing is offered for an item at the top of its source, where every item
+  shares the root and the offer would be the whole downloads folder.
   """
   def combine_group(%InboxItem{status: :pending} = item) do
     with folder when not is_nil(folder) <- parent_folder(item),
@@ -1459,26 +1249,19 @@ defmodule Ambry.Inbox do
   @doc """
   Merges several items into a single one for the folder that holds them.
 
-  The opposite mistake to a split, and it comes from the same place. The walk
-  decides where one release ends by what a folder holds, and a folder whose
-  subfolders don't *say* they are parts reads as a container of releases —
-  deliberately, because "Gwendy's Button Box 2" is its own book far more
-  often than it is disc two of something. When it isn't, the queue has three
-  items that are one audiobook and no way to say so: import would create
-  three audiobooks, and splitting further only makes it worse.
+  The opposite mistake to a split. A folder whose subfolders do not *say* they
+  are parts reads as a container of releases, deliberately, because a numbered
+  title is its own book far more often than it is disc two of something. When
+  it is not, the queue has several items that are one audiobook.
 
-  So the operator says these are one, and they become one item at the folder
-  they share, holding every file in the order a single candidate for that
-  folder would have found them (`audio_files/1`'s order, so a rescan agrees).
-  The drafts of the parts are not merged into it. Each described a different
-  audiobook — its own title, its own chapters, its own matches — and half of
-  three wrong answers is not an answer; the combined item is probed and
-  matched fresh, as one recording.
+  They become one item at the folder they share, holding every file in
+  `audio_files/1`'s order so a rescan agrees. The parts' drafts are **not**
+  merged: each described a different audiobook, and half of three wrong
+  answers is not an answer, so the combined item is probed and matched fresh.
 
-  Refused when any of them is imported (the item is the record of what was
-  imported), below two items, when they don't all come from one source, and
-  when the folder they share is the source root itself: an item there would
-  own every file that ever lands in the watched folder.
+  Refused when any of them is imported, below two items, when they do not all
+  come from one source, and when the folder they share is the source root,
+  where the item would own every file that ever lands there.
   """
   def combine_items(items)
 
@@ -1537,10 +1320,8 @@ defmodule Ambry.Inbox do
   end
 
   # The deepest folder holding all of them, or nil when that is the source
-  # root. Read off the paths rather than their parents, so that an item
-  # sitting *at* the folder counts as being in it: two or more distinct paths
-  # can only share their common folder as a prefix, and a path that is an
-  # ancestor of another is that folder.
+  # root. Read off the paths rather than their parents, so an item sitting
+  # *at* the folder counts as being in it.
   defp common_folder(items) do
     items
     |> Enum.map(&Path.split(&1.path))
@@ -1555,15 +1336,14 @@ defmodule Ambry.Inbox do
     a |> Enum.zip(b) |> Enum.take_while(fn {x, y} -> x == y end) |> Enum.map(&elem(&1, 0))
   end
 
-  # One grouping replaced by another: the items that were wrong go, the items
-  # that are right arrive, and each of the new ones is read from scratch.
-  # Both directions are the same move, which is why they share this.
+  # One grouping replaced by another, each new item read from scratch. Split
+  # and combine are the same move.
   defp regroup(items, groups) do
     Repo.transact(fn ->
       with :ok <- delete_items(items),
            {:ok, children} <- insert_children(hd(items), groups) do
-        # In the transaction on purpose: a job for a child that didn't get
-        # created must not exist either.
+        # In the transaction: a job for a child that was not created must not
+        # exist either.
         Enum.each(children, fn child -> {:ok, _job} = probe_item_async(child) end)
         {:ok, children}
       end
@@ -1597,8 +1377,8 @@ defmodule Ambry.Inbox do
     |> put_if(:file, files, files > folders)
   end
 
-  # Files keep the order they were discovered in *within* a group — that is
-  # playing order, and re-sorting it here would quietly reorder a book.
+  # Discovery order within a group is playing order; re-sorting reorders a
+  # book.
   defp split_groups(%InboxItem{files: files}, :file), do: Enum.map(files, &{&1, [&1]})
 
   defp split_groups(%InboxItem{files: files}, :folder) do
@@ -1641,32 +1421,25 @@ defmodule Ambry.Inbox do
   defp filter_by_status(query, nil), do: query
   defp filter_by_status(query, status), do: where(query, [i], i.status == ^status)
 
-  # Matches the path AND what the draft says the item is, which is the whole
-  # reason the column exists: an item whose folder is
-  # `01 Angels and Demons.m4b` is findable by "Dan Brown".
-  #
-  # It also stops operator-typed `%` and `_` being live wildcards. The
-  # `ILIKE '%…%'` this replaces interpolated the phrase straight into a
-  # pattern, so typing a percent sign matched the entire queue. There is no
-  # pattern left to escape now — the phrase is a parameter to
-  # `plainto_tsquery`, which reads punctuation as punctuation.
+  # Matches the path AND what the draft says the item is, which is why the
+  # column exists: an item whose folder names only the title is still findable
+  # by its author. The phrase is a parameter to `plainto_tsquery`, so there is
+  # no pattern for a typed `%` to be a wildcard in.
   defp filter_by_search(query, blank) when blank in [nil, ""], do: query
 
   defp filter_by_search(query, filter) do
     if String.trim(filter) == "" do
       query
     else
-      # No emptiness guard: a phrase that produced no lexemes matches nothing,
-      # and `@@ NULL` being NULL rather than false is exactly that. A guard
-      # here would mean typing a word the stemmer drops — `don`, `will`,
-      # `can`, all in English's stop list — showed the whole queue.
+      # No emptiness guard: a phrase producing no lexemes matches nothing,
+      # which `@@ NULL` being NULL already says. Guarded, a word the stemmer
+      # drops (`don`, `will`, `can`) would show the whole queue.
       where(query, [i], fragment("? @@ ambry_tsquery(?, 'all', true)", i.search_vector, ^filter))
     end
   end
 
-  # An issue cuts across the three buckets rather than replacing them (see
-  # `queue_summary/0`), so it narrows whatever list is already showing
-  # instead of being a status of its own.
+  # An issue cuts across the buckets rather than replacing them, so it narrows
+  # whatever list is showing instead of being a status of its own.
   defp filter_by_issue(query, true), do: where(query, [i], not is_nil(i.issue))
   defp filter_by_issue(query, _no), do: query
 
@@ -1683,18 +1456,17 @@ defmodule Ambry.Inbox do
   end
 
   # Where one release ends and the next begins, which a downloads folder does
-  # not answer consistently. Measured against the real thing, three shapes
-  # exist and the rule has to tell them apart:
+  # not answer consistently. Three shapes turn up in practice, and the rule
+  # has to tell them apart:
   #
   #   Dan Brown - Origin/*.mp3          one book, audio sitting right there
   #   Discworld/<43 titles>/*.mp3       a whole series in one folder
   #   The Way of Kings/{1 of 5, ...}    one book split across subfolders
   #
-  # Taking every immediate child as a release turns Discworld into a single
-  # 1707-file item; recursing to the deepest audio-bearing folder shatters
-  # The Way of Kings into five. So: audio in hand means this is the release,
-  # subfolders that are plainly *parts* keep the parent as the release, and
-  # anything else is a container worth looking inside.
+  # Taking every immediate child as a release makes the series one huge item;
+  # recursing to the deepest audio-bearing folder shatters the split book into
+  # five. So: audio in hand means this is the release, subfolders that are
+  # plainly *parts* keep the parent, and anything else is a container.
   defp directory_candidate(dir) do
     direct_audio = dir |> entries() |> Enum.filter(&audio_file?/1)
     subdirs = dir |> entries() |> Enum.filter(&File.dir?/1)
@@ -1714,9 +1486,8 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # The shape lives in `ReleaseName` because two callers read it: this walk,
-  # deciding a folder of parts is one release, and an item named after one of
-  # those folders, which has to say what it is a part *of*.
+  # In `ReleaseName` because two callers read it: this walk, and an item named
+  # after one of those folders, which has to say what it is a part *of*.
   defp part_folder?(dir), do: dir |> Path.basename() |> ReleaseName.part_folder?()
 
   defp entries(dir) do
@@ -1730,10 +1501,8 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Walked by hand rather than with `Path.wildcard/2`: release folders are
-  # full of glob metacharacters ("The Way of Kings [M4B]" is a character
-  # class), and a folder whose name happens to contain brackets must not
-  # silently go missing.
+  # By hand rather than `Path.wildcard/2`: release folders are full of glob
+  # metacharacters ("[M4B]" is a character class) and must not go missing.
   defp audio_files(dir) do
     dir
     |> walk()
@@ -1752,34 +1521,21 @@ defmodule Ambry.Inbox do
   end
 
   @doc false
-  # **Ownership decides, not the walk.** Every file the queue already holds
-  # belongs to something, and a scan's only job is to find the ones that
-  # don't. Which release a *known* file belongs to is settled — the operator
-  # may have split its folder into five, or into thirty-five, and no amount
-  # of re-walking that folder is allowed to have an opinion about it.
+  # **Ownership decides, not the walk.** Which release a known file belongs to
+  # is settled, whatever the operator split or combined, and re-walking its
+  # folder may not have an opinion. Structural rather than remembered: this
+  # groups by owner *before* looking at anything, so the walk's proposed
+  # grouping is only ever consulted for files with no owner.
   #
-  # That is the whole of the safety property, and it is structural: this
-  # groups the candidate's files by who owns them *before* looking at
-  # anything, so the grouping the walk proposes is only ever consulted for
-  # files with no owner at all.
-  #
-  # **The library is not an owner.** Discovery used to skip any file a
-  # recording had been imported from, which made a release the library
-  # already holds invisible — and invisible is exactly the wrong answer for
-  # the operator upgrading a legacy recording to direct play, because that
-  # release is the work. The provenance is still read, one step further on:
-  # it pre-fills the import form's replace decision (`Ambry.Media.imported_from/1`),
-  # demoted from a filter to a suggestion the operator confirms.
+  # **The library is not an owner.** Skipping files a recording was imported
+  # from would hide the release from an operator upgrading it. That provenance
+  # pre-fills the replace decision (`Ambry.Media.imported_from/1`) instead.
   #
   # **What an owner still holds is answered by the whole walk, not by one
-  # candidate**, which is what makes a *combined* item durable. The walk has
-  # no idea that three subfolders are one release — that is precisely the
-  # judgement the operator made — so it offers them as three candidates, and
-  # refreshing the item from each in turn would leave it holding whichever
-  # ran last. So a candidate only ever *claims* files for their owner here,
-  # and the claims are settled once the source has been walked: an item's new
-  # file list is everything claimed for it, and a file is gone only when
-  # nothing anywhere claimed it.
+  # candidate**, which is what makes a combined item durable: the walk offers
+  # its three subfolders as three candidates, and refreshing from each in turn
+  # would leave the item holding whichever ran last. So a candidate only
+  # *claims* files here, and the claims settle once the source is walked.
   defp record_candidate({path, files}, claims, ledger, source) do
     by_owner = Enum.group_by(files, &owner_of(&1, ledger))
     orphans = Map.get(by_owner, nil, [])
@@ -1790,9 +1546,8 @@ defmodule Ambry.Inbox do
       by_owner
       |> Map.delete(nil)
       |> Enum.reduce(claims, fn {%InboxItem{} = item, theirs}, claims ->
-        # Appended in walk order, which is the order a single candidate for
-        # the whole folder would have produced: `audio_files/1` sorts the
-        # subtree, and the walk visits its folders in that same order.
+        # Walk order, which is what a single candidate for the whole folder
+        # would have produced.
         Map.update(claims, item.id, {item, theirs}, fn {item, held} -> {item, held ++ theirs} end)
       end)
 
@@ -1801,10 +1556,8 @@ defmodule Ambry.Inbox do
 
   defp refresh_claim({_id, {item, files}}), do: refresh_owner(item, files)
 
-  # A file's owner, in the order that decides it: the item that already lists
-  # it, then the nearest item *above* it — which is how a file that appears
-  # in a known release folder joins that release rather than becoming an item
-  # of its own.
+  # The item that already lists it, then the nearest item above it: that is
+  # how a new file in a known release folder joins that release.
   defp owner_of(file, ledger) do
     cond do
       item = ledger.by_file[file] -> item
@@ -1813,8 +1566,8 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Walked up from the file rather than searched across every item: depth is
-  # single digits, the item list is hundreds, and this runs per file.
+  # Up from the file rather than across every item: depth is single digits,
+  # the item list is hundreds, and this runs per file.
   defp nearest_owner(file, by_path) do
     file
     |> Stream.unfold(fn
@@ -1824,26 +1577,23 @@ defmodule Ambry.Inbox do
     |> Enum.find_value(&Map.get(by_path, &1))
   end
 
-  # An imported item is the record of what was imported; its source files may
-  # not even be where they were. Nothing about a scan may touch it.
+  # An imported item is the record of what was imported. A scan may not touch
+  # it.
   defp refresh_owner(%InboxItem{status: :imported}, _files), do: :skipped
   defp refresh_owner(%InboxItem{} = item, files), do: refresh_known(item, files)
 
-  # Nobody owns these. A candidate that is entirely unowned is a release, at
-  # the grain the walk proposes; anything left over in a folder that is
-  # *partly* owned goes to the finest grain there is, because something has
-  # already declared that folder to be more than one release.
+  # An entirely unowned candidate is a release at the grain the walk proposes.
+  # Leftovers in a *partly* owned folder go to the finest grain, since
+  # something has already declared that folder to be more than one release.
   defp adopt(path, files, orphans, source) when files == orphans,
     do: create_item(path, orphans, source)
 
   defp adopt(_path, _files, orphans, source),
     do: Enum.map(orphans, &create_item(&1, [&1], source))
 
-  # A known item's files can legitimately change (a torrent finished, a file
-  # was replaced). Its status is left alone: ignored stays ignored, and its
-  # source is never swapped out from under it — the item's own source is
-  # what its stored paths are relative to, so re-keying them to whichever
-  # source happened to walk over them would silently rewrite coordinates.
+  # A known item's files can legitimately change. Its status is left alone,
+  # and its source is never swapped: stored paths are relative to the item's
+  # own source, so re-keying them would rewrite coordinates.
   defp refresh_known(%InboxItem{} = item, files) do
     item = Repo.preload(item, :source)
     stored_files = Enum.map(files, &stored_form(&1, item.source))
@@ -1872,9 +1622,8 @@ defmodule Ambry.Inbox do
   defp put_if(map, _key, _value, false), do: map
   defp put_if(map, key, value, _truthy), do: Map.put(map, key, value)
 
-  # The stored form of an absolute path the walk produced. Always
-  # source-relative: a source whose mount point changes is then a one-row
-  # edit, and every queued item survives the move.
+  # Always source-relative, so a source whose mount point changes is a
+  # one-row edit and every queued item survives the move.
   defp stored_form(path, %Source{} = source) do
     {:ok, relative} = Library.relativize(source, path)
     relative
@@ -1899,34 +1648,28 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Who owns what, read once per scan.
-  #
-  # `by_file` is the authority — an item's own list of files — and `by_path`
-  # only answers for files nothing has claimed yet, so a new file in a known
-  # folder joins the item that holds the folder.
-  # The walk speaks absolutes, so the ledger's keys are the items' resolved
-  # paths — the stored source-relative forms never meet a scanned path
-  # directly.
+  # Who owns what, read once per scan. `by_file` is the authority; `by_path`
+  # only answers for files nothing has claimed. Keyed by resolved paths,
+  # because the walk speaks absolutes.
   defp ledger do
     items = InboxItem |> Repo.all() |> Repo.preload(:source)
 
     %{
-      # Every file the item holds, not just the recording's: a file the
-      # operator excluded is still owned, and a ledger that forgot it would
-      # hand it an item of its own on the next scan.
+      # Every file the item holds, excluded ones included: forgetting one
+      # would hand it an item of its own on the next scan.
       by_file:
         for(item <- items, file <- InboxItem.owned_disk_files(item), into: %{}, do: {file, item}),
       by_path: Map.new(items, &{InboxItem.disk_path(&1), &1})
     }
   end
 
-  # The whole release, measured as the one recording it will become: the
-  # durations add up into a single book timeline, and the tags are read off
-  # the first file the way playback will encounter it.
+  # Measured as the one recording it will become: durations add up into a
+  # single book timeline, and tags are read off the first file the way
+  # playback will encounter it.
   #
-  # This costs no more than a single-file release of the same book — the
+  # No more expensive than a single-file release of the same book: the
   # expensive part is decode-counting VBR mp3s, and forty files hold the same
-  # fourteen hours of audio one file would.
+  # hours of audio one file would.
   defp probe_recording(files) do
     case Scanner.probe_all(files) do
       {:ok, [first | _rest] = probes} ->

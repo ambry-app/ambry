@@ -2,34 +2,21 @@ defmodule Ambry.Inbox.Progress do
   @moduledoc """
   What is happening to an inbox item right now.
 
-  Everything the inbox does to an item happens in a background job, and until
-  now a row gave no sign of whether its jobs were queued, running, finished
-  or failed. "Why is this row blank?" and "did my scan actually run?" had no
-  answer short of opening the Oban dashboard.
+  Everything the inbox does happens in a background job, so without this a row
+  gives no sign of whether its jobs are queued, running, finished or failed.
 
-  ## Absence of a job does not mean done
+  **Absence of a job does not mean done.** The Oban pruner deletes jobs after
+  a day, so a row from last week has none and is perfectly fine. The status is
+  derived in two steps: a job's state wins where one exists, and the item's own
+  contents say whether the work ever happened where none does.
 
-  The Oban pruner deletes jobs older than a day, so the job table can only
-  ever answer for recent work. A row from last week has no jobs at all and is
-  perfectly fine. So the status is derived in two steps: if a job exists, its
-  state wins; if none does, the item's own contents say whether the work ever
-  happened.
+  **Failures outlive their jobs.** Anything worth telling the operator about
+  tomorrow is written onto the item's `issue`, which is what `:issue`
+  reflects.
 
-  That fallback is the whole reason this isn't a two-line query.
-
-  ## Failures outlive their jobs
-
-  A failure is visible for a day and then gone forever, so anything worth
-  telling the operator about tomorrow is written onto the item's `issue`
-  instead, and that's what the `:issue` status reflects.
-
-  ## Retrying is not the same as queued
-
-  Matching retries with a backoff measured in minutes, because the shared
-  metadata instances rate-limit with a ~30s `Retry-After` and spending the
-  immediate retry on being told no again is waste. An item mid-backoff looks
-  exactly like one that was never matched — blank — so `:retrying` is its own
-  status rather than being folded into `:queued`.
+  **Retrying is not queued.** Matching backs off in minutes while a provider
+  rate-limits, and an item mid-backoff looks exactly like one that was never
+  matched, so it is its own status.
   """
 
   import Ecto.Query
@@ -45,26 +32,18 @@ defmodule Ambry.Inbox.Progress do
   @doc """
   Whether a background job currently owns this item.
 
-  The three states where something is going to change underneath the operator:
-  a job running, a job waiting to run, and a job waiting to run *again*. All
-  three mean the same thing to somebody looking at the form — don't touch it,
-  it isn't yours yet — which is why they answer one question rather than
-  three.
+  Running, waiting to run, and waiting to run *again* all mean the same thing
+  to somebody looking at the form: it is not yours yet.
 
-  `:retrying` belongs here and it is the reason this matters more than it used
-  to. Matching keeps going until every provider has answered, so an item can
-  sit mid-backoff for minutes and then **rebuild its own draft** when the
-  provider finally comes back. Anything typed into it in the meantime would be
-  thrown away by a job the operator couldn't see.
+  `:retrying` belongs here because matching keeps going until every provider
+  has answered, so an item can sit mid-backoff for minutes and then **rebuild
+  its own draft**, throwing away anything typed into it meanwhile.
   """
   def busy?(status), do: status in [:working, :queued, :retrying, :importing]
 
   @doc """
-  The status of each given item, as a map of item id to status.
-
-  One query for the whole page rather than one per row.
-
-  Statuses:
+  The status of each given item, as a map of item id to status. One query for
+  the whole page rather than one per row.
 
     * `:importing` — the item is being added to the library
     * `:working` — a job is executing right now
@@ -92,10 +71,9 @@ defmodule Ambry.Inbox.Progress do
     states = Enum.map(jobs, &elem(&1, 1))
 
     cond do
-      # Named apart from every other job because it is the one the operator
-      # started themselves and the one that takes minutes — "Working on it"
-      # over a row they just pressed Add on says nothing about whether the
-      # press landed.
+      # Named apart from every other job: it is the one the operator started
+      # themselves, and a generic "working on it" over a row they just pressed
+      # Add on says nothing about whether the press landed.
       importing?(jobs) -> :importing
       "executing" in states -> :working
       "retryable" in states -> :retrying
@@ -108,9 +86,8 @@ defmodule Ambry.Inbox.Progress do
     end
   end
 
-  # Oban stores args as jsonb, so the item id is queryable without any new
-  # writes and without a job↔record association that would have to be kept
-  # in step.
+  # Oban stores args as jsonb, so the item id is queryable without a
+  # job-to-record association that would have to be kept in step.
   defp job_states([]), do: %{}
 
   defp job_states(item_ids) do

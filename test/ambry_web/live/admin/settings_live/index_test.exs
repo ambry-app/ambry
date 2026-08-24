@@ -145,7 +145,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
   defp index_heading(html) do
     html
     |> Floki.parse_document!()
-    |> Floki.find("h3")
+    |> Floki.find("[data-role='index-records']")
     |> Enum.map(&(&1 |> Floki.text() |> String.split() |> Enum.join(" ")))
     |> Enum.find(&(&1 =~ "record"))
   end

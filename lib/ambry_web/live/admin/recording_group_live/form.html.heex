@@ -4,8 +4,6 @@
       <.field_group>
         <.input field={@form[:name]} label="Name" class="max-w-xl" />
 
-        <%!-- the set covers one book, like its members do; once recordings
-            are attached, they ARE the book and the field goes read-only --%>
         <.input
           :if={@group.media == []}
           field={@form[:book_id]}
@@ -20,7 +18,7 @@
         </div>
       </.field_group>
 
-      <.field_group label="How this set is counted and named">
+      <.field_group>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-2">
           <.input field={@form[:parts_total]} type="number" min="1" label="Total parts (optional)" />
           <.input
@@ -38,7 +36,7 @@
         <.input
           field={@form[:show_label]}
           type="checkbox"
-          label="Show the set's name to listeners on its stacked tile"
+          label="Show the set's name to listeners"
         />
       </.field_group>
 
@@ -53,9 +51,6 @@
               container_class="w-14 flex-none"
               show_errors={false}
             />
-            <%!-- A drop-down, not a typeahead: the options are one book's
-                audiobooks, usually two or three, and narrowing two by typing
-                is a search box standing in for a menu. --%>
             <.input
               field={member_form[:media_id]}
               type="dropdown"
@@ -77,6 +72,18 @@
 
       <.form_footer>
         <.button>Save</.button>
+
+        <:danger :if={@live_action == :edit}>
+          <.button
+            type="button"
+            color={:red}
+            phx-click="delete"
+            data-confirm={"Delete this set? Its #{length(@group.media)} audiobooks stay in the library but leave the set, losing their part numbers."}
+            data-role="delete-group"
+          >
+            Delete
+          </.button>
+        </:danger>
       </.form_footer>
     </.simple_form>
   </div>

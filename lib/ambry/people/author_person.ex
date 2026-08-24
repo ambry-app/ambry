@@ -25,9 +25,8 @@ defmodule Ambry.People.AuthorPerson do
   @doc """
   The person behind an author being created by a credit.
 
-  The mirror of `changeset/2`, which casts the *author* for a person's own
-  form. Here the person is what's new, and their name comes from the credit
-  that named them — one name typed in one box — unless the form supplied one.
+  The mirror of `changeset/2`: here the person is what's new, and their name
+  comes from the credit unless the form supplied one.
   """
   def credited_changeset(author_person, attrs, credited_name) do
     attrs = named_person(attrs, credited_name)
@@ -38,9 +37,8 @@ defmodule Ambry.People.AuthorPerson do
     |> unique_constraint([:author_id, :person_id])
   end
 
-  # The human is named by the credit unless the form named them, and is not
-  # nested at all when the row says which person it means: a pen name added to
-  # somebody the library already has must not make a second of them.
+  # No nested person when the row already says which one it means: a pen
+  # name added to somebody the library has must not make a second of them.
   defp named_person(attrs, credited_name) do
     if attrs["person_id"] in [nil, ""] do
       attrs
@@ -62,9 +60,8 @@ defmodule Ambry.People.AuthorPerson do
     |> unique_constraint([:author_id, :person_id])
   end
 
-  # A brand-new row with neither an author_id (link to an existing author) nor
-  # nested author params is a freshly added form row: give it an empty nested
-  # author so the form renders a name input for the new pen name.
+  # Neither an id nor nested params means a freshly added form row; the empty
+  # nested author is what renders its name input.
   defp maybe_put_new_author(%__MODULE__{id: nil}, attrs) when is_map(attrs) do
     has_author? = Map.has_key?(attrs, "author") or Map.has_key?(attrs, :author)
     author_id = Map.get(attrs, "author_id") || Map.get(attrs, :author_id)

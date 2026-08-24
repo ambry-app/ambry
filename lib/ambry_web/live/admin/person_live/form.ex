@@ -1,49 +1,32 @@
 defmodule AmbryWeb.Admin.PersonLive.Form do
   @moduledoc """
-  The person form, curated the import form's way: one name search fans out
-  to every person-capable provider, results are tickable records of humans,
-  and ticked records offer the photos and bios below. This replaced both the
-  per-provider import modal and the separate image-picker modal — one
-  mechanism for "ask the databases about this person".
+  The person form, curated the import form's way: one name search fans out to
+  every person-capable provider, results are tickable records of humans, and
+  ticked records offer the photos and bios below.
 
-  ## Credits are two questions, not two lists
+  **Credits are two questions, not two lists.** `Author` and `Narrator` are
+  not roles: they are credit *names*, the name a book or recording is credited
+  to. As two list clusters, having just typed a person's name you are asked to
+  add an author and the answer is that name again.
 
-  `Author` and `Narrator` are not roles — they are **credit names**, the name
-  a book or a recording is credited to. The form used to say so out loud: two
-  list clusters ("Writing as", "Narrating as") the operator had to populate,
-  which meant that having just typed "Stephen King" into the name box you
-  were then asked to add an author, and the answer was "Stephen King" again.
-  A schema detail, charged to every ordinary person.
+  So the common case is two checkboxes: **writes books**, **narrates
+  audiobooks**, each credited under the person's own name. Ticking creates the
+  credit; unticking removes it, and `People.update_person/3` deletes the freed
+  record or refuses the save when a book still credits it.
 
-  So the common case is two checkboxes and no boxes to fill: **writes books**,
-  **narrates audiobooks**, each credited under the person's own name, which
-  is *stated* rather than typed. "Both" stops being a special case — it is
-  two ticks. Ticking creates the credit; unticking removes it, and
-  `People.update_person/3` deletes the freed record or refuses the save when
-  a book still credits it (`delete_orphaned_authors/2`), so the checkbox
-  cannot orphan anything.
+  The rare cases are escape hatches in the import form's vocabulary (§9):
+  **"Writes under a pen name"** reveals the names as an editable list, and
+  only there does linking an existing author appear, which is the composite
+  case. A person whose data already diverges opens revealed.
 
-  The rare cases are escape hatches wearing the import form's own vocabulary
-  (§9), because an operator meets them there first: **"Writes under a pen
-  name"** reveals the names as an editable list, and only in that state does
-  linking an existing author appear — the composite case (James S.A. Corey),
-  where one credit name is backed by several humans. A person whose data
-  already diverges opens revealed, so nothing is hidden behind a control
-  nobody clicked.
+  Narrators get the same shape without the linking hatch, because a `Narrator`
+  belongs to exactly one `Person`. The asymmetry is the model's.
 
-  Narrators get the same shape without the linking hatch: a `Narrator`
-  belongs to exactly one `Person`, so there is no shared-narrator case to
-  offer. The asymmetry is the model's, and the form states it rather than
-  faking symmetry.
-
-  ## The name follows
-
-  While a credit is the person's own name, it *is* their name: renaming the
-  person renames it. It used to not, so renaming Stephen King left an author
-  called Stephen King behind, credited on every one of his books. The sync is
-  guarded twice — the credit must currently match the old name, and an author
-  backed by more than one person is never touched, because one human renaming
-  themselves must not rename a pen name they share.
+  While a credit is the person's own name it *is* their name, so renaming the
+  person renames it, or an author under the previous name is left credited on
+  every one of their books. Guarded twice: the credit must currently match the
+  previous name, and an author backed by more than one person is never
+  touched.
   """
   use AmbryWeb, :admin_live_view
 
@@ -54,6 +37,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   alias Ambry.People
   alias Ambry.People.Author
   alias Ambry.People.Person
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.ProvenanceHints
   alias AmbryWeb.Admin.ReturnTo
@@ -117,6 +101,19 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(People.delete_person(socket.assigns.person), socket.assigns.person.name) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/people", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"person" => person_params}, socket) do
     socket = assign(socket, reveal: reveal_after(socket.assigns.reveal, person_params))
 
@@ -176,11 +173,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     {:noreply, cancel_upload(socket, :image, ref)}
   end
 
-  # Choosing is a named event, not a form field (the import form's rule).
-  # As a checkbox it was form data, so every add and every delete arrived
-  # carrying a tick state derived from the rows those very params were
-  # changing, and the two argued: adding a row posted "unticked" alongside
-  # it and swept it away again.
+  # Choosing is a named event, not a form field (the import form's rule). As
+  # form data, every add and delete would arrive carrying a tick state
+  # derived from the rows those very params are changing.
   def handle_event("toggle-credit", %{"kind" => kind}, socket) do
     kind = atom_kind(kind)
     name = Changeset.get_field(socket.assigns.form.source, :name) || ""
@@ -210,11 +205,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> assign_form(changeset)}
   end
 
-  # Every way in needs a way out: the reveal used to be the permanent shape
-  # of the form, so there was nothing to go back to.
-  # Both re-derive through `assign_form/2`, because the reveal set feeds the
-  # checkbox: revealing without it left the box rendering unchecked, and the
-  # next change event read that back as "untick" and swept the credit away.
+  # Every way in needs a way out. Both re-derive through `assign_form/2`,
+  # because the reveal set feeds the checkbox: without it the box renders
+  # unchecked and the next change event reads that back as "untick".
   def handle_event("reveal-credit", %{"kind" => kind}, socket) do
     socket = assign(socket, reveal: MapSet.put(socket.assigns.reveal, atom_kind(kind)))
     {:noreply, assign_form(socket, socket.assigns.form.source)}
@@ -247,9 +240,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
      |> refresh_chips()}
   end
 
-  # The way back out of a chip. Restores the field from the saved record and
-  # drops the pending provenance with it: nothing was accepted after all, so
-  # nothing should be recorded as accepted.
+  # The way back out of a chip: restores the field from the saved record and
+  # drops the pending provenance with it.
   def handle_event("revert-field", %{"field" => field}, socket) do
     case Map.fetch(@scalar_kinds, field) do
       {:ok, kind} ->
@@ -319,9 +311,7 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
           # From the params, not the changeset: `image_type`,
           # `image_import_url` and the cleared `image_path` are form state
           # rather than schema fields, so `get_field/2` answers nil for all
-          # three and no cover proposal ever came back chosen. The chip went
-          # grey the moment it was clicked, which is the one moment it should
-          # not have.
+          # three and no photo proposal ever reads as chosen.
           image:
             evidence
             |> Evidence.proposals(:image)
@@ -400,19 +390,16 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
 
     socket
     |> assign(:form, to_form(changeset))
-    # Revealed counts as on even with nothing in the list yet: taking the
-    # pen-name hatch is how a person who is not yet an author gets to the
-    # link control, and the composite case (linking James S.A. Corey to his
-    # second human) starts exactly there. Auto-creating an own-name author
-    # for them would mean deleting it again a click later.
-    # The rows and nothing else. It used to also count "revealed", so
-    # deleting the last credit left the box ticked until the save caught up
-    # — the control disagreeing with the thing it controls.
+    # Revealed counts as on with nothing in the list yet: the pen-name hatch
+    # is how a person who is not yet an author reaches the link control.
+
+    # The rows and nothing else. Counting "revealed" too would leave the box
+    # ticked after the last credit is deleted, until the save caught up.
     |> assign(:writes, author_people != [])
     |> assign(:narrates, narrators != [])
     # Data that already disagrees with "credited under their own name" opens
-    # revealed: a pen name hidden behind a control nobody clicked is a pen
-    # name the operator can't see, and this form is where they go to find it.
+    # revealed: a pen name behind a control nobody clicked is one the operator
+    # can't see.
     |> assign(:author_diverges, Enum.any?(author_people, &author_diverges?(&1, name)))
     |> assign(:narrator_diverges, Enum.any?(narrators, &(&1.name != name)))
   end
@@ -435,13 +422,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   """
   def revealed?(assigns, kind), do: kind in assigns.reveal
 
-  # Seeded once, from the record as it was opened — never re-derived from the
-  # changeset. Deriving it per render meant the hatch was computed from the
-  # very field the operator was typing in: renaming the pen name "Bar" to
-  # "Alastair Reynolds" made it stop differing from his name, so the card
-  # collapsed mid-edit, stopped rendering the rows, and dropped the rename on
-  # the floor. A disclosure may not close itself because of what was just
-  # typed into it.
+  # Seeded once from the record as opened, never re-derived from the
+  # changeset, which would compute the hatch from the very field being typed
+  # in. A disclosure may not close itself because of what was typed into it.
   defp seed_reveal(%Person{} = person) do
     Enum.reduce(
       [
@@ -468,12 +451,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   defp drop_if(reveal, _kind, _false), do: reveal
 
   # The checkboxes, and the name that follows them, reconciled with the rows
-  # they stand for.
-  #
-  # It runs on every keystroke, so it has to be idempotent, and the ordinary
-  # case has to be "change nothing". Absent params mean "leave the
-  # association alone" — Ecto's own rule — so an unrevealed credit says
-  # nothing about rows it doesn't render, and only a real transition writes.
+  # they stand for. Runs on every keystroke, so it is idempotent. Absent
+  # params mean "leave the association alone" (Ecto's rule), so an unrevealed
+  # credit says nothing about rows it does not render.
   defp apply_credits(person_params, held) do
     person_params
     |> reconcile("author_people", held.author_people)
@@ -489,11 +469,9 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
     }
   end
 
-  # The form renders every credit it holds — openly when revealed, as hidden
-  # inputs when not — so absent params mean it holds none. Said plainly:
-  # emptying the list and unticking the box are the same instruction, and
-  # both have to reach `cast_assoc` as an empty collection or the rows in
-  # the database simply stay.
+  # The form renders every credit it holds, so absent params mean it holds
+  # none. Emptying the list and unticking the box are the same instruction,
+  # and both have to reach `cast_assoc` as an empty collection.
   defp reconcile(params, key, held) do
     if params[key] == nil and held == [], do: Map.put(params, key, %{}), else: params
   end
@@ -542,9 +520,8 @@ defmodule AmbryWeb.Admin.PersonLive.Form do
   end
 
   # What a linked author is called. Asked of the context rather than found in
-  # a preloaded list, which is the same move `EntityResolver`'s `fetch` makes
-  # and for the same reason: naming a record is a lookup, not a reason to hold
-  # every record of that kind in memory.
+  # a preloaded list: naming a record is a lookup, not a reason to hold every
+  # record of that kind in memory.
   defp linked_author_name(value) do
     case People.author_option(value) do
       %{label: label} -> label

@@ -3,20 +3,20 @@ defmodule AmbryWeb.Admin.Evidence do
   The edit forms' evidence panel: what the databases said, which records the
   operator ticked, and what the ticked records propose for each field.
 
-  This is the import form's model carried onto records that already exist —
-  one search fans out to every capable provider (`Ambry.Metadata.Search`),
-  results are tickable evidence, and ticked records grow "Proposed" chips
-  under the fields they can fill. What differs from the inbox is the
-  lifetime: an inbox item's evidence is part of a staged draft that ends in
-  one import, while an edit form lives forever, so this evidence is
-  **session state** — held in socket assigns, never persisted. The durable
-  trace of an accepted proposal is the field's provenance entry
-  (`Ambry.Provenance`), written on save via `AmbryWeb.Admin.ProvenanceHints`.
+  The import form's model carried onto records that already exist: one search
+  fans out to every capable provider (`Ambry.Metadata.Search`), results are
+  tickable, and ticked records grow "Proposed" chips under the fields they can
+  fill.
 
-  Nothing here talks to a provider; the LiveView runs the fan-out in a
-  `start_async` and feeds the results through `absorb/2`. Records follow the
-  same law as inbox evidence: **added, never replaced**, so a re-search
-  cannot un-tick what the operator chose.
+  What differs from the inbox is the lifetime. An inbox item's evidence is
+  part of a staged draft that ends in one import; an edit form lives forever,
+  so this is session state, held in socket assigns and never persisted. The
+  durable trace of an accepted proposal is the field's provenance entry,
+  written on save via `AmbryWeb.Admin.ProvenanceHints`.
+
+  Nothing here talks to a provider. Records follow the same law as inbox
+  evidence: added, never replaced, so a re-search cannot un-tick what the
+  operator chose.
   """
   # What a tags record can propose — if it carries none of these there is
   # nothing to offer and no row worth rendering.
@@ -49,10 +49,9 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   @doc """
-  The record refs a persisted record's provenance points back at — ref →
-  the fields that record filled. Built from the `"record"` keys accepted
-  proposals and imports write; it's what lets a later search *recognize*
-  the record that filled the title, pre-tick it, and say so.
+  The record refs a persisted record's provenance points back at, as ref →
+  the fields that record filled. What lets a later search recognize the record
+  that filled the title, pre-tick it, and say so.
   """
   def known_from(%{field_provenance: prov}) when is_map(prov) do
     Enum.reduce(prov, %{}, fn {field, entry}, acc ->
@@ -80,28 +79,23 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   @doc """
-  Folds a fan-out's `{records, outcomes}` into the panel — records already
+  Folds a fan-out's `{records, outcomes}` into the panel. Records arrive
   normalized and scored (`Ambry.Inbox.score_records/3`), so the panel ranks
-  and meters them exactly the way matching does. New records join the list;
-  records already held keep their place and their tick. Outcomes replace
-  per provider, so "couldn't be reached" stops saying that once it has
-  been reached.
+  them the way matching does. New records join the list, held ones keep their
+  place and their tick, and outcomes replace per provider.
   """
   def absorb(%__MODULE__{} = evidence, {records, outcomes}) when is_list(records) do
     absorb_records(evidence, records, outcomes)
   end
 
   @doc """
-  Folds a person fan-out's `{matches, outcomes}` into the panel —
-  `Ambry.Metadata.Search.people/2` shape, flat matches across providers.
+  Folds a person fan-out's `{matches, outcomes}` into the panel, in
+  `Ambry.Metadata.Search.people/2`'s flat shape.
 
-  `about: name` ticks the arrivals that are **about that human** — person
-  search is recall-first, so a search for one narrator returns everybody who
-  shares a name token with them, and only the ones spelling the same name are
-  evidence about this person. This is what an import does: `Draft.Seed` uses
-  every name-matching candidate as a source without being asked, which is why
-  an imported person arrives with a face and a biography and one credited on
-  an edit form arrived empty (operator, 2026-08-21).
+  `about: name` ticks the arrivals that are about that human: person search is
+  recall-first, so only the ones spelling the same name are evidence about
+  this person. The same thing an import does, so a person credited on an edit
+  form arrives with a face and a biography too.
   """
   def absorb_people(%__MODULE__{} = evidence, {matches, outcomes}, opts \\ []) do
     absorb_records(evidence, Enum.map(matches, &person_record/1), outcomes, about(opts[:about]))
@@ -123,11 +117,10 @@ defmodule AmbryWeb.Admin.Evidence do
     fresh_ids = MapSet.new(outcomes, & &1["id"])
     kept = Enum.reject(evidence.outcomes, &MapSet.member?(fresh_ids, &1["id"]))
 
-    # A record this record's own provenance points back at arrives ticked —
-    # it filled fields here once, so it counts until somebody says otherwise
-    # — and so does one that is plainly about the human being asked about.
-    # Only NEWLY arrived records auto-tick: re-searching must never re-tick
-    # what the operator unticked.
+    # A record this record's own provenance points back at arrives ticked,
+    # as does one plainly about the human being asked about. Only newly
+    # arrived records auto-tick: re-searching must never re-tick what the
+    # operator unticked.
     recognized =
       for record <- added,
           Map.has_key?(evidence.known, ref(record)) or about.(record),
@@ -146,18 +139,13 @@ defmodule AmbryWeb.Admin.Evidence do
   @doc """
   Holds the recording's own file tags as a source of proposals.
 
-  The file is evidence, and for a recording imported before the inbox existed
-  it is the only evidence that came with it: a narrator in the composer tag, a
-  publisher, a date, sometimes a description. The inbox has proposed from tags
-  since it existed, and after import there was no way back to a value the
-  operator skipped — this is that way back.
+  The file is evidence, and for a recording that arrived without an import it
+  is often the only evidence there is.
 
-  **Not a record.** A record is a claim about a book that might be this one,
-  which is why the panel lists them for ticking; the file is this recording,
-  so there is nothing to identify and nothing to tick. It proposes the way the
-  import form's tag candidates propose — as chips under the fields, labelled
-  with where they came from — and the record list stays what it is, a list of
-  what the databases said.
+  Not a record: a record is a claim about a book that might be this one, and
+  the file *is* this recording, so there is nothing to identify. It proposes
+  as chips under the fields, and the record list stays a list of what the
+  databases said.
   """
   def absorb_tags(%__MODULE__{} = evidence, %Tags{} = tags, opts \\ []) do
     %{evidence | tags: evidence.tags || tags_record(tags, opts)}
@@ -166,19 +154,15 @@ defmodule AmbryWeb.Admin.Evidence do
   @doc """
   Whether anything can propose: a ticked record, or the file's own tags.
 
-  The gate for rendering chips at all, and deliberately not `any_used?/1` —
-  tags propose without being ticked.
+  The gate for rendering chips at all, and deliberately not `any_used?/1`,
+  since tags propose without being ticked.
   """
   def proposing?(%__MODULE__{} = evidence), do: any_used?(evidence) or evidence.tags != nil
 
-  # The cover is the one thing here that isn't a tag: art is a stream in the
-  # container, so the record carries where it can be *seen* rather than a URL
-  # to fetch, and accepting it extracts at save time the way an import does.
-  # The caller supplies that address, which keeps routes out of this module.
-  #
-  # "the file's tags" rather than a provider's display name, because that is
-  # what the import form calls it (`source_words/1`), and a chip that says one
-  # thing here and another there is two vocabularies for one fact.
+  # The cover is the one thing here that is not a tag: art is a stream in the
+  # container, so the record carries where it can be seen rather than a URL
+  # and accepting it extracts at save time. The caller supplies that address,
+  # which keeps routes out of this module.
   defp tags_record(%Tags{} = tags, opts) do
     map = Tags.to_map(tags)
 
@@ -256,15 +240,13 @@ defmodule AmbryWeb.Admin.Evidence do
   @doc """
   What the ticked records propose for one field.
 
-  Proposals are grouped by value, in evidence order, each carrying: `key` (a
-  stable digest, the chip's `phx-value`), `display` (the chip text),
-  `params` (what accepting merges into the form), `source` (the provenance
-  source recorded — the first provider that proposed it), and `providers`
-  (every display name that agrees — the chip's source tag).
+  Grouped by value, in evidence order, each carrying `key` (a stable digest,
+  the chip's `phx-value`), `display`, `params` (what accepting merges into the
+  form), `source` (the first provider that proposed it) and `providers` (every
+  display name that agrees, the chip's source tag).
 
-  The field kinds mirror what provider records can know. Scalars merge
-  params directly; `:authors` and `:series` propose entities and the LiveView
-  owns resolving them into rows.
+  Scalars merge params directly; `:authors` and `:series` propose entities and
+  the LiveView resolves them into rows.
   """
   def proposals(%__MODULE__{} = evidence, field) do
     # Ticked records first: when a provider and the file agree on a value they
@@ -313,17 +295,12 @@ defmodule AmbryWeb.Admin.Evidence do
     end
   end
 
-  # Accepting a cover routes through the forms' existing URL-import machinery
-  # (`image_type`/`image_import_url`), which downloads at submit time —
-  # ProvenanceHints already knows this pair maps to `image_path`.
+  # Routes through the forms' URL-import machinery
+  # (`image_type`/`image_import_url`), which downloads at submit time.
   #
-  # Clearing `image_path` is part of accepting, and it is what makes the
-  # choice take effect rather than merely look accepted. The forms render the
-  # URL input — the only control that carries the chosen URL back on submit —
-  # in the branch for a record with *no* image. So a cover chosen against an
-  # existing one marked its chip chosen, wrote a provenance hint, and then
-  # posted nothing: the operator had to delete the old cover first and make
-  # the same decision twice. Picking a cover is replacing the cover.
+  # Clearing `image_path` is part of accepting: the URL input is the only
+  # control that carries the chosen URL back on submit, and the forms render
+  # it only for a record with no image.
   defp field_values(record, :image) do
     urls = List.wrap(record["images"] || present(record["cover_url"]))
 
@@ -346,8 +323,7 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   # The record's narrators, which are people. A recording's whole identity
-  # can turn on them — two readings of one book differ by nothing else — and
-  # they were the one field a ticked record could not fill.
+  # can turn on them, since two readings of one book differ by nothing else.
   defp field_values(record, :narrators) do
     for name <- List.wrap(record["narrators"]) do
       value(record, String.downcase(name), name, %{"name" => name})
@@ -367,9 +343,8 @@ defmodule AmbryWeb.Admin.Evidence do
   end
 
   # The file's own art, which no URL can name: the chip previews it through
-  # the address the caller gave, and accepting it means "extract this on
-  # save" rather than "download that". Labelled as the import form labels
-  # it, because it is the same decision about the same picture.
+  # the address the caller gave, and accepting means "extract this on save"
+  # rather than "download that".
   defp embedded_cover(%{"embedded_cover" => src}) when is_binary(src) do
     [
       %{"source" => "embedded", "provider_name" => "Embedded in the file", "id" => "cover"}
@@ -419,9 +394,8 @@ defmodule AmbryWeb.Admin.Evidence do
         providers: holders |> Enum.map(& &1.provider) |> Enum.uniq()
       }
     end)
-    # Alphabetical, except the file's own art, which goes last — the import
-    # form offers a cover that way round (`from_records(...) ++ [embedded]`)
-    # and one order in two places is one thing to learn.
+    # Alphabetical, except the file's own art, which goes last, the way the
+    # import form offers a cover.
     |> Enum.sort_by(&{&1.source == "embedded", &1.display})
   end
 

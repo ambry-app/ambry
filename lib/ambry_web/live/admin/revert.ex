@@ -3,19 +3,14 @@ defmodule AmbryWeb.Admin.Revert do
   The way back out of a chip: what a field would return to, and the params
   that put it there.
 
-  A proposal chip changes a field in one click, and until this existed the
-  only way to undo that click was reloading the page — which throws away
-  every other edit on the form. So the saved value is offered as one more
-  option in the same row, ghost rather than lime, and only while the field
-  differs from it.
+  A proposal chip changes a field in one click, and without this the only way
+  to undo that click is reloading the page, which throws away every other edit
+  on the form. So the saved value is offered as one more option in the same
+  row, ghost rather than lime, and only while the field differs from it.
 
-  Deliberately scalars only. Reverting a list of authors or narrators means
-  putting back rows that may have been created since, which is a different
-  question from "put this value back" and not one a chip should imply it can
-  answer.
+  Deliberately scalars only: reverting a list of authors means putting back
+  rows that may have been created since, which is a different question.
 
-  New vocabulary rather than the import form's: an import has nothing saved
-  to go back to, so there was nothing to be consistent with.
   """
 
   alias Ecto.Changeset
@@ -23,9 +18,8 @@ defmodule AmbryWeb.Admin.Revert do
   @doc """
   What the field would go back to, or `nil` when it is already there.
 
-  Returns `%{display: binary}` — plus `:image` when the value is a picture,
-  because choosing a cover is the one decision on these forms where words are
-  the wrong answer.
+  `%{display: binary}`, plus `:image` where the value is a picture: choosing a
+  cover is the one decision here where words are the wrong answer.
   """
   def offer(form, record, :image) do
     params = form.params

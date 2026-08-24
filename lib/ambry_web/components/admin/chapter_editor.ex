@@ -1,32 +1,27 @@
 defmodule AmbryWeb.Admin.ChapterEditor do
   @moduledoc """
-  The chapter editor: one card, shared by the media form and the inbox
-  import form — because chapters are curated the same way at the library
-  door and after it.
+  The chapter editor: one card, shared by the media form and the inbox import
+  form, because chapters are curated the same way at the library door and
+  after it.
 
-  A **marker** is a position and is only meaningful against the actual
-  bytes — provider chapter times describe their own retail edition and
-  drift by minutes across a book — so markers come from the files and
-  nothing else may write them. A **title** is just a name, so it comes from
-  wherever the best one is, per row.
+  A **marker** is a position and is only meaningful against the actual bytes —
+  provider chapter times describe their own retail edition and drift by
+  minutes across a book — so markers come from the files and nothing else may
+  write them. A **title** is just a name, so it comes from wherever the best
+  one is, per row.
 
   Title imports follow the evidence model rather than owning a search: a
-  ticked record carrying an ASIN grows a proposal chip under the card, and
-  the fetched titles render **into the rows themselves** — a proposed-title
-  cell beside each title input, inside the card's own scroll — with one
-  Take/Cancel header. There is no separate preview surface: the rows are
-  the preview, and nothing lands until Take.
+  ticked record carrying an ASIN grows a proposal chip under the card, and the
+  fetched titles render into the rows themselves, inside the card's own
+  scroll, with one Take/Cancel header. The rows are the preview, and nothing
+  lands until Take.
 
-  **Titles are only taken when the counts match.** A provider list that
-  doesn't pair one-to-one with the markers stays visible (the proposed
-  column shows where the two lists diverge, which is what to fix) but
-  cannot be applied — an operator call, superseding the earlier
-  pour-through-alignment behavior.
+  Titles are only taken when the counts match. A provider list that doesn't
+  pair one-to-one with the markers stays visible, so the proposed column shows
+  where the two diverge, but cannot be applied.
 
   Both hosting LiveViews speak the same event vocabulary:
   `fetch-chapter-titles`, `apply-chapter-titles`, `cancel-chapter-import`.
-
-  See the roadmap's 1h.
   """
   use AmbryWeb, :html
 
@@ -49,8 +44,8 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
   @doc """
   Applies an async outcome to the pending import in
-  `assigns.chapter_import`. A cancel can race a landing async — a result
-  for a header that is no longer open is dropped, not resurrected.
+  `assigns.chapter_import`. A result for a header that is no longer open is
+  dropped rather than resurrected.
   """
   def update_pending_import(socket, fun) do
     case socket.assigns.chapter_import do
@@ -133,14 +128,12 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
   @doc """
   The whole editor as one card: a source line, then the rows in their own
-  scroll, with the pending title fetch rendered into them — a proposed
-  column and a Take/Cancel header — rather than as a second surface.
+  scroll, with the pending title fetch rendered into them as a proposed column
+  and a Take/Cancel header.
 
-  In the inbox it wears a rail like every other decision card. It was the one
-  card in the tree that wore none, so the operator's eye ran down a column of
-  rails and found a gap where chapters should have been — reading as "not a
-  decision" for something the footer was counting all along. The media form
-  passes none: nothing there is staged, so there is no settledness to encode.
+  In the inbox it wears a rail like every other decision card, since the
+  footer counts it as a decision. The media form passes none: nothing there
+  is staged.
   """
   def chapter_rows(assigns) do
     markers = current_chapters(assigns.form)
@@ -161,12 +154,9 @@ defmodule AmbryWeb.Admin.ChapterEditor do
     ~H"""
     <div class="space-y-2">
       <div class={["space-y-3 rounded-lg bg-zinc-900 p-4", @rail && "#{@rail} border-l-4"]}>
-        <%!-- Where the markers came from used to be spelled out here
-            ("Markers read from the files' own chapter marks · titles: 40
-            embedded."), which restated what every row already shows in its
-            own source column and pushed the rows down a line on every form
-            that carries them. The provenance flag is the part that says
-            something the rows can't, so it is what is left. --%>
+        <%!-- Where the markers came from is deliberately not spelled out
+            here: it would restate what every row shows in its own source
+            column. The provenance flag is the part the rows can't say. --%>
         <p :if={@flag != []} class="flex items-baseline gap-2 pl-3 text-sm text-zinc-400">
           {render_slot(@flag)}
         </p>
@@ -180,8 +170,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
             <.sort_input field={@form[:chapters_sort]} index={chapter_form.index} />
             <%!-- Carried through every re-render on purpose: the form only
                 submits what it renders, so a source dropped here would be
-                re-derived on the next keystroke and quietly un-answer a
-                question the operator (or a merge) already answered. --%>
+                re-derived on the next keystroke. --%>
             <input
               type="hidden"
               name={chapter_form[:title_source].name}
@@ -201,7 +190,7 @@ defmodule AmbryWeb.Admin.ChapterEditor do
                   marker that has no counterpart — which is the row to fix. --%>
               <p :if={@incoming} class="pt-[10px] truncate pl-3 text-sm text-zinc-400">
                 {case Map.get(@proposed, chapter_form.index) do
-                  nil -> "—"
+                  nil -> empty_value()
                   title -> title
                 end}
               </p>
@@ -284,8 +273,8 @@ defmodule AmbryWeb.Admin.ChapterEditor do
 
   # Which incoming title lands on which row. Index-wise when the counts
   # match; otherwise aligned by duration (`Merge.align/2`) purely so the
-  # display puts the gap at the unpaired marker instead of shifting
-  # everything after it — a mismatched list is never *applied*.
+  # display puts the gap at the unpaired marker. A mismatched list is never
+  # applied.
   defp proposed_by_row(markers, incoming) do
     if length(markers) == length(incoming) do
       Map.new(0..(length(markers) - 1)//1, &{&1, Enum.at(incoming, &1).title})

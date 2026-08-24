@@ -33,12 +33,6 @@ defmodule Ambry.Accounts do
     * `:confirmed` - Boolean.
 
   `order` should be a valid atom key, or a tuple like `{:email, :desc}`.
-
-  ## Examples
-
-      iex> list_users()
-      {[%UserFlat{}, ...], true}
-
   """
   def list_users(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ :email) do
     over_limit = limit + 1
@@ -67,13 +61,7 @@ defmodule Ambry.Accounts do
   end
 
   @doc """
-  Returns the number of users.
-
-  ## Examples
-
-      iex> count_users()
-      1
-
+  The number of users.
   """
   @spec count_users(map()) :: integer()
   def count_users(filters \\ %{}) do
@@ -82,15 +70,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Gets a user by email.
-
-  ## Examples
-
-      iex> get_user_by_email("foo@example.com")
-      %User{}
-
-      iex> get_user_by_email("unknown@example.com")
-      nil
-
   """
   def get_user_by_email(email) when is_binary(email) do
     Repo.get_by(User, email: email)
@@ -98,15 +77,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Gets a user by email and password.
-
-  ## Examples
-
-      iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
-
-      iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
-      nil
-
   """
   def get_user_by_email_and_password(email, password)
       when is_binary(email) and is_binary(password) do
@@ -118,15 +88,6 @@ defmodule Ambry.Accounts do
   Gets a single user.
 
   Raises `Ecto.NoResultsError` if the User does not exist.
-
-  ## Examples
-
-      iex> get_user!(123)
-      %User{}
-
-      iex> get_user!(456)
-      ** (Ecto.NoResultsError)
-
   """
   def get_user!(id), do: Repo.get!(User, id)
 
@@ -134,15 +95,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Registers a user.
-
-  ## Examples
-
-      iex> register_user(%{field: value})
-      {:ok, %User{}}
-
-      iex> register_user(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
   """
   def register_user(attrs) do
     %User{}
@@ -152,12 +104,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
-
-  ## Examples
-
-      iex> change_user_registration(user)
-      %Ecto.Changeset{data: %User{}}
-
   """
   def change_user_registration(%User{} = user \\ %User{}, attrs \\ %{}) do
     User.registration_changeset(user, attrs, hash_password: false, validate_email: false)
@@ -167,12 +113,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user email.
-
-  ## Examples
-
-      iex> change_user_email(user)
-      %Ecto.Changeset{data: %User{}}
-
   """
   def change_user_email(user, attrs \\ %{}) do
     User.email_changeset(user, attrs, validate_email: false)
@@ -181,15 +121,6 @@ defmodule Ambry.Accounts do
   @doc """
   Emulates that the email will change without actually changing
   it in the database.
-
-  ## Examples
-
-      iex> apply_user_email(user, "valid password", %{email: ...})
-      {:ok, %User{}}
-
-      iex> apply_user_email(user, "invalid password", %{email: ...})
-      {:error, %Ecto.Changeset{}}
-
   """
   def apply_user_email(user, password, attrs) do
     user
@@ -257,12 +188,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user password.
-
-  ## Examples
-
-      iex> change_user_password(user)
-      %Ecto.Changeset{data: %User{}}
-
   """
   def change_user_password(user, attrs \\ %{}) do
     User.password_changeset(user, attrs, hash_password: false)
@@ -270,15 +195,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Updates the user password.
-
-  ## Examples
-
-      iex> update_user_password(user, "valid password", %{password: ...})
-      {:ok, %User{}}
-
-      iex> update_user_password(user, "invalid password", %{password: ...})
-      {:error, %Ecto.Changeset{}}
-
   """
   def update_user_password(user, password, attrs) do
     changeset =
@@ -412,15 +328,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Gets the user by reset password token.
-
-  ## Examples
-
-      iex> get_user_by_reset_password_token("validtoken")
-      %User{}
-
-      iex> get_user_by_reset_password_token("invalidtoken")
-      nil
-
   """
   def get_user_by_reset_password_token(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "reset_password"),
@@ -433,15 +340,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Resets the user password.
-
-  ## Examples
-
-      iex> reset_user_password(user, %{password: "new long password", password_confirmation: "new long password"})
-      {:ok, %User{}}
-
-      iex> reset_user_password(user, %{password: "valid", password_confirmation: "not the same"})
-      {:error, %Ecto.Changeset{}}
-
   """
   def reset_user_password(user, attrs) do
     Ecto.Multi.new()
@@ -456,11 +354,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Promotes a user to be an admin.
-
-  ## Examples
-
-      iex> promote_user_to_admin(user)
-      {:ok, %User{admin: true}}
   """
   def promote_user_to_admin(user) do
     user
@@ -470,11 +363,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Demote a user from being an admin.
-
-  ## Examples
-
-      iex> demote_user_from_admin(user)
-      {:ok, %User{admin: false}}
   """
   def demote_user_from_admin(user) do
     user
@@ -484,11 +372,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Returns true if at least one admin user exists.
-
-  ## Examples
-
-      iex> admin_exists?()
-      true
   """
   def admin_exists? do
     Repo.aggregate(from(u in User, where: u.admin), :count) > 0
@@ -496,11 +379,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Deletes a user.
-
-  ## Examples
-
-      iex> delete_user(user)
-      :ok
   """
   def delete_user(%User{} = user) do
     {:ok, _user} = Repo.delete(user)
@@ -551,15 +429,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Gets a user by invitation token.
-
-  ## Examples
-
-      iex> get_user_by_invitation_token("validtoken")
-      %User{}
-
-      iex> get_user_by_invitation_token("invalidtoken")
-      nil
-
   """
   def get_user_by_invitation_token(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "invitation"),
@@ -572,15 +441,6 @@ defmodule Ambry.Accounts do
 
   @doc """
   Accepts a user invitation by setting their password and confirming their account.
-
-  ## Examples
-
-      iex> accept_user_invitation(user, %{password: "new password", password_confirmation: "new password"})
-      {:ok, %User{}}
-
-      iex> accept_user_invitation(user, %{password: "invalid"})
-      {:error, %Ecto.Changeset{}}
-
   """
   def accept_user_invitation(user, attrs) do
     Ecto.Multi.new()

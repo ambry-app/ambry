@@ -6,9 +6,9 @@ defmodule Ambry.Wanted.Edition do
   This is deliberately a value, not a row: it is *what the operator chose*,
   and it has to keep rendering after the provider revises the listing, pulls
   it, or simply cannot be reached. Everything here is optional except the
-  title, because provider coverage is genuinely patchy — measured across the
-  ten audio editions Hardcover holds for *Neuromancer*: cover 9, date 9,
-  publisher 8, narrators 6, **ASIN 2**.
+  title, because provider coverage is genuinely patchy. Across a work's audio
+  editions a cover and a date are usually present, a publisher often, a
+  narrator list sometimes, and an ASIN only rarely.
 
   Which is also why `asin` is a field like any other rather than the key. See
   `Ambry.Wanted.Watch` for the identity that is used instead.

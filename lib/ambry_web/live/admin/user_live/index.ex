@@ -9,6 +9,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   import AmbryWeb.Gravatar
 
   alias Ambry.Accounts
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :email,
@@ -87,7 +88,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
       {:noreply,
        socket
        |> maybe_update_users(params, true)
-       |> put_flash(:info, "User deleted successfully")}
+       |> put_flash(:info, Deletion.deleted(user.email))}
     end
   end
 
@@ -152,7 +153,7 @@ defmodule AmbryWeb.Admin.UserLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_users(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}

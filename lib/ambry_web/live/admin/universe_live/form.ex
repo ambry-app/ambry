@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.UniverseLive.Form do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Books
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.ReturnTo
   alias Ecto.Changeset
 
@@ -43,6 +44,22 @@ defmodule AmbryWeb.Admin.UniverseLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(
+           Books.delete_universe(socket.assigns.universe),
+           socket.assigns.universe.name
+         ) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/universes", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"universe" => universe_params}, socket) do
     changeset =
       socket.assigns.universe

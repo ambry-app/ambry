@@ -22,94 +22,85 @@ defmodule AmbryWeb.Admin.SettingsLive.Index do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user} socket={@socket}>
-      <div class="max-w-4xl space-y-8">
-        <section>
-          <h2 class="mb-1 text-lg font-bold">Direct play</h2>
-          <p class="mb-4 text-sm text-zinc-400">
+      <div class="-mb-4 max-w-4xl space-y-14">
+        <.form_section title="Direct play">
+          <:blurb>
             Direct-play audiobooks are served as their original files, with no transcoding or
             packaging. Leave this off until every client app understands tracks; older builds
             can't play them.
-          </p>
+          </:blurb>
 
-          <div class="rounded-lg bg-zinc-900 p-4">
-            <div class="flex items-center gap-3">
-              <span class={[
-                "inline-block h-2.5 w-2.5 rounded-full",
-                (@direct_play_publishing && "bg-lime-500") || "bg-zinc-600"
-              ]} />
+          <.field_group>
+            <div class="flex items-center gap-3 pl-3">
+              <.status_dot on={@direct_play_publishing} />
+
               <div class="grow">
-                <h3 class="font-semibold">Publish direct-play audiobooks</h3>
-                <p class="text-sm text-zinc-400">
-                  {publishing_blurb(@direct_play_publishing)}
-                </p>
+                <p class="text-sm font-semibold text-zinc-200">Publish direct-play audiobooks</p>
+                <p class="text-sm text-zinc-400">{publishing_blurb(@direct_play_publishing)}</p>
               </div>
 
-              <.button phx-click="toggle-direct-play-publishing">
+              <.button color={:zinc} size={:sm} phx-click="toggle-direct-play-publishing">
                 {(@direct_play_publishing && "Turn off") || "Turn on"}
               </.button>
             </div>
-          </div>
-        </section>
+          </.field_group>
+        </.form_section>
 
-        <section>
-          <h2 class="mb-1 text-lg font-bold">Search index</h2>
-          <p class="mb-4 text-sm text-zinc-400">
+        <.form_section title="Search index">
+          <:blurb>
             Search keeps itself current: every write marks what it changed, and the change is
             indexed a moment later. Rebuilding is for after an upgrade that changes what a
             record holds, or for when you'd rather see it done than take our word for it.
-          </p>
+          </:blurb>
 
-          <div class="rounded-lg bg-zinc-900 p-4">
-            <div class="flex items-center gap-3">
-              <span class={[
-                "inline-block h-2.5 w-2.5 rounded-full",
-                (@index.pending == 0 && "bg-lime-500") || "bg-amber-500"
-              ]} />
+          <.field_group>
+            <div class="flex items-center gap-3 pl-3">
+              <.status_dot on={@index.pending == 0} attention={true} />
+
               <div class="grow">
-                <h3 class="font-semibold">
+                <p class="text-sm font-semibold text-zinc-200" data-role="index-records">
                   {@index.records} {ngettext("record", "records", @index.records)}
-                </h3>
-                <p class="text-sm text-zinc-400" data-role="index-state">
-                  {index_blurb(@index)}
                 </p>
+                <p class="text-sm text-zinc-400" data-role="index-state">{index_blurb(@index)}</p>
               </div>
 
-              <.button phx-click="reindex">Rebuild</.button>
+              <.button color={:zinc} size={:sm} phx-click="reindex">Rebuild</.button>
             </div>
-          </div>
-        </section>
+          </.field_group>
+        </.form_section>
 
-        <section>
-          <h2 class="mb-1 text-lg font-bold">Library naming</h2>
-          <p class="mb-4 text-sm text-zinc-400">
-            How managed audiobooks are organized inside a library root. Files imported from a
-            downloads folder are placed here; external collections are never reorganized.
-          </p>
+        <.simple_form
+          id="naming-template-form"
+          for={@template_form}
+          phx-change="validate-template"
+          phx-submit="save-template"
+          autocomplete="off"
+        >
+          <.form_section title="Library naming">
+            <:blurb>
+              How managed audiobooks are organized inside a library root. Files imported from a
+              downloads folder are placed here; external collections are never reorganized.
+            </:blurb>
 
-          <.simple_form
-            id="naming-template-form"
-            for={@template_form}
-            phx-change="validate-template"
-            phx-submit="save-template"
-            autocomplete="off"
-          >
-            <.input field={@template_form[:template]} label="Folder template" />
+            <.field_group
+              label="Folder template"
+              hint={"Available: #{Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with several authors or series uses the first one. Empty parts collapse."}
+            >
+              <.input field={@template_form[:template]} />
 
-            <p class="text-sm text-zinc-400">
-              Available: {Enum.map_join(NamingTemplate.tokens(), ", ", &"{#{&1}}")}. A book with
-              several authors or series uses the first one. Empty parts collapse.
-            </p>
+              <div>
+                <.label class="pl-3">Preview</.label>
+                <p class="font-mono break-all pt-1 pl-3 text-sm" data-role="template-preview">
+                  {@preview}
+                </p>
+              </div>
+            </.field_group>
+          </.form_section>
 
-            <div class="rounded-lg bg-zinc-900 p-4">
-              <p class="mb-1 text-xs font-semibold text-zinc-400">Preview</p>
-              <p class="font-mono break-all text-sm" data-role="template-preview">{@preview}</p>
-            </div>
-
-            <:actions>
-              <.button disabled={@template_error != nil}>Save</.button>
-            </:actions>
-          </.simple_form>
-        </section>
+          <.form_footer>
+            <.button disabled={@template_error != nil}>Save</.button>
+          </.form_footer>
+        </.simple_form>
       </div>
     </.layout>
     """

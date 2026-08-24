@@ -3,53 +3,28 @@ defmodule AmbryWeb.Admin.JobIndicatorLive do
   The ambient background-work indicator in the admin header.
 
   The overview has a whole section about the queues; this is the glance
-  version, and it exists because the moment an operator most wants to know
-  whether the server is working is while they are somewhere else — mid-form,
-  having just pressed Import.
+  version, because the moment an operator most wants to know whether the
+  server is working is while they are somewhere else.
 
-  ## Why this is a LiveView and not a hook on the page
+  **A nested LiveView, not a hook on the page.** An `on_mount` hook assigning
+  onto the page's socket makes every update run the open page's `render/1`,
+  and its message has to be swallowed by the hook so it does not crash the
+  admin LiveViews that define no `handle_info/2`. With its own process the
+  page is not involved at all.
 
-  The first version lived in an `on_mount` hook and assigned onto *the
-  page's* socket, so every update ran the open page's `render/1` — cheap,
-  because change tracking skips the parts whose assigns did not move, but
-  the page owned work it had no reason to do, and the update message had to
-  be swallowed by the hook so it didn't crash the many admin LiveViews that
-  define no `handle_info/2`.
+  **Sticky**, so it is not torn down on live navigation and the spinner keeps
+  spinning across a page change.
 
-  A nested LiveView has its own process and its own diff. The page it sits
-  in is not involved: it does not re-render, it does not need the data
-  threaded through `layout/1`, and nothing has to be careful about a stray
-  message.
+  **It watches; it does not poll.** `Ambry.Jobs.subscribe/0` puts this process
+  on Oban's `:insert` channel and the republished job telemetry, debounced,
+  because a queue draining forty items sends forty signals with one answer.
+  The slow heartbeat that remains covers the two plugins that change the
+  counts without announcing themselves.
 
-  ## Sticky
-
-  Rendered with `sticky: true`, so it is not torn down and rebuilt on every
-  live navigation. That keeps the spinner spinning across a page change
-  rather than blinking through mount → idle → busy each time.
-
-  ## It watches; it does not poll
-
-  `Ambry.Jobs.subscribe/0` puts this process on Oban's `:insert` notifier
-  channel (Postgres `LISTEN/NOTIFY`) and on the republished
-  `[:oban, :job, :start | :stop | :exception]` telemetry, so the display
-  moves when a job does rather than up to a tick later.
-
-  Signals are **debounced**, because a queue draining forty items sends
-  forty of them and the answer to all forty is one query.
-
-  The heartbeat that remains is slow and covers exactly two things that
-  change the counts without announcing themselves: `Oban.Plugins.Lifeline`
-  rescuing a job orphaned by a dead node, and `Oban.Plugins.Pruner` dropping
-  a discarded one a day later. Neither is urgent, so neither justifies a
-  fast clock.
-
-  ## It renders its quiet state
-
-  A widget that only appears when there is news is indistinguishable from a
-  broken one, so a quiet server gets a dim dot and the word Idle. That is
-  also what makes the spinner mean something when it does show up. Failures
-  get their own count beside it, because "busy" and "broken" are different
-  answers and only one of them is a reason to stop what you are doing.
+  **It renders its quiet state**, because a widget that only appears when
+  there is news is indistinguishable from a broken one. Failures get their own
+  count: "busy" and "broken" are different answers, and only one is a reason
+  to stop what you are doing.
   """
 
   use AmbryWeb, :nested_live_view
@@ -85,9 +60,8 @@ defmodule AmbryWeb.Admin.JobIndicatorLive do
     {:noreply, load(socket)}
   end
 
-  # Everything else on the subscription means the same thing — a job moved,
-  # go and look — whether it arrived as our own republished telemetry or as
-  # Oban's raw insert notification.
+  # Everything else on the subscription means "a job moved, go and look",
+  # whether it is republished telemetry or Oban's raw insert notification.
   def handle_info(_signal, socket), do: {:noreply, nudge(socket)}
 
   defp load(socket), do: assign(socket, jobs: Jobs.summary())
@@ -126,9 +100,8 @@ defmodule AmbryWeb.Admin.JobIndicatorLive do
     """
   end
 
-  # One fact, most-active first: what the server is doing right now beats what
-  # it is about to do. The rest is in the tooltip rather than the header,
-  # which has a page title to leave room for.
+  # One fact, most-active first: what the server is doing now beats what it is
+  # about to do. The rest is in the tooltip; the header has a title to fit.
   defp words(%{running: n}) when n > 0, do: "#{n} running"
   defp words(%{queued: n}) when n > 0, do: "#{n} queued"
   defp words(%{retrying: n}) when n > 0, do: "#{n} retrying"

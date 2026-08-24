@@ -2,31 +2,19 @@ defmodule Ambry.Media.Reconciliation do
   @moduledoc """
   Noticing that a recording's files stopped being there.
 
-  Files go missing for ordinary reasons — a torrent was removed, a disk was
-  swapped, a NAS is unplugged this morning — and none of them mean the
-  recording should be deleted. Reconciliation only ever *records* what it
-  found: `missing_since` is stamped when the files can't be read and cleared
-  when they come back. Nothing cascades.
+  Files go missing for ordinary reasons and none of them mean the recording
+  should be deleted, so this only ever *records* what it found: `missing_since`
+  is stamped when the files cannot be read and cleared when they come back.
+  Nothing cascades.
 
-  ## What counts as missing
+  **What counts as missing** is the files a recording needs in order to play:
+  its tracks for direct play, its transcoded outputs otherwise. Source files
+  that only fed a transcode are deliberately not checked, since a recording
+  whose originals were cleaned up still plays perfectly.
 
-  The files a recording needs in order to play, which depends on how it's
-  served:
-
-    * direct-play recordings need their tracks;
-    * legacy recordings need their transcoded outputs (mp4/hls/dash).
-
-  Source files that only fed a transcode are deliberately not checked. A
-  legacy recording whose originals were cleaned up still plays perfectly,
-  and calling it missing would be crying wolf on exactly the recordings
-  Phase 4 is going to reclaim.
-
-  ## Unreadable is not missing
-
-  A path that exists but can't be read (a permissions problem, an I/O error)
-  is reported as an error rather than silently treated as absent. The two
-  need different fixes, and conflating them means the operator goes looking
-  for a file that was there all along.
+  **Unreadable is not missing.** A path that exists but cannot be read is
+  reported as an error: the two need different fixes, and conflating them
+  sends the operator looking for a file that was there all along.
   """
 
   import Ecto.Query
@@ -37,11 +25,10 @@ defmodule Ambry.Media.Reconciliation do
   alias Ambry.Repo
 
   @doc """
-  Checks every recording and records what's missing.
+  Checks every recording and records what is missing.
 
-  Returns `{:ok, %{checked: n, missing: n, healed: n}}` — `healed` being
-  recordings whose files came back, which is the reason this is a sweep
-  rather than a one-way flag.
+  Returns `{:ok, %{checked: n, missing: n, healed: n}}`. `healed` is why this
+  is a sweep rather than a one-way flag.
   """
   def reconcile_all do
     Media
@@ -74,11 +61,10 @@ defmodule Ambry.Media.Reconciliation do
   end
 
   @doc """
-  The files a recording needs but can't read.
+  The files a recording needs but cannot read.
 
-  A recording with no playable files at all — a `pending` one that hasn't
-  been scanned or processed yet — has nothing to be missing, so it isn't
-  reported.
+  A recording with no playable files at all has nothing to be missing, so it
+  is not reported.
   """
   def missing_files(%Media{} = media) do
     media
@@ -92,9 +78,8 @@ defmodule Ambry.Media.Reconciliation do
   def playable_files(%Media{media_tracks: tracks} = media) when is_list(tracks) do
     case Enum.map(tracks, &MediaTrack.disk_path/1) do
       [] -> legacy_outputs(media)
-      # A stored path that cannot resolve cannot be served either; raising
-      # here keeps a broken invariant loud instead of letting a sweep read
-      # it as one more missing file.
+      # A stored path that cannot resolve cannot be served either. Raising
+      # keeps the broken invariant loud rather than one more missing file.
       resolved -> Enum.map(resolved, fn {:ok, path} -> path end)
     end
   end
@@ -116,10 +101,9 @@ defmodule Ambry.Media.Reconciliation do
     with {:ok, _media} <- put_missing_since(media, nil), do: {:ok, :healed}
   end
 
-  # Written straight through rather than via `Media.update_media/3`: this is
-  # a bookkeeping note about the filesystem, not an edit of the recording,
-  # and it must not touch provenance, reindex search, or broadcast a change
-  # to every connected client on a nightly sweep.
+  # Straight through rather than via `Media.update_media/3`: a bookkeeping
+  # note about the filesystem must not touch provenance, reindex search, or
+  # broadcast to every connected client on a nightly sweep.
   defp put_missing_since(media, missing_since) do
     media
     |> Ecto.Changeset.change(%{missing_since: missing_since})

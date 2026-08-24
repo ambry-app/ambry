@@ -50,10 +50,10 @@ defmodule Ambry.Metadata.Providers.Audible do
         type: :string,
         default: "us",
         help:
-          "Which regional Audible catalogs to search, comma-separated — " <>
+          "Which regional Audible catalogs to search, comma-separated: " <>
             "us, uk, ca, au, de, fr, es, it, in, jp. Editions are regional, so a UK-only " <>
             "recording is invisible to the US catalog. Results are merged, and the same " <>
-            "recording appearing in several catalogs is collapsed — most books are sold in " <>
+            "recording appearing in several catalogs is collapsed. Most books are sold in " <>
             "every region, so widening often changes nothing. Each extra marketplace is " <>
             "another request per lookup, and a first inbox scan is hundreds of lookups."
       }

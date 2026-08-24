@@ -1,15 +1,12 @@
 defmodule Ambry.Metadata.Providers do
   @moduledoc """
-  Public API for querying metadata providers.
-
-  This is the seam the web layer talks to: it resolves the provider through
+  Public API for querying metadata providers: resolves the provider through
   the runtime registry, routes the call through the TTL cache, and returns
   normalized `Ambry.Metadata.Provider` structs. Pass `refresh: true` to
-  bypass the cache (the "re-fetch" button).
+  bypass the cache.
 
-  Ambry *snapshots* provider data into its own records at import time — this
-  cache exists to make interactive search/import pleasant and to be polite
-  to shared public instances, not as a live link to any provider.
+  Provider data is snapshotted into Ambry's own records at import time; this
+  cache is for making interactive search pleasant, not a live link.
   """
 
   alias Ambry.Metadata.Cache
@@ -57,20 +54,16 @@ defmodule Ambry.Metadata.Providers do
     end
   end
 
-  # A structured query keys on its fields, not on its free-text rendering.
-  # They flatten to the same string, but they are not the same search — for
-  # Audible, `title: "Neuromancer", author: "William Gibson"` finds the book
-  # and the concatenated string finds nothing — so sharing a cache entry
-  # would serve one's results for the other.
+  # Keyed on the fields, not their free-text rendering: the two flatten to
+  # the same string but are not the same search.
   defp cache_key(%Provider.Query{} = query) do
     [query.keywords, query.title, query.author, query.narrator]
     |> Enum.map_join("|", &(&1 || ""))
     |> then(&("q:" <> &1))
   end
 
-  # A list joins rather than flattening: `to_string/1` on `["1", "23"]` and
-  # on `["12", "3"]` produce the same string, which would serve one set of
-  # works' editions for another.
+  # Joined, not flattened: `to_string/1` on `["1", "23"]` and `["12", "3"]`
+  # produce the same key.
   defp cache_key(args) when is_list(args), do: Enum.map_join(args, ",", &to_string/1)
 
   defp cache_key(arg), do: to_string(arg)

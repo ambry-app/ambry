@@ -102,16 +102,14 @@ defmodule Ambry.Metadata.Registry do
     end
   end
 
-  # **A cached answer was given under the old settings.** The cache keys on
-  # the provider and the question and nothing else, so changing what a
-  # provider is *asked* — which languages count, which regional catalogs to
-  # search — left every question already asked answering the old way for the
-  # rest of its TTL, a week for searches. The operator changed Audible from
-  # `us` to `us, uk`, searched a book they had searched before, and got the
-  # US catalog's answer back (2026-08-21).
+  # **A cached answer was given under the settings in force when it was
+  # cached.** The cache keys on the provider and the question and nothing
+  # else, so changing what a provider is *asked* (which languages count, which
+  # regional catalogs to search) would leave every question already asked
+  # answering the previous way for the rest of its TTL, a week for searches.
   #
   # Emptied on a config change rather than keyed on the config: a key that
-  # carries the settings never *forgets* the old answers, it just stops
+  # carries the settings never *forgets* the superseded answers, it just stops
   # finding them, and the rows sit in Postgres until their TTL expires.
   # Enabling, disabling and reordering leave it alone — none of them changes
   # what a question means.

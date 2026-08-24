@@ -46,10 +46,9 @@ defmodule Ambry.Inbox.Draft.Recording do
     embeds_many :sources, SourceRef, on_replace: :delete
 
     # Why nothing was filled in from a match. A doubted candidate stays in the
-    # list to be chosen but is not allowed to describe the file, and the
-    # operator was previously given no way to tell that apart from "no
-    # provider had anything" — the two look identical once the fields are
-    # empty.
+    # list to be chosen but is not allowed to describe the file, and without
+    # this the operator has no way to tell that apart from "no provider had
+    # anything": the two look identical once the fields are empty.
     field :doubt, Ecto.Enum, values: [:none, :nothing_found, :narrator_conflict, :low_confidence]
     field :doubt_detail, :string
 

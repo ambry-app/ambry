@@ -36,8 +36,6 @@ defmodule AmbryWeb.CoreComponents do
   solid icons and `fa-brands-<name>` for brand icons. The icon takes the current
   text color and defaults to 1.5rem; override the size with `h-*`/`w-*` utilities.
 
-  ## Examples
-
       <.icon name="fa-play" />
       <.icon name="fa-magnifying-glass" class="h-5 w-5 text-zinc-500" />
       <.icon name="fa-brands-goodreads" class="h-4 w-4" />
@@ -55,15 +53,11 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   Renders a modal.
 
-  ## Examples
-
       <.modal id="confirm-modal">
         This is a modal.
       </.modal>
-
   JS commands may be passed to the `:on_cancel` to configure
   the closing/cancel event, for example:
-
       <.modal id="confirm" on_cancel={JS.navigate(~p"/posts")}>
         This is another modal.
       </.modal>
@@ -77,10 +71,8 @@ defmodule AmbryWeb.CoreComponents do
   def modal(assigns) do
     ~H"""
     <%!-- Above the admin's side nav, not below it: this covers the whole
-          viewport, and the nav is one of the things it is covering. The wrapper
-          is `relative` with a z-index, so it is a stacking context and the one
-          number here is what the whole modal is worth. See the ladder on
-          `AmbryWeb.Admin.Components.layout_header/1`. --%>
+          viewport, and the nav is one of the things it is covering. See the
+          ladder on `AmbryWeb.Admin.Components.layout_header/1`. --%>
     <div
       id={@id}
       phx-mounted={@show && show_modal(@id)}
@@ -132,8 +124,6 @@ defmodule AmbryWeb.CoreComponents do
   A toast, not a panel. It sits in the `flash_group` rail at top centre, so it
   positions itself relative to that rather than to the viewport.
 
-  ## Examples
-
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:info}>Welcome Back!</.flash>
   """
@@ -153,12 +143,9 @@ defmodule AmbryWeb.CoreComponents do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
 
     ~H"""
-    <%!-- Severity is the icon's job, not the fill's. A solid lime slab with
-          black text was the loudest thing on any page it appeared over, for a
-          message that is usually "saved" — so the box is the same zinc-900 as
-          every other floating layer (§1: shadows are for things that float)
-          and only the glyph is coloured (§8: an icon carries the severity so
-          the words don't have to). --%>
+    <%!-- Severity is the icon's job, not the fill's: the box is the same
+          zinc-900 as every other floating layer (§1) and only the glyph is
+          coloured (§8). --%>
     <div
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
@@ -171,13 +158,10 @@ defmodule AmbryWeb.CoreComponents do
       class={["pointer-events-auto max-w-md cursor-pointer rounded-md", "shadow-black/40 bg-zinc-900 px-3 py-2 shadow-lg"]}
       {@rest}
     >
-      <%!-- The row is an inner element, and that is load-bearing. The
-            connection toasts are hidden with the `hidden` ATTRIBUTE, which
-            is a UA-stylesheet rule (`[hidden] { display: none }`) that any
-            author-level display utility outranks — so a `flex` up on the
-            root un-hides them, and they showed on every navigation for the
-            moment before LiveView connected and ran `phx-connected`. Keep
-            display utilities off the element `hidden` is applied to. --%>
+      <%!-- The row is an inner element, and that is load-bearing: `hidden`
+            is a UA-stylesheet rule that any author-level display utility
+            outranks, so a `flex` on the root would un-hide the connection
+            toasts. Keep display utilities off the element `hidden` is on. --%>
       <div class="flex items-start gap-2">
         <.icon
           :if={@kind == :info}
@@ -198,24 +182,19 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   The rail every flash appears in: top centre, stacked, newest below.
 
-  Top centre rather than top right, which is where these used to sit and
-  where the admin keeps its own controls — a toast over the user menu and
-  the job indicator covered the two things most likely to be wanted next.
+  Top centre rather than top right, where the admin keeps its own controls.
 
   The rail is `pointer-events-none` so an empty one is not an invisible lid
   over the top of the page; each toast turns pointer events back on for
   itself.
-
-  ## Examples
 
       <.flash_group flash={@flash} />
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
   attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
 
-  # Long enough to read, short enough that it is gone before it is in the
-  # way. An error gets longer because it is likelier to be worth reading
-  # twice, and hovering either one holds it open (see the auto-dismiss hook).
+  # An error lasts longer because it is likelier to be worth reading twice,
+  # and hovering either one holds it open (see the auto-dismiss hook).
   @info_dismiss_after 5_000
   @error_dismiss_after 10_000
 
@@ -263,8 +242,6 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   Renders a simple form.
 
-  ## Examples
-
       <.simple_form for={@form} phx-change="validate" phx-submit="save">
         <.input field={@form[:email]} label="Email"/>
         <.input field={@form[:username]} label="Username" />
@@ -302,8 +279,6 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   Renders a button.
 
-  ## Examples
-
       <.button>Send!</.button>
       <.button phx-click="go" class="ml-2">Send!</.button>
   """
@@ -324,10 +299,9 @@ defmodule AmbryWeb.CoreComponents do
 
   slot :inner_block, required: true
 
-  # An action that happens to be a navigation is still an action, and it has
-  # to be able to look like one: `<.link>` inside a `<button>` is invalid
-  # markup, and a bespoke link styled to match drifts the moment the costume
-  # changes. Same classes, one element or the other.
+  # An action that happens to be a navigation is still an action, and
+  # `<.link>` inside a `<button>` is invalid markup. Same classes, one
+  # element or the other.
   def button(%{navigate: navigate} = assigns) when is_binary(navigate) do
     ~H"""
     <.link navigate={@navigate} class={button_classes(@color, @size, @class)} {@rest}>
@@ -344,12 +318,9 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  # **A button has to be visibly raised, or it is a label.** Quiet row actions
-  # used to be `bg-white/5`, which on a zinc-900 card computes *darker* than
-  # the `bg-white/10` count chips beside them — so the labels read as raised
-  # and the buttons as recessed, and the operator could not tell Confirm from
-  # a tag. Actions are an opaque fill, one rung up the elevation ladder from
-  # whatever they sit on, and bold; tags stay flat and muted (§6).
+  # A button has to be visibly raised, or it is a label: actions are an
+  # opaque fill one rung up the ladder from whatever they sit on, and tags
+  # stay flat and muted (§6).
   defp button_classes(color, size, extra) do
     [
       # inline-flex, not inline-block: a button with a leading icon aligns its
@@ -371,18 +342,14 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   The small action costume, for the hand-built `<button>`s inside cards.
 
-  Same classes `<.button color={:zinc} size={:sm}>` produces — Confirm,
-  Restore, Split, Add, "Use this bio" and the queue's row actions were
-  fourteen separate copies of a `bg-white/5` pill, which is how they drifted
-  into looking exactly like the count chips next to them.
+  Same classes `<.button color={:zinc} size={:sm}>` produces, so every
+  hand-built pill in the admin comes from one place.
   """
   def action_classes(color \\ :zinc, extra \\ nil), do: button_classes(color, :sm, extra)
 
-  # One identity in both themes: the primary action is the brand fill with
-  # near-black text everywhere, secondary actions are outlined (a solid gray
-  # fill is the universal costume of a *disabled* button), and destructive
-  # actions are outlined red — visible without shouting. Every variant carries
-  # a border so the variants line up at the same height.
+  # Primary is the brand fill with near-black text, secondary is outlined (a
+  # solid gray fill reads as disabled), and destructive is outlined red. Every
+  # variant carries a border, so they line up at the same height.
   defp button_color_classes(:brand) do
     "border-transparent text-zinc-900 bg-brand-dark hover:bg-lime-500"
   end
@@ -407,8 +374,6 @@ defmodule AmbryWeb.CoreComponents do
   A `%Phoenix.HTML.Form{}` and field name may be passed to the input
   to build input names and error messages, or all the attributes and
   errors may be passed explicitly.
-
-  ## Examples
 
       <.input field={@form[:email]} type="email" />
       <.input name="my-input" errors={["oh no!"]} />
@@ -540,15 +505,9 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  # A picker over existing records, and — given `create_name` — over records
-  # the library doesn't have yet: what's typed is the new record's name until
-  # something existing is picked, and a "Create …" row makes it explicit.
-  #
-  # It used to be hardcoded off here, "which is what an edit form wants".
-  # That was the same rule that kept people out of the edit forms, and the
-  # operator retired it (`EDIT_PARITY_PLAN.md`): a form that credits an author
-  # may name one the library has never heard of. The name posts beside the id
-  # and is resolved when the form is saved (`Ambry.Ecto.EntityRef`).
+  # A picker over existing records, and given `create_name` over records the
+  # library does not have yet. The name posts beside the id and is resolved
+  # on save (`Ambry.Ecto.EntityRef`).
   #
   # Custom listbox rather than a `<datalist>`, which mobile Firefox does not
   # support and which cannot offer a create row.
@@ -576,18 +535,15 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   # The same picker without the typing: options given up-front, click to
-  # choose. What a native `<select>` would be if a browser's option list could
-  # carry a cover and a second line.
+  # choose.
   def input(%{type: "dropdown"} = assigns) do
     ~H"""
     <div class={["space-y-2", @container_class]}>
       <.label :if={@label} for={@id} class="pl-3">{@label}</.label>
-      <%!-- `border` is the one class this list carries that the others don't
-          need. `@tailwindcss/forms` gives `input`, `select` and `textarea` a
-          1px border and the rest of the app inherits it silently; a
-          drop-down's trigger is a `button`, which the plugin never touches,
-          so without it this sat 1.6px shorter than the number box beside it
-          in the set form. --%>
+      <%!-- `border` is the one class this list carries that the others
+          don't need: `@tailwindcss/forms` gives `input`, `select` and
+          `textarea` a 1px border, and a drop-down's trigger is a `button`,
+          which the plugin never touches. --%>
       <.live_component
         module={EntityDropdown}
         id={@id}
@@ -638,12 +594,10 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   A date and its display precision as the one control they are.
 
-  "2015-03-12" and "year only" were presented as two separate fields — two
-  decision boxes on the import form, where a proposal could even be *split*
-  (the date from one provider, the precision from another), which is a
-  choice nobody should be offered. One well, date left, precision right;
-  the precision select reads muted because it qualifies the date rather
-  than competing with it.
+  One well, date left, precision right. As two fields the import form could
+  split a proposal, taking the date from one provider and the precision from
+  another, which is a choice nobody should be offered. The precision select
+  reads muted because it qualifies the date rather than competing with it.
   """
   def date_with_format(assigns) do
     ~H"""
@@ -682,10 +636,9 @@ defmodule AmbryWeb.CoreComponents do
     """
   end
 
-  # §7: inputs are sized to their content, and a date's content has one
-  # size — so the component owns the default (`max-w-48`) instead of hoping
-  # every call site remembers. A call site that passes any width class of
-  # its own wins untouched.
+  # §7: inputs are sized to their content, and a date's content has one size,
+  # so the component owns the default. A call site passing its own width class
+  # wins untouched.
   defp width_classed?(nil), do: false
   defp width_classed?(class) when is_binary(class), do: class =~ ~r/(^|\s)(max-)?w-/
   defp width_classed?(class) when is_list(class), do: Enum.any?(class, &width_classed?/1)
@@ -727,18 +680,10 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   The drop-or-choose control for a `live_upload`.
 
-  One dashed well rather than the browser's file input stapled to a second
-  box below it. The old one was the last control on the admin still wearing
-  pre-redesign clothes: a 1px-bordered native input whose `file:` button was
-  the only zinc-600 button left, sitting on `zinc-950` *inside* cards —
-  ground-colored, so the elevation ladder ran backwards (§1) — above a
-  browser `<progress>` bar and a `&times;` glyph for a cancel.
-
-  Now: the native input is `sr-only` and its label is the standard small
-  button (§6), so choosing and dropping are one surface. Dashes stay, at
-  2px — this is the one place §1 asks for them, because the box really is
-  saying "drop here". Entries are wells inside it with a real progress bar
-  and the standard remove button.
+  One dashed well rather than a native file input stapled to a box below it:
+  the input is `sr-only` and its label is the standard small button (§6), so
+  choosing and dropping are one surface. Dashes at 2px, the one place §1 asks
+  for them. Entries are wells inside it.
   """
   def file_input(assigns) do
     ~H"""
@@ -847,14 +792,13 @@ defmodule AmbryWeb.CoreComponents do
   @doc """
   The app-standard input styling, for controls that are built by hand.
 
-  `<.input>` carries this itself. Anything else — a search box, a bare
-  `<input>` inside a component, a hand-built `<select>` — has to say so, or it
-  falls back to the browser's blue focus ring and a 1px hairline, which is
-  exactly what happened to both search fields and every provider-import row.
+  `<.input>` carries this itself. Anything else (a search box, a bare
+  `<input>` inside a component, a hand-built `<select>`) has to say so, or it
+  falls back to the browser's blue focus ring and a 1px hairline.
 
-  This is the single definition: `input_color_classes/1` below is this plus
-  the error and no-feedback states that only a real form field has. Don't
-  hand-write `bg-zinc-800 border …` on a control — call this.
+  The single definition: `input_color_classes/1` is this plus the error and
+  no-feedback states only a real form field has. Never hand-write
+  `bg-zinc-800 border …` on a control.
   """
   def input_classes(extra \\ nil) do
     [
@@ -1077,7 +1021,7 @@ defmodule AmbryWeb.CoreComponents do
   end
 
   @doc """
-  Form card used to wrap the user auth forms.
+  The card the user auth forms sit in.
   """
   slot :inner_block, required: true
 
@@ -1091,8 +1035,6 @@ defmodule AmbryWeb.CoreComponents do
 
   @doc """
   Renders the Ambry logo with the tagline.
-
-  ## Examples
 
       <.logo_with_tagline />
   """
@@ -1113,8 +1055,6 @@ defmodule AmbryWeb.CoreComponents do
 
   @doc """
   Renders the Ambry logo SVG.
-
-  ## Examples
 
       <.logo class="w-12 h-12" />
   """
@@ -1144,8 +1084,6 @@ defmodule AmbryWeb.CoreComponents do
   Renders the Ambry title SVG.
 
   This is the text "Ambry" that appears next to the logo.
-
-  ## Examples
 
       <.title class="h-12" />
   """

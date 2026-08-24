@@ -1,25 +1,20 @@
 defmodule Ambry.Metadata.Providers.Wikidata do
   @moduledoc """
-  Person-level provider backed by Wikidata + Wikipedia + Wikimedia Commons.
+  Person-level provider backed by Wikidata, Wikipedia and Wikimedia Commons.
 
-  The anchor of the person level: providers keyed on *real people* rather
-  than published-as author identities. Book-catalog providers can't see
-  people who barely exist as catalog authors — half of a composite pen name
-  (Ty Franck, of James S.A. Corey) or narrate-only people — while Wikidata
-  models the humans themselves.
+  The anchor of the person level: keyed on *real people* rather than
+  published-as author identities. Book-catalog providers cannot see people who
+  barely exist as catalog authors, such as half of a composite pen name or a
+  narrate-only person, while Wikidata models the humans themselves.
 
-  Flow: Wikidata entity search, hydrated and filtered to humans (P31 = Q5)
-  → bio from the Wikipedia summary-extract API (the article's lead
-  section; falls back to the terse Wikidata description when a person has
-  no English article) → freely-licensed photo, preferring the summary's
-  direct `originalimage` URL (a plain upload.wikimedia.org file — no
-  MediaWiki redirect or on-demand thumbnailer in the path) and falling
-  back to the Commons P18 claim via Special:FilePath for article-less
-  people.
+  Wikidata entity search, hydrated and filtered to humans (P31 = Q5), then a
+  bio from the Wikipedia summary-extract API (falling back to the terse
+  Wikidata description), then a freely-licensed photo, preferring the
+  summary's direct `originalimage` URL over the Commons P18 claim via
+  Special:FilePath.
 
-  Zero-config and free, no API key. Registered with the author-search
-  capabilities, so the person form offers it alongside the book-keyed
-  author sources.
+  Zero-config and free, no API key.
+
   """
 
   @behaviour Ambry.Metadata.Provider
@@ -31,9 +26,8 @@ defmodule Ambry.Metadata.Providers.Wikidata do
   @wikipedia_summary_url "https://en.wikipedia.org/api/rest_v1/page/summary/"
   @commons_file_path_url "https://commons.wikimedia.org/wiki/Special:FilePath/"
 
-  # Commons originals can be enormous (tens of MB); Special:FilePath scales
-  # server-side. 1200px is plenty for the thumbnail pipeline and on par
-  # with the best book-provider image sources.
+  # Commons originals can be tens of MB; Special:FilePath scales server-side,
+  # and 1200px is plenty for the thumbnail pipeline.
   @image_width 1200
 
   @search_limit 10
@@ -107,9 +101,8 @@ defmodule Ambry.Metadata.Providers.Wikidata do
     end
   end
 
-  # Entity search matches organizations, works, and disambiguation pages
-  # too; hydrating the hits' claims lets us keep only actual humans, in
-  # the search's relevance order.
+  # Entity search matches organizations, works and disambiguation pages too,
+  # so the hits' claims are hydrated to keep only humans.
   defp hydrate_people([]), do: {:ok, []}
 
   defp hydrate_people(ids) do
@@ -144,11 +137,10 @@ defmodule Ambry.Metadata.Providers.Wikidata do
   defp entity_details(entity) do
     summary = fetch_summary(get_in(entity, ["sitelinks", "enwiki", "title"]))
 
-    # Wikipedia genuinely has TWO candidate photos per person and they are
-    # often different pictures: the article's lead image and the Commons P18
-    # portrait. The lead is preferred for fetch reliability, but the P18 is
-    # frequently the better *portrait* — and which one survives a circular
-    # crop is not something anything here can judge. Both are offered.
+    # Two candidate photos per person, often different pictures: the
+    # article's lead image and the Commons P18 portrait. The lead is more
+    # reliable to fetch, the P18 often the better portrait, and which survives
+    # a circular crop is not judgeable here. Both are offered.
     lead = get_in(summary, ["originalimage", "source"])
 
     Provider.Author.new(%{

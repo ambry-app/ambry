@@ -8,24 +8,8 @@ defmodule AmbryWeb.Helpers.IdHelpers do
   @doc """
   Parses an ID that may be either an integer string or a Relay global ID.
   Returns {:ok, integer_id} or {:error, reason}.
-
-  ## Examples
-
-      iex> parse_id("123")
-      {:ok, 123}
-
-      iex> parse_id("TWVkaWE6MTIz")  # base64 for "Media:123"
-      {:ok, 123}
-
-      iex> parse_id("TWVkaWE6MTIz", :media)
-      {:ok, 123}
-
-      iex> parse_id("TWVkaWE6MTIz", :book)
-      {:error, :type_mismatch}
-
   """
   def parse_id(id_string, expected_type \\ nil) do
-    # First try as plain integer
     case Integer.parse(id_string) do
       {int_id, ""} ->
         {:ok, int_id}

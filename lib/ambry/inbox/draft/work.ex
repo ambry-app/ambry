@@ -36,11 +36,10 @@ defmodule Ambry.Inbox.Draft.Work do
     field :query, :string
     field :query_fields, :map, default: %{}
 
-    # Why no record was adopted, mirroring the recording level. The work level
-    # used to tick its top record whatever the score said, so a weak match
-    # filled in the title, date and authors of a book it wasn't about — and
-    # said nothing. The recording level has refused to do that since it was
-    # built; this is the same rule, arriving late.
+    # Why no record was adopted, the same as the recording level. Ticking the
+    # top record whatever the score says lets a weak match fill in the title,
+    # date and authors of a book it isn't about, and say nothing about having
+    # done so.
     field :doubt, Ecto.Enum, values: [:none, :nothing_found, :low_confidence]
     field :doubt_detail, :string
 
@@ -98,9 +97,9 @@ defmodule Ambry.Inbox.Draft.Work do
   Everything about this work that still needs a human.
 
   When linking, the Book belongs to the library and nothing about it is
-  decided here — the only question is the identity itself. (Additive series
-  memberships used to be proposed on linked books; that made series the one
-  editable field on a book the form said it wouldn't touch, so it's gone.)
+  decided here: the only question is the identity itself. Series memberships
+  are not proposed on a linked book either, which would make series the one
+  editable field on a book the form says it will not touch.
   """
   def unresolved(%__MODULE__{mode: :link} = work) do
     identity(work)

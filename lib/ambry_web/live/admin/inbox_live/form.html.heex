@@ -3,16 +3,12 @@
       over what it is covering, and a message floating in the middle of a
       1920px viewport does not read as belonging to the form beneath it. --%>
   <div class="relative max-w-4xl">
-    <%!-- Matching keeps retrying until every provider has answered, and it
-          rebuilds an untouched draft when one finally comes back — so a form
-          with a job on it is not the operator's to edit yet, and says so
-          over the whole thing rather than in a badge. --%>
-    <%!-- `z-40` overrides `busy_overlay/1`'s own `z-20`, which is sized for a
-          scrim over one card. This one owns the whole form, and the form has a
-          sticky footer with the Save in it — at 20 the scrim would have fallen
-          behind the one control it most needs to cover. It stays under the
-          header (50) so the job indicator that explains the wait is still
-          lit. --%>
+    <%!-- Matching rebuilds an untouched draft when a retried provider comes
+          back, so a form with a job on it is not the operator's to edit yet
+          and says so over the whole thing rather than in a badge. --%>
+    <%!-- `z-40` clears the sticky footer with the Save in it, which
+          `busy_overlay/1`'s card-sized `z-20` would fall behind. Under the
+          header (50), so the job indicator explaining the wait stays lit. --%>
     <.busy_overlay
       busy={busy?(assigns)}
       label={busy_label(@job)}
@@ -21,9 +17,8 @@
 
     <div class="-mb-4 max-w-4xl space-y-14" inert={busy?(assigns)}>
       <%!-- the evidence: what was found, before anybody interpreted it. The
-            files themselves are part of it and sit in this section too — what
-            the tags say and which files said it are one question, and they
-            were three screens apart. --%>
+            files sit here too, because what the tags say and which files said
+            it are one question. --%>
       <section class="space-y-2">
         <div class="space-y-1 rounded-lg bg-zinc-900 p-4" data-role="item-card">
           <div class="flex items-start justify-between gap-4">
@@ -71,15 +66,9 @@
             </div>
           </div>
 
-          <%!-- Tags are the primary source (98% of real releases carry a usable
-            one) and the form used to show none of them, so a match that went
-            somewhere strange had no visible cause. Read, never folded: this
-            is the evidence the whole form is an interpretation of, and it was
-            behind a click on every item.
-
-            The two column headings are the naming here. A "File tags" label
-            over them would be a third heading in four lines saying what
-            "Embedded tags" already says. --%>
+          <%!-- Tags are the primary source, carried by nearly every release,
+            so a match that goes somewhere strange has its cause here. Never
+            folded. The two column headings are the naming. --%>
           <div
             :if={tag_rows(@item) != [] or hint_rows(@item) != []}
             class="grid grid-cols-1 gap-4 pt-2 pl-3 sm:grid-cols-2"
@@ -104,10 +93,9 @@
             {@item.issue}
           </p>
 
-          <%!-- The footer says "the reason is above", so the reason has to be
-            above. It lives with the files because that is what it is about,
-            and it wears the `issue` line's costume because it is the same
-            kind of statement: the row's verdict, read last. --%>
+          <%!-- The footer says "the reason is above", so the reason has to
+            be above. It lives with the files because that is what it is
+            about, in the `issue` line's costume. --%>
           <p
             :if={@blocker && missing?(@item)}
             class="flex items-baseline gap-1.5 pt-2 pl-3 text-sm text-red-400"
@@ -117,15 +105,11 @@
             {Inbox.describe_error(:files_missing)}
           </p>
 
-          <%!-- The files are part of this card, not a card of their own: what
-            this item is and what is in it were never two subjects, and the
-            split was making the reader hold the first while looking at the
-            second. `card={false}` because a card inside a card is what eats
-            the elevation ladder (§1) — merged means merged, not nested.
+          <%!-- Part of this card, not a card of their own: what this item is
+            and what is in it are one subject. `card={false}`, because a card
+            inside a card eats the elevation ladder (§1).
 
-            They sit above the two questions below, which are both questions
-            *about this list*. Asking "not one audiobook?" before showing the
-            files asked the operator to answer from memory. --%>
+            Above the two questions below, which are both about this list. --%>
           <.file_list
             files={@item.files}
             label="Files"
@@ -140,15 +124,12 @@
             <:tag><.source_tag source={@item.source} class="flex-none" /></:tag>
           </.file_list>
 
-          <%!-- These files are one recording unless the operator says
-            otherwise — a folder of forty mp3s is one book in forty pieces far
-            more often than it is forty books. Splitting is the escape hatch
-            for when it genuinely isn't: each split item becomes its own
-            import, to link to its own book or take a part number. --%>
+          <%!-- One recording unless the operator says otherwise: a folder of forty
+            mp3s is one book in forty pieces far more often than forty books.
+            Each split item becomes its own import. --%>
           <%!-- Two grains, because the grouping can be wrong at two levels: a
             folder of "1 of 5" subfolders is one release in parts, and a
-            GraphicAudio set of the same shape is five recordings. The
-            question labels them both rather than riding on the first. --%>
+            part-set of the same shape is five recordings. --%>
           <div :if={@grains != %{} and !@read_only} class="space-y-2 pt-2">
             <.label class="pl-3">Not one audiobook?</.label>
 
@@ -179,11 +160,9 @@
             </div>
           </div>
 
-          <%!-- The same question from the other side, and the folder answers
-            it: a release whose parts sit in subfolders that don't say they
-            are parts arrives as one item per subfolder, because "Gwendy's
-            Button Box 2" is its own book far more often than it is disc two
-            of something. When it isn't, this is the way to say so. --%>
+          <%!-- The same question from the other side: a release whose parts sit in
+            subfolders that do not say they are parts arrives as one item per
+            subfolder, because a numbered title is usually its own book. --%>
           <div :if={@combine && !@read_only} class="space-y-2 pt-2">
             <.label class="pl-3">Only part of one?</.label>
 
@@ -222,9 +201,8 @@
       </section>
 
       <%!-- A superseded import is still settled, so it keeps the lime rail:
-          nothing here needs doing and nothing here is wrong. What changed is
-          what it is the record OF. It does not offer the audiobook, because
-          the audiobook is no longer what this item produced. --%>
+          what changed is what it is the record OF. It does not offer the
+          audiobook, which is no longer what this item produced. --%>
       <section
         :if={@read_only and @item.superseded_by_id}
         class="border-brand-dark/60 rounded-lg border-l-4 bg-zinc-900 p-4"
@@ -257,10 +235,9 @@
         </ul>
       </section>
 
-      <%!-- What the library already has under a name this import would create.
-          Only ever after Add is pressed: before that it is an answer to a
-          question nobody asked, and on most items the sibling relink settles
-          it before it is ever true. --%>
+      <%!-- What the library already has under a name this import would
+          create. Only ever after Add is pressed: before that it is an answer
+          to a question nobody asked. --%>
       <section
         :if={@collisions != []}
         class="border-amber-400/80 rounded-lg border-l-4 bg-zinc-900 p-4"
@@ -294,12 +271,9 @@
       </section>
 
       <%!-- ==================== NEW OR A REPLACEMENT ==================== --%>
-      <%!-- Asked before anything else, because answering it yes settles
-          everything below: the audiobook already has its book, its credits,
-          its chapters and its metadata, and this import is about its files.
-          Ordinary imports answer it silently — nothing in the library claims
-          these files — and see a card with a search in it and nothing to
-          do. --%>
+      <%!-- First, because yes settles everything below: the audiobook already
+          has its book, credits, chapters and metadata, and this import is
+          about its files. Ordinary imports answer it silently. --%>
       <%!-- Absent on an item imported before the decision existed: its draft
           is the frozen record of that import, and nothing may touch it. --%>
       <section
@@ -397,39 +371,30 @@
       <section :if={!@replacing} id="work" class="space-y-7" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Book</h2>
 
-        <%!-- Evidence first, then the decisions it feeds (§9): what the
-            databases say this is, before "do I already have it?". The records
-            are how the operator recognizes the book, and ticking one asks its
-            databases for audio editions, which feed the audiobook section. --%>
+        <%!-- Evidence first, then the decisions it feeds (§9). Ticking a
+            record asks its database for audio editions, which feed the
+            audiobook section. --%>
         <div class={[
           "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
           state_rail(Tier.of_evidence(@item.draft.work))
         ]}>
-          <%!-- A provider round-trip is the same kind of event as a matching
-              job, and gets the same answer: the card is not yours while it
-              runs. The person cards have said so since they grew a search of
-              their own; these two were left with a button that changed its
-              own label. --%>
+          <%!-- The card is not yours while a provider round-trip runs; a button
+              relabelling itself is not enough. --%>
           <.busy_overlay busy={@researching == "work"} label={searching_label(@research_fields)} />
 
           <div class="space-y-2" inert={@researching == "work"}>
             <%!-- No badge and no Confirm button: the rail says which of the four
-                states this is, and pressing Add is what accepts the ones the
-                machine settled. The old pair said it twice in two vocabularies,
-                and the button changed nothing but its own word. The match score
-                stays in the tooltip, where it is history rather than state. --%>
+                states this is, and pressing Add accepts the ones the machine
+                settled. The match score stays in the tooltip. --%>
             <div class="flex items-baseline gap-2 pl-3">
               <.label title={@item.draft.work.confidence && "match score #{@item.draft.work.confidence}"}>
                 Provider records
               </.label>
             </div>
 
-            <%!-- The query, then who answered, then what they said. The search
-                that produced these records was folded away under the results it
-                produced, which reads backwards: a card of search results is a
-                search form with results below it. Editable in place, so the
-                wrong tag that sent this somewhere strange is visible and
-                fixable without opening anything. --%>
+            <%!-- The query, then who answered, then what they said: a card of search
+                results is a search form with results below it. Editable in
+                place, so a wrong tag is fixable without opening anything. --%>
             <.research_form
               level="work"
               fields={search_fields(@researching, "work", @research_fields, @search_seeds["work"])}
@@ -471,10 +436,9 @@
               </:row>
             </.record_list>
 
-            <%!-- The same answer the audiobook level has always had, and the
-                level that needed it just as much: a doubted match leaves this
-                card outstanding until a record is ticked, so believing none of
-                them left ticking one you don't believe as the only way on. --%>
+            <%!-- The same answer the audiobook level gives: a doubted match
+                leaves this card outstanding until a record is ticked, so
+                without it the only way on is ticking one you don't believe. --%>
             <div :if={records(@item, "work") != []} class="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
@@ -496,9 +460,8 @@
         </div>
 
         <%!-- A different KIND of question from the records above: linking
-            creates nothing and inherits the book's curation, importing a
-            record creates a Book. Ranking the two together made the form ask
-            one question that was really two. --%>
+            creates nothing and inherits the book's curation, while importing
+            a record creates a Book. --%>
         <div
           class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(Tier.of_identity(@item.draft.work))]}
           data-role="local-books"
@@ -513,14 +476,9 @@
             linked={@item.draft.work.mode == :link and @item.draft.work.book_id == book["id"]}
           />
 
-          <%!-- Matching is keyword-based and good enough for the ordinary case,
-              but a file's idea of its title can be anything: the operator's own
-              copy of Philosopher's Stone is tagged "HP1 - The Philosopher's
-              Stone", and the US edition of the same work is called Sorcerer's
-              Stone, which no amount of string cleverness should be expected to
-              connect. So there is always a way to go and look — the same
-              typeahead every other picker in the admin uses, over the same
-              keyword search that produced the rows above. --%>
+          <%!-- Matching is keyword-based, and two titles for one work that
+              share no words are something no string cleverness connects. So
+              there is always a way to go and look. --%>
           <form id="library-search" phx-change="link-book" class="max-w-xl pt-1">
             <.live_component
               module={EntityResolver}
@@ -562,10 +520,9 @@
           Using the book already in the library. Its existing details are not changed.
         </p>
 
-        <%!-- Typing lives in a form; choosing does not. They are kept apart
-            because a <form> inside a <form> is invalid HTML and the parser
-            silently drops the inner one — which is exactly how the credit
-            controls went missing the first time. --%>
+        <%!-- Typing lives in a form; choosing does not. A <form> inside a
+            <form> is invalid HTML and the parser silently drops the inner
+            one. --%>
         <.simple_form
           :if={@item.draft.work.mode == :create}
           id="work-form"
@@ -650,11 +607,8 @@
           "relative space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4",
           state_rail(Tier.of_evidence(@item.draft.recording))
         ]}>
-          <%!-- A provider round-trip is the same kind of event as a matching
-              job, and gets the same answer: the card is not yours while it
-              runs. The person cards have said so since they grew a search of
-              their own; these two were left with a button that changed its
-              own label. --%>
+          <%!-- The card is not yours while a provider round-trip runs; a button
+              relabelling itself is not enough. --%>
           <.busy_overlay busy={@researching == "recording"} label={searching_label(@research_fields)} />
 
           <div class="space-y-2" inert={@researching == "recording"}>
@@ -679,9 +633,9 @@
               retrying={@retrying}
             />
 
-            <%!-- A doubted match used to be indistinguishable from no match at
-                all: both left every field empty and said nothing. The reason is
-                the whole difference between "tick one" and "type it in". --%>
+            <%!-- Without the reason, a doubted match is indistinguishable
+                from no match at all: both leave every field empty. It is the
+                whole difference between "tick one" and "type it in". --%>
             <p
               :if={doubt_message(@item.draft.recording)}
               class="bg-amber-400/10 border-amber-400/80 rounded-md border-l-4 p-3 text-sm"
@@ -831,20 +785,13 @@
       </section>
 
       <%!-- ==================== NEW PEOPLE ==================== --%>
-      <%!-- The third level, and a section rather than a decoration on a
-          credit. One human is one record: rendering a person inside every
-          credit that named them made an author who reads their own book
-          appear twice, with a sentence apologising for the duplication the
-          model had deliberately deleted.
+      <%!-- The third level, a section rather than a decoration on a credit:
+          one human is one record.
 
-          A *derived* list, so it breaks the list-cluster grammar deliberately
-          and has no add of its own (design language §5): a person exists
-          because a credit names them, so adding one happens on the credit and
-          shows up here. A credit pointing at an identity the library already
-          has brings nobody: that person was chosen in the credit's typeahead
-          and carries curation an import may never overwrite. One the operator
-          matched to the library from their own card stays, because that
-          decision was made here and needs a way back. --%>
+          A derived list, so it has no add of its own (§3b): a person exists
+          because a credit names them. A credit pointing at an identity the
+          library already has brings nobody, since that person carries
+          curation an import may never overwrite. --%>
       <section
         :if={!@replacing and Draft.people_groups(@item.draft) != []}
         id="people"
@@ -918,11 +865,10 @@
       </section>
 
       <%!-- ==================== CHAPTERS ==================== --%>
-      <%!-- Markers are file-derived facts, titles are decisions — the 1h
-          split, staged in one card. The rows are the probe's reading of the
-          files; a ticked ASIN-bearing record grows a title chip, and the
-          fetched titles render into the rows as a proposed column. The rows
-          scroll inside the card, so a 47-chapter book stays a card. --%>
+      <%!-- Markers are file-derived facts and titles are decisions, staged
+          in one card: the rows are the probe's reading, and a ticked
+          ASIN-bearing record grows a title chip whose titles render into them
+          as a proposed column. --%>
       <section :if={!@replacing} id="chapters" class="space-y-2" inert={@read_only}>
         <h2 class="text-xl font-bold text-zinc-100">Chapters</h2>
 
@@ -1025,11 +971,9 @@
 
       <%!-- ==================== THE BUTTON ==================== --%>
       <%!-- The container's `-mb-4` is half of `form_footer`'s `bottom-0`: a
-          sticky box can't leave its containing block, so without it this
-          wrapper's own bottom edge holds the bar 16px up at the end of the
-          scroll, inside `#main-content`'s `p-4`. The negative margin lets the
-          containing block reach the bottom of the page, where the offset
-          already puts the bar. --%>
+          sticky box cannot leave its containing block, so without it this
+          wrapper's bottom edge holds the bar 16px up at the end of the
+          scroll. --%>
       <.form_footer>
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <%!-- Named for what pressing it does. A replacement doesn't add
@@ -1047,18 +991,15 @@
           <.button :if={!@read_only} type="button" color={:zinc} phx-click="ignore">Ignore</.button>
 
           <p :if={@read_only} class="text-sm text-zinc-400">
-            In the library — read-only.
+            In the library, read-only.
           </p>
-
-          <.button navigate={@return_to} color={:zinc}>Back to the inbox</.button>
 
           <%!-- Why the button is off, always. A blocker that only showed up as a
               red line further up the page could leave this disabled while the
               outstanding count read zero. --%>
-          <%!-- Sticky, so it is the one thing always in view — which makes it
-              the right place to say what is left, and a link rather than a
-              number so work below the fold is reachable without hunting
-              (§9). --%>
+          <%!-- Sticky, so it is the one thing always in view: the right place
+              to say what is left, as a link rather than a number so work
+              below the fold is reachable (§9). --%>
           <.link
             :if={@unresolved != []}
             href="#unresolved"

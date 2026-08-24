@@ -3,24 +3,19 @@ defmodule Ambry.Inbox.Lookup do
   Asking providers things *after* an item has been matched.
 
   Matching is thorough and runs on a serial, retrying queue, so most items
-  never need any of this. It exists for the case the operator's own words
-  describe: **"you got this wrong"** — where the right answer wasn't in the
-  list at all, or a provider was rate-limited during the scan, or a record
-  nobody expected to matter turns out to be the one.
+  never need any of this. It exists for the case where matching got it wrong:
+  the right answer was not in the list, a provider was rate-limited during the
+  scan, or a record nobody expected to matter turns out to be the one.
 
-  Everything here writes to `inbox_items.matches`, which is *evidence*, and
-  never to the draft, which is *decisions*. That's the same boundary
-  discovery respects, and it's what lets a re-search add records without
-  disturbing a curated choice: new records simply appear un-ticked.
+  Everything here writes to `inbox_items.matches`, which is *evidence*, never
+  to the draft, which is *decisions*: a re-search adds records without
+  disturbing a curated choice, and they appear un-ticked.
 
-  Records are added, never replaced. A record the draft already points at
-  keeps its identity across a re-search — otherwise re-searching would
-  silently un-tick whatever the operator had chosen.
+  Records are added, never replaced, keeping their identity across a
+  re-search, or re-searching would silently un-tick whatever was chosen.
 
-  The provider fan-out itself lives in `Ambry.Metadata.Search` — it was never
-  inbox-specific, and the legacy admin forms converge on it. What stays here
-  is what IS inbox-specific: normalizing hits against the item's hints
-  (scoring), and writing evidence into `inbox_items.matches`.
+  The provider fan-out lives in `Ambry.Metadata.Search`; what stays here is
+  inbox-specific: scoring hits against the item's hints, and writing evidence.
   """
   import Ecto.Query
 
@@ -36,11 +31,9 @@ defmodule Ambry.Inbox.Lookup do
   @doc """
   Fetches the full record behind a thin search hit.
 
-  Matching hydrates the records about the top work; anything further down the
-  list stays a summary until somebody says it matters. A summary can be
-  missing the description and the cover entirely — measured against
-  rreading-glasses, search returns a work with one edition and details returns
-  the same work with seventeen.
+  Matching hydrates the records about the top work; anything further down
+  stays a summary until somebody says it matters. A summary can be missing
+  the description, the cover and most of the edition list.
   """
   def hydrate(%InboxItem{} = item, level, record_ref) do
     {records, failures} =
@@ -60,9 +53,8 @@ defmodule Ambry.Inbox.Lookup do
     hydrated = Enum.find(records, &(AutoMatch.ref(&1) == record_ref))
 
     item
-    # By reference rather than wholesale: the list this replaced was read
-    # before the provider was asked, and a search that finished in the
-    # meantime has records in the committed one that this never saw.
+    # By reference rather than wholesale: a search that finished while the
+    # provider was being asked has records this never saw.
     |> update_records(level, fn existing ->
       Enum.map(existing, fn record ->
         if hydrated && AutoMatch.ref(record) == record_ref, do: hydrated, else: record
@@ -75,16 +67,11 @@ defmodule Ambry.Inbox.Lookup do
   Asks every editions-capable database what recordings the given work records
   have.
 
-  This is the route to an edition no storefront will admit exists. Audible's
-  catalog is a shop: when rights lapse the title vanishes from search and from
-  ASIN lookup alike. Hardcover is a database of editions and keeps it —
-  measured, R.C. Bray's delisted Martian is there with its ASIN and Audible
-  has only the Wil Wheaton re-recording.
+  The route to an edition no storefront will admit exists: when rights lapse
+  the title vanishes from search and ASIN lookup alike, while a database of
+  editions keeps it.
 
-  **Hardcover, and only Hardcover.** rreading-glasses is named here in older
-  notes and does not belong: its edition list never carries a narrator (the
-  Goodreads query it issues omits secondary contributors entirely), which
-  makes it useless at the level where the narrator is the whole question.
+  Only a provider whose edition list carries narrators is useful here.
   """
   def editions(%InboxItem{} = item, work_refs) do
     records =
@@ -103,10 +90,8 @@ defmodule Ambry.Inbox.Lookup do
   @doc """
   Runs a search the operator wrote, and adds whatever it returns.
 
-  The last resort in the ranked-candidates design: the stored list makes
-  "show me the alternatives" free, and this is for the case it's actually
-  for — the right answer isn't in the list at all, usually because the tags
-  sent the search somewhere strange.
+  For the case the stored candidate list cannot cover: the right answer isn't
+  in it at all, usually because the tags sent the search somewhere strange.
   """
   def research(%InboxItem{} = item, level, fields) do
     query = query_from(fields)
@@ -128,18 +113,12 @@ defmodule Ambry.Inbox.Lookup do
   Asks one provider again — the one that was rate-limited or down when this
   item was matched.
 
-  Without this, a 429 during a scan costs an item that provider's records
-  until somebody re-runs the whole match. The "couldn't be reached" chip is
-  the retry button.
+  Without this, a rate limit during a scan costs an item that provider's
+  records until somebody re-runs the whole match.
 
-  **The chip carries what kind of call failed, and this has to honour it.**
-  A provider is asked three different things about one item — a search, the
-  details behind its hits, the editions of the work it named — and they fail
-  independently. Re-running the search when what failed was a details call
-  would report success having fixed nothing, which is how the `:editions`
-  chip came to be a button that did nothing at all: its id
-  (`hardcover:editions`) is not a registry id, so the lookup missed, and the
-  clause below returned the item untouched without a word.
+  The chip carries what kind of call failed and this has to honour it: a
+  provider is asked three things about one item and they fail independently.
+  A kind-qualified id is also not a registry id.
   """
   def retry_provider(%InboxItem{} = item, level, outcome_id) do
     {provider_id, kind} = Outcome.split(outcome_id)
@@ -161,10 +140,9 @@ defmodule Ambry.Inbox.Lookup do
     |> update_outcomes(level, List.wrap(outcome), clear: Outcome.id(entry.id, :search))
   end
 
-  # Every record of this provider's that matching meant to hydrate, not just
-  # one: they all feed the field candidates, so a retry that fixed the top
-  # record and left its siblings thin would clear the chip while the evidence
-  # it was warning about was still missing.
+  # Every record of this provider's that matching meant to hydrate, since
+  # they all feed the field candidates: a retry that fixed only the top one
+  # would clear the chip with the evidence still missing.
   defp retry(item, level, entry, :details) do
     source = "provider:#{entry.id}"
 
@@ -189,9 +167,8 @@ defmodule Ambry.Inbox.Lookup do
     )
   end
 
-  # Editions hang off the work records, whatever level the chip was rendered
-  # at — the recording level is where they land, and the work level is where
-  # they came from.
+  # Editions hang off the work records whatever level the chip was rendered
+  # at: the recording level is where they land.
   defp retry(item, level, entry, :editions) do
     hints = AutoMatch.hints(item)
 
@@ -213,22 +190,15 @@ defmodule Ambry.Inbox.Lookup do
   @doc """
   Asks every person-capable database about one human again.
 
-  Matching already searched everybody the credits named, so this is for the
-  case the name has *changed* since — the operator renamed a credit, revealed
-  a pen name, or split one person into two — where the key has no evidence
-  behind it because nobody had heard of that name when the item was matched.
+  Matching already searched everybody the credits named, so this is for a
+  name that has changed since.
 
-  Writes into `matches["people"][key]` exactly as matching does, so the
-  person's photo and bio fields pick the results up on the next reseed. The
-  same rule as everywhere else here: **evidence is added, never replaced**, so
-  a re-search cannot un-choose a photo the operator already picked. What
-  changes is the *ranking*: every candidate is re-scored against the name now
-  being asked about, so the ones the old name found sink instead of sitting at
-  100% beside the new ones.
+  Writes into `matches["people"][key]` exactly as matching does. Evidence is
+  added, never replaced, so this cannot un-choose a photo the operator picked;
+  what changes is the ranking.
 
-  The library is asked again too. "Already in your library" is an answer about
-  a name, and after a rename the held one is about somebody else — which is
-  the case this exists for.
+  The library is asked again too: "already in your library" is an answer about
+  a name, and after a rename the held one is about somebody else.
   """
   def research_person(%InboxItem{} = item, key, name) do
     case String.trim(name || "") do
@@ -269,18 +239,12 @@ defmodule Ambry.Inbox.Lookup do
     Map.put(matches, "people", Map.put(people, key, updated))
   end
 
-  # **Read, change and write the row as committed, because several of these
-  # run at once.** `matches` is one jsonb column holding every level's
-  # records and every person's, and the form lets the operator search for as
-  # many people as they like without waiting. Each search used to merge its
-  # results into the item as it was when the button was pressed and write the
-  # whole column back, so the second to finish silently threw away the
-  # first's and the operator watched two searches fight over the page.
+  # Read, change and write the row as committed, because several of these run
+  # at once: `matches` is one jsonb column holding every level's records and
+  # every person's, and the form searches for as many people as the operator
+  # likes without waiting.
   #
-  # Under the lock there is no in-between. Same shape as
-  # `Ambry.Inbox.update_draft_with/2` and `Importer.claim/1`, for the same
-  # reason — and `versioned/1` on the way out is what tells a form holding an
-  # older copy of this row that it has one.
+  # Same shape as `Ambry.Inbox.update_draft_with/2` and `Importer.claim/1`.
   defp update_matches(%InboxItem{id: id}, fun) do
     Repo.transact(fn ->
       item =
@@ -310,15 +274,10 @@ defmodule Ambry.Inbox.Lookup do
     {records, outcomes}
   end
 
-  # Both passes are facts about the *whole* list rather than about one record
-  # — it takes a rival naming somebody the file mentions to make a candidate's
-  # silence damning, and it takes another row to make a row a duplicate — so
-  # they re-run over the merged list, not over the records this search
-  # happened to add. Otherwise a re-search that finally turned up the right
-  # reader would leave the wrong one sitting at the top on its original score.
-  #
-  # Order matters: collapse first, so the evidence pass scores each recording
-  # once, then sort, because both passes move records around.
+  # Both passes are facts about the whole list rather than one record: it
+  # takes a rival to make a candidate's silence damning, and another row to
+  # make a row a duplicate. Collapse first, so the evidence pass scores each
+  # recording once, then sort.
   defp refine(records, item, level, hints) do
     records
     |> dedupe(item, level)
@@ -336,8 +295,7 @@ defmodule Ambry.Inbox.Lookup do
   defp reweigh(records, _level, _hints), do: records
 
   # A record the operator has ticked keeps its identity no matter what: the
-  # draft points at it by ref, and collapsing it into a look-alike would break
-  # that pointer — the one thing evidence-writing must never do.
+  # draft points at it by ref, and collapsing it would break that pointer.
   defp ticked(%InboxItem{draft: nil}, _level, _records), do: MapSet.new()
 
   defp ticked(%InboxItem{draft: draft}, level, records) do
@@ -347,9 +305,8 @@ defmodule Ambry.Inbox.Lookup do
   end
 
   # New records join the list; ones already there keep their place and their
-  # payload. Replacing them would un-tick the operator's choices, and keeping
-  # them *first* is what lets `dedupe_records/2` collapse a look-alike into
-  # the record already on the item rather than the other way round.
+  # payload. Keeping them first is what lets `dedupe_records/2` collapse a
+  # look-alike into the record already on the item.
   defp add(existing, found) do
     known = MapSet.new(existing, &AutoMatch.ref/1)
 
@@ -381,14 +338,11 @@ defmodule Ambry.Inbox.Lookup do
     level_map = Map.get(matches, level, %{})
     existing = Map.get(level_map, "providers", []) || []
 
-    # An outcome replaces the earlier one for the same provider: "couldn't be
-    # reached" must stop saying that once it has been reached.
+    # An outcome replaces the earlier one for the same provider.
     #
-    # `:clear` is what the retry chip needs on top of that. A retry that comes
-    # back with **nothing to report** — the provider turned out to implement
-    # no such call — would otherwise leave the failure it was retrying
-    # standing, which is a red chip that can be clicked forever and never
-    # goes away. Retrying an id is an answer about that id either way.
+    # `:clear` is for a retry that comes back with nothing to report, where
+    # the provider implements no such call: without it the failure stands as
+    # a red chip that can be clicked forever.
     fresh = outcomes |> MapSet.new(& &1["id"]) |> maybe_clear(opts[:clear])
     kept = Enum.reject(existing, &MapSet.member?(fresh, &1["id"]))
 

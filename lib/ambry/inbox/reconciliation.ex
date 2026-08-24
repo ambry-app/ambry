@@ -2,14 +2,13 @@ defmodule Ambry.Inbox.Reconciliation do
   @moduledoc """
   Noticing that an inbox item's files stopped being there.
 
-  The queue had no answer for this. Discovery's walk only ever *claims*
-  files, so an item whose files are all gone produces no claim, nothing
-  refreshes it, and it sits in the queue with a stale file list looking
-  perfectly importable — until Add fails inside placement with
-  `{:source_missing, path}`, after every decision has been made. This is the
-  same job `Ambry.Media.Reconciliation` does for recordings, and the same
-  answer: only ever *record* what was found. Nothing cascades and nothing is
-  deleted.
+  Discovery's walk only ever *claims* files, so an item whose files are all
+  gone produces no claim: nothing refreshes it, and it sits in the queue with
+  a stale file list looking perfectly importable until Add fails inside
+  placement with `{:source_missing, path}`, after every decision has been
+  made. This is the same job `Ambry.Media.Reconciliation` does for recordings,
+  and the same answer: only ever *record* what was found. Nothing cascades and
+  nothing is deleted.
 
   ## Why it asks the disk rather than the walk
 

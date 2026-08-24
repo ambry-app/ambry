@@ -3,10 +3,9 @@ defmodule Ambry.Metadata.Cache do
   Postgres-backed cache for metadata-provider responses, with TTL.
 
   Keys are namespaced by the caller (`"provider_id:operation:arg"`), values
-  are `:erlang.term_to_binary` of normalized provider structs. Entries past
-  their TTL are re-fetched on read; if the re-fetch fails but a stale entry
-  exists, the stale value is served (sources are disposable feeders — a dead
-  provider should degrade us to stale data, not to errors).
+  are `:erlang.term_to_binary` of normalized provider structs. A stale entry
+  is served when the re-fetch fails, so a dead provider degrades us to old
+  data rather than to errors.
   """
 
   import Ecto.Query
@@ -41,8 +40,7 @@ defmodule Ambry.Metadata.Cache do
   Options:
 
     * `:ttl` — seconds before an entry is considered stale (default 30 days)
-    * `:refresh` — bypass the cache and fetch fresh (stale fallback still
-      applies if the fetch fails)
+    * `:refresh` — fetch fresh, still falling back to stale on failure
   """
   def fetch(key, fetch_fun, opts \\ []) do
     ttl = Keyword.get(opts, :ttl, 30 * 24 * 60 * 60)
@@ -71,10 +69,8 @@ defmodule Ambry.Metadata.Cache do
         store!(key, value)
         {:ok, value}
 
-      # Never stored: a partial answer is part of an outage, and caching it
-      # would keep serving the half that answered for the whole TTL. Passed
-      # through rather than dropped, because the half that did answer is
-      # worth having now — the caller records the miss and can ask again.
+      # Passed through but never stored: caching a partial answer would
+      # serve the half that responded for the whole TTL.
       {:partial, value, reason} ->
         Logger.warning("metadata fetch partial for #{key}: #{inspect(reason)}")
         {:partial, value, reason}

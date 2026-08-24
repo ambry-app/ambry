@@ -3,9 +3,9 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
   Helpers for building paginated / filterable lists.
   """
 
-  # 50, not the 10 this shipped with for years. The operator's library is 435
-  # audiobooks: at ten a page that is 44 pages reachable only by clicking a
-  # chevron 44 times, and the page number they are on was never on screen.
+  # A library of a few hundred audiobooks is dozens of pages at ten a page,
+  # each reachable only by clicking through every one before it. Fifty keeps
+  # that to a handful.
   @limit 50
 
   def limit do
@@ -28,8 +28,8 @@ defmodule AmbryWeb.Admin.PaginationHelpers do
       first: if(row_count > 0, do: first),
       last: if(row_count > 0, do: first + row_count - 1),
       total: total,
-      # At least one page, always: "Page 1 of 0" is what an empty list used to
-      # say when the arithmetic was left to `ceil/1` alone.
+      # At least one page, always: left to `ceil/1` alone an empty list reads
+      # "Page 1 of 0".
       pages: if(total, do: max(1, ceil(total / @limit)))
     }
   end

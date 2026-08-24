@@ -9,10 +9,10 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
 
   ## The number never auto-resolves without a source
 
-  `Approval` used to default `book_number` to `1` whenever tags carried no
-  number, and only 36% of releases carry a series tag at all — so most
-  series-bearing imports silently became "book 1". A missing number is a
-  question for the operator, not a value to invent.
+  Defaulting `book_number` to `1` whenever tags carry no number would make
+  most series-bearing imports silently "book 1", since only about a third of
+  releases carry a series tag at all. A missing number is a question for the
+  operator, not a value to invent.
   """
 
   use Ecto.Schema
@@ -133,10 +133,10 @@ defmodule Ambry.Inbox.Draft.SeriesLink do
   Why it isn't resolved.
 
   A membership with no number is `:unnumbered`, not `:missing`. Both block the
-  import, but they are different facts and the badge said the wrong one: a
-  series a provider named and gave no number to rendered "nothing proposed
-  it" beside "from rreading-glasses", which is two contradictory sentences
-  about one row. What is missing is the number, and the row says so.
+  import, but they are different facts: a series a provider named and gave no
+  number to would otherwise read "nothing proposed it" beside a provenance
+  flag naming that provider, which is two contradictory sentences about one
+  row. What is missing is the number, and the row says so.
   """
   def state(%__MODULE__{} = link) do
     cond do

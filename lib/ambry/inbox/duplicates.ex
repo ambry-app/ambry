@@ -2,55 +2,30 @@ defmodule Ambry.Inbox.Duplicates do
   @moduledoc """
   What the library is holding twice.
 
-  ## Why this is a report and not a constraint
+  A report, not a constraint. Two different people genuinely can share a name
+  and two different books a title, so a unique index on `people.name` would be
+  wrong rather than merely strict. The one real uniqueness the library has is
+  `recording_groups (book_id, name)`, which is why sets are absent here.
 
-  Never having duplicates is the operator's standing goal, and the database
-  cannot be asked to keep it. Two different people genuinely can share a
-  name and two different books genuinely can share a title — `Preflight`
-  reasons about exactly that when it distinguishes "Sarah J. Maas twice"
-  from "a second identity backed by somebody else" — so a unique index on
-  `people.name` would be wrong, not merely strict. The only real uniqueness
-  the library has is `recording_groups (book_id, name)`, which is why sets
-  are absent here: within a book Postgres already refuses, and across books
-  two sets of one name are two sets.
-
-  So duplication is prevented by decisions — the seeder links rather than
+  Duplication is instead prevented by decisions — the seeder links rather than
   creates, `Seed.relink/2` re-points a proposal when a sibling import makes
-  its target exist, `Preflight` asks before the button. Every one of those is
-  best-effort by construction, and a goal nobody measures is a hope. This is
-  the measurement.
+  its target exist, `Preflight` asks before the button — every one of which is
+  best-effort by construction. This is the measurement.
 
-  ## Sameness is asked the way matching asks it
+  Sameness is asked the way matching asks it: `AutoMatch.person_key/1`,
+  `AutoMatch.title_key/1` and `AutoMatch.same_series?/2`, the same functions
+  that decide whether an import links or creates. A second definition here is
+  the drift that would let the report and the importer disagree. It follows
+  that this finds records the queue never touched, whatever created them.
 
-  Names fold through `AutoMatch.person_key/1`, titles through
-  `AutoMatch.title_key/1` and series through `AutoMatch.same_series?/2` —
-  the same functions that decide whether an import links or creates. A second
-  definition of "the same" living here is the drift that would let the report
-  and the importer disagree, and the one they'd disagree about is the row
-  that got through.
+  Each record says what points at it, because the question a found pair raises
+  is "which one can go", answered by the one nothing references.
 
-  It follows that this finds records from before the inbox existed too. That
-  is the point: production's only duplicate pair was two Raymond J. Lees
-  created 25 minutes apart in 2024, by the upload flow the inbox replaced.
-
-  ## Each record says what points at it
-
-  Because the question a found pair raises is always "which one can go", and
-  it is answered by the one nothing references. Counts are per record rather
-  than per group for the same reason.
-
-  ## Not every pair is a mistake
-
-  Sameness being the importer's rule means some correct findings have no
-  record to remove. `same_series?/2` folds a subtitle head and filler words,
-  so it pairs a companion series with its parent and two spellings of one
-  shelf an operator keeps apart on purpose. Both are right about the fold and
-  wrong about the conclusion, and tightening the rule here to say so is the
-  drift this module exists not to have.
-
-  So the answer is a decision, recorded: `dismiss/2` settles one set and
-  `restore/2` puts it back. A dismissal names its exact members, so a set
-  that later gains one is a set nobody has looked at, and asks again.
+  Not every pair is a mistake: `same_series?/2` folds a subtitle head and
+  filler words, so it pairs a companion series with its parent. So the answer
+  is a decision, recorded — `dismiss/2` settles one set and `restore/2` puts
+  it back. A dismissal names its exact members, so a set that later gains one
+  asks again.
   """
 
   import Ecto.Query
@@ -67,12 +42,9 @@ defmodule Ambry.Inbox.Duplicates do
   @typedoc """
   One record the library holds, and what references it.
 
-  `uses` is keyed by the word for the thing counted, because a person is
-  reached through two kinds of credit and a book through one.
-
-  An author or a narrator also carries `person_id` — the human behind the
-  identity, when exactly one is — because that is where either is edited and
-  neither has a page of its own.
+  `uses` is keyed by the word for the thing counted. An author or narrator
+  also carries `person_id`, the human behind the identity when exactly one
+  is, because that is where either is edited.
   """
   @type entry :: %{
           :id => integer(),
@@ -86,11 +58,8 @@ defmodule Ambry.Inbox.Duplicates do
   @type kind :: :person | :author | :narrator | :book | :series
 
   @doc """
-  Every set of records that name the same thing, worst first within a kind.
-
-  Ordered people, authors, narrators, books, series: a duplicated person is
-  the one that splits a face and a bio in two, and a duplicated series the
-  one most likely to be two real series that merely rhyme.
+  Every set of records that name the same thing: people, authors, narrators,
+  books, series, worst first within a kind.
 
   Sets marked intentional are not here; see `report/0`.
   """
@@ -100,9 +69,8 @@ defmodule Ambry.Inbox.Duplicates do
   @doc """
   The findings, and the sets that have been answered, from one pass.
 
-  Both halves in one call because the page shows both and `groups/0` reads
-  five tables whole. Splitting them into two functions meant the page paid
-  for that twice to draw one screen.
+  Both halves in one call because `groups/0` reads five tables whole and the
+  page shows both.
   """
   @spec report() :: %{found: [group()], dismissed: [group()]}
   def report do
@@ -117,11 +85,8 @@ defmodule Ambry.Inbox.Duplicates do
 
   @doc """
   How many sets are still asking a question, without asking what references
-  them.
-
-  For the overview, which reloads on a heartbeat and only needs to know
-  whether there is anything to say. A set marked intentional has been
-  answered, so it is not something to say.
+  them. For the overview, which only needs to know whether there is anything
+  to say.
   """
   @spec count() :: non_neg_integer()
   def count do
@@ -132,8 +97,7 @@ defmodule Ambry.Inbox.Duplicates do
   @doc """
   Records this set as intentional, so the report stops asking about it.
 
-  Idempotent: the same set marked twice is one dismissal, which matters
-  because the page it is clicked from can be open in two tabs.
+  Idempotent: the page it is clicked from can be open in two tabs.
   """
   @spec dismiss(kind(), [integer()]) :: :ok
   def dismiss(kind, record_ids) do
@@ -178,9 +142,8 @@ defmodule Ambry.Inbox.Duplicates do
 
   ## what has been answered
 
-  # The key is the members, sorted, and not the key they folded together on.
-  # A set that gains a third member is a set nobody has looked at, and the
-  # whole point of a dismissal is that somebody looked.
+  # Keyed on the members, not the key they folded together on: a set that
+  # gains a third member is one nobody has looked at.
   defp dismissed?(%{kind: kind, records: records}, dismissals),
     do: MapSet.member?(dismissals, {kind, records |> Enum.map(& &1.id) |> Enum.sort()})
 
@@ -204,10 +167,8 @@ defmodule Ambry.Inbox.Duplicates do
       series_groups()
   end
 
-  # Whole-table reads, because these are hundreds of rows and the keys are
-  # Elixir functions: asking in SQL would mean a second spelling of each
-  # rule, which is the drift the moduledoc is about. Measured against
-  # production's 1434 records, the whole report is well under a second.
+  # Whole-table reads: the keys are Elixir functions, and asking in SQL would
+  # mean a second spelling of each rule.
   defp by_key(kind, schema, name, key) do
     schema
     |> Repo.all()
@@ -218,9 +179,8 @@ defmodule Ambry.Inbox.Duplicates do
     |> Enum.map(fn {_key, records} -> %{kind: kind, records: Enum.sort_by(records, & &1.id)} end)
   end
 
-  # `same_series?/2` is a predicate, not a key — "Kushiel's Legacy" matches
-  # both the bare name and the subtitled one without those two being equal —
-  # so the groups are built by absorption rather than by grouping on a value.
+  # `same_series?/2` is a predicate, not a key, so the groups are built by
+  # absorption rather than by grouping on a value.
   defp series_groups do
     Series
     |> Repo.all()
@@ -242,8 +202,7 @@ defmodule Ambry.Inbox.Duplicates do
 
   ## what points at them
 
-  # One query per record, and only for records already known to collide —
-  # production has two such records in all.
+  # One query per record, and only for records already known to collide.
   defp with_uses(:person, record),
     do:
       Map.put(record, :uses, %{
@@ -269,10 +228,8 @@ defmodule Ambry.Inbox.Duplicates do
   defp with_uses(:series, record),
     do: Map.put(record, :uses, %{books: through(Series, record, :books)})
 
-  # A pen name says who is behind it, and only when the answer is one human:
-  # a composite (two people writing as one author) has no single page to send
-  # anybody to, and neither does a bare name nobody has attached yet. The same
-  # rule `Preflight.sole_person/1` draws, for the same reason.
+  # Only when the answer is one human: a composite pen name has no single
+  # page to send anybody to. Same rule as `Preflight.sole_person/1`.
   defp sole_person(%{id: id}) do
     Author
     |> where([a], a.id == ^id)

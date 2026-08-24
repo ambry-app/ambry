@@ -50,7 +50,6 @@ defmodule Ambry.Playback do
     {user_id, device_attrs} = Map.pop(attrs, :user_id)
 
     Repo.transaction(fn ->
-      # Upsert the device
       device_changeset = Device.changeset(%Device{}, device_attrs)
 
       {:ok, device} =
@@ -154,7 +153,6 @@ defmodule Ambry.Playback do
   re-calculated from the source of truth (the events).
   """
   def rebuild_all_playthroughs do
-    # Get all playthrough and user IDs from the new table
     query =
       from(pn in Playthrough,
         select: {pn.id, pn.user_id}
@@ -191,7 +189,6 @@ defmodule Ambry.Playback do
         placeholders: %{now: DateTime.utc_now()}
       )
 
-    # Rebuild derived state for affected playthroughs
     playthrough_ids =
       events_attrs
       |> Enum.map(&(&1[:playthrough_id] || &1["playthrough_id"]))

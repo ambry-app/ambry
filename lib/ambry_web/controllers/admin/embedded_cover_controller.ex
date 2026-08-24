@@ -1,16 +1,9 @@
 defmodule AmbryWeb.Admin.EmbeddedCoverController do
   @moduledoc """
-  Serves a file's embedded cover art, for the forms' preview.
+  Serves a file's embedded cover art, so the forms can preview it.
 
-  The embedded candidate's *value* is the audio file to extract from, not a
-  URL, so it had nothing to render and the form said "the file's own art" in
-  words — which is exactly the wrong answer for the one decision where seeing
-  the picture is the whole point. Publishers ship wrong, low-resolution and
-  occasionally hilarious embedded art, and choosing between it and a
-  provider's cover blind isn't choosing.
-
-  Extracted per request rather than imported: an operator who looks at an item
-  and then dismisses it must not leave an orphaned image behind.
+  Extracted per request rather than imported: an operator who looks at an
+  item and then dismisses it must not leave an orphaned image behind.
   """
 
   use AmbryWeb, :controller
@@ -29,14 +22,8 @@ defmodule AmbryWeb.Admin.EmbeddedCoverController do
     end
   end
 
-  # The same question asked of a recording that already exists: an edit form
-  # offering the file's own art has to show it for the same reason the import
-  # form does.
-  #
-  # **Through the scanner, which asks the tracks first.** `Media.files/2`
-  # reads `source_files`, and those are transcode bookkeeping — what a
-  # transcode *consumed* — so an imported recording has none and this found
-  # nothing to extract from. The chip rendered a 404 as an image.
+  # Through the scanner, which asks the tracks first: `Media.files/2` reads
+  # `source_files`, which an imported recording does not have.
   def media(conn, %{"id" => id}) do
     with {:ok, media} <- Media.fetch_media(id),
          {:ok, [path | _rest]} <- Media.Scanner.audio_files(media) do

@@ -3,42 +3,26 @@ defmodule AmbryWeb.Admin.NewPerson do
   The person an edit form is about to create, with the import form's card.
 
   A credit box that can name somebody the library has never heard of
-  (`Ambry.Ecto.EntityRef`) makes a `Person` out of a name and nothing else —
-  no face, no biography, no record of who said so. The same human created
-  through the inbox arrives finished, because the import form asks about them
-  on a card of their own. This is that card, on the edit forms.
+  (`Ambry.Ecto.EntityRef`) makes a `Person` out of a name and nothing else.
+  The same human created through the inbox arrives finished, because the
+  import form asks about them on a card of their own. This is that card, on
+  the edit forms.
 
-  ## Nothing here writes params
+  **Nothing here writes params.** The card's fields *are* the person's fields,
+  real inputs inside the record's own form element, cast by the same
+  `cast_assoc` chain that creates the credit. Chips write into those inputs on
+  the client and dispatch a change (`assets/js/hooks/set-input.js`).
 
-  The card's fields *are* the person's fields — `book[book_authors][2]
-  [author][author_people][0][person][description]` is a real input inside the
-  book's own form element, cast by the same `cast_assoc` chain that creates
-  the credit. A photo chip and a bio chip write into those inputs on the
-  client and dispatch a change (`assets/js/hooks/set-input.js`), which is how
-  LiveView's own `inputs_for` docs move a row and how the reorder chevrons
-  here work. The server casts what it is posted and renders it back; there is
-  no path into the params behind the cast, and so no index to get wrong.
+  What *is* server state is the evidence: which providers were asked, what
+  they said, and which records were ticked, exactly as `AmbryWeb.Admin.Evidence`
+  is everywhere else.
 
-  What *is* server state is the evidence: which providers were asked about
-  this human, what they said, and which records the operator ticked. That is
-  session state exactly as `AmbryWeb.Admin.Evidence` is everywhere else —
-  held in socket assigns, never persisted, keyed per card.
+  Keyed by the row's `_persistent_id`, which `inputs_for` round-trips through
+  a hidden input, so the card survives a reorder; the name changes under it
+  and the index moves when a row above is dropped.
 
-  ## Keyed by the row, not by the name
-
-  A card belongs to a credit row, and the name on that row is being typed. So
-  the key is the row's `_persistent_id` — the token `inputs_for` already
-  round-trips through a hidden input so a list survives reordering — and not
-  the name, which changes under it, nor the index, which moves when a row
-  above it is dropped.
-
-  ## What differs from the inbox card
-
-  The query box. On the import form a staged person's name and the name worth
-  searching for genuinely diverge, so the search carries a box of its own.
-  Here the name is an input the operator is looking at, so the button searches
-  for whatever it currently says, and revealing the pen-name box is how you
-  search for somebody else.
+  Unlike the inbox card, the query box searches for whatever the name input
+  says, since the operator is looking at it.
   """
 
   use AmbryWeb, :html
@@ -78,11 +62,11 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   The join row a credit is about to hang a human off, or nil.
 
-  The path stops at the **join** — `author_people`, or the narrator itself —
-  and deliberately not at the person, because the person is the one thing
-  that might not exist: linking somebody the library already has sets
-  `person_id`, and the nested person stops being cast. A card that keyed on
-  the person vanished at the moment of the pick, taking the way back with it.
+  The path stops at the **join** (`author_people`, or the narrator itself)
+  and deliberately not at the person, who is the one thing that might not
+  exist: linking an existing human sets `person_id` and the nested person
+  stops being cast, so a card keyed on the person would vanish at the moment
+  of the pick.
   """
   def creating(row_form, path), do: nested(row_form.source, path)
 
@@ -97,26 +81,15 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Whether this row has a person to show a card for.
 
-  **The row brings a person of its own.** Three things have to be true and
-  this one sentence is all three: the credit names something the library
-  doesn't have (a row pointing at an author it *does* casts nothing —
-  `Ambry.Ecto.EntityRef`), the name is a decision rather than half a word
-  being typed (the picker only tells the form once the box is left), and the
-  human behind it is somebody to make rather than somebody to reuse — a join
-  that already says which person it means carries no nested person at all
-  (`Ambry.People.AuthorPerson.credited_changeset/3`).
+  The row bringing a person of its own says three things at once: the credit
+  names something the library does not have, the name is a decision rather
+  than half a word being typed, and the human behind it is somebody to make.
 
-  Asked of the params rather than of the changes, which is what keeps the
-  card up when the operator links a library person **from** it: the pick sets
-  `person_id`, the nested person stops being cast, and a card reading changes
-  would vanish at the moment of the pick and take the way back with it. The
-  inputs are still on the page and still post, so the params still say the
-  card is there.
+  Asked of the params rather than the changes, so the card stays up when the
+  operator links a library person from it.
 
-  This used to want a separate "the operator clicked Create" flag, because
-  the picker announced every keystroke. Everything that staged a credit
-  *without* the picker then had to remember to set it, and the provider chips
-  didn't — an accepted narrator got no card at all (operator, 2026-08-21).
+  Read from the state, never from a flag beside it: a "clicked Create" flag
+  would have to be set by everything that stages a credit without the picker.
   """
   def carded?(row_form, path) do
     match?(%Ecto.Changeset{params: %{"person" => _person}}, creating(row_form, path))
@@ -133,10 +106,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   end
 
   @doc """
-  Whether any row of a credit list is about to create a human.
-
-  What decides whether the section exists at all: a heading over nothing is
-  worse than no heading.
+  Whether any row of a credit list is about to create a human, which is what
+  decides whether the section exists at all.
   """
   def any?(changeset, assoc, path) do
     changeset
@@ -147,13 +118,11 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Every card this credit list renders, as `{key, the name it credits}`.
 
-  What "Search all" needs and nothing else has: the cards are rendered by
-  `inputs_for` inside the form, and a control *above* them has no walk of its
-  own. Same walk `any?/3` makes, carrying the two things a search takes.
+  What "Search all" needs, since the cards are rendered by `inputs_for`
+  inside the form and a control above them has no walk of its own.
 
-  The key mirrors what the templates build — suffixed by the person's index
-  where the join is a list, because a pen name can stand for several humans
-  and each has a card. The list is the last step of `path` in both forms.
+  The key mirrors what the templates build, suffixed by the person's index
+  where the join is a list.
   """
   def cards(changeset, assoc, path) do
     changeset
@@ -200,13 +169,11 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Searches for every card that has not been searched for yet.
 
-  Ten chips clicked is ten new people, and finding out about them was ten
-  more clicks in ten different places (operator, 2026-08-21). Chained
-  `JS.push/3` rather than a new event: pressing them all IS the feature, and
-  each card's own handler already knows what to do with one.
+  Chained `JS.push/3` rather than a new event, since each card's own handler
+  already knows what to do with one.
 
-  Cards that have already been asked about are left out — a re-search is a
-  per-card decision, and the button is about the ones nobody has asked about.
+  Cards that have already been asked about are left out: a re-search is a
+  per-card decision.
   """
   def search_all(cards, new_people) do
     cards
@@ -229,9 +196,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   The token that identifies a card across renders.
 
-  `inputs_for` puts it in the row's params and renders it as a hidden input,
-  so it survives a reorder and a drop; before anything has been posted it
-  falls back to the index, which is what it would have been anyway.
+  `inputs_for` renders it as a hidden input, so it survives a reorder and a
+  drop; before anything is posted it falls back to the index.
   """
   def key(row_form), do: row_form.params["_persistent_id"] || to_string(row_form.index)
 
@@ -268,18 +234,12 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   One human this form will create — the inbox's own card, on an edit form.
 
-  Nothing is re-drawn here. `AmbryWeb.Admin.Decisions.person_card/1` renders
-  a `PersonDecision` and the credit that introduces it, so this builds those
-  two out of what an edit form has instead: the nested person changeset for
-  the values, and the card's own `Evidence` for the records and the chips
-  they propose. A person is a person on both surfaces, so the card is the
-  same card — the busy overlay, the photo strip at the size a face is seen,
-  the bio box with its preview and its chips, the record list.
+  Nothing is re-drawn: `AmbryWeb.Admin.Decisions.person_card/1` renders a
+  `PersonDecision` and the credit that introduces it, so this builds those
+  two out of the nested person changeset and the card's own `Evidence`.
 
-  What the card is told is different, and that is the whole difference: with
-  an `input_prefix` its three form-bearing controls become plain inputs
-  posting into the enclosing form, because an edit form is one form with a
-  Save button and forms cannot nest.
+  With an `input_prefix` the card's three form-bearing controls become plain
+  inputs posting into the enclosing form, because forms cannot nest.
   """
   def new_person_card(assigns) do
     person = decision(assigns.row, assigns.key, assigns.state)
@@ -312,9 +272,8 @@ defmodule AmbryWeb.Admin.NewPerson do
     """
   end
 
-  # People the library already has by this name, which is the outcome worth
-  # having: reusing a human is what stops two Andy Weirs sitting in the
-  # people list. Skipped once one has been chosen — the row below states it.
+  # People the library already has by this name: reusing one is what stops
+  # two of the same human. Skipped once one has been chosen.
   defp locals(%PersonDecision{mode: :link}), do: []
 
   defp locals(%PersonDecision{} = person) do
@@ -338,9 +297,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   # ── an edit form's answer to the questions the card asks ───────────────
 
   # The values live in the nested person's params, because they are inputs in
-  # the form that will save them. `chosen_key` is derived rather than stored
-  # for the same reason: what the field holds IS the answer to "which chip is
-  # in use", and a second copy of that answer could disagree with it.
+  # the form that will save them. `chosen_key` is derived from them rather
+  # than stored, so a second copy cannot disagree.
   defp decision(row, key, state) do
     staged = row.params["person"] || %{}
     linked = presence(to_string(row[:person_id].value || ""))
@@ -358,30 +316,19 @@ defmodule AmbryWeb.Admin.NewPerson do
       image: field(photo, photos),
       description: field(description, bios),
       sources: Enum.map(Evidence.used_records(state.evidence), &SourceRef.of/1),
-      # What lights "None of these", which is the card's reading of "they
-      # touched the evidence and left nothing ticked" — the same reading the
-      # import form makes. Records arrive ticked here, so an untouched card
-      # with nothing used has simply found nobody, and must not claim to have
-      # been answered.
+      # What lights "None of these". Records arrive ticked, so an untouched
+      # card with nothing used has simply found nobody.
       evidence_curated: state.curated?
     }
   end
 
-  # **A question nobody has answered is answered by the best record.**
+  # A question nobody has answered is answered by the best record, the way an
+  # import does: merely offering a face and a biography leaves whoever ticks
+  # a record and saves with a name and nothing else.
   #
-  # A ticked record only ever *offered* a face and a biography here, so
-  # finishing a person meant clicking two more chips per human — and the
-  # operator who ticked the record and saved got a person with a name and
-  # nothing else, which is the exact asymmetry `EDIT_PARITY_PLAN.md` was
-  # opened to close. An import takes the best record's answer for both and
-  # leaves the rest one click away (`Draft.Seed.scalar/2`, `alternatives:
-  # true`); so does this.
-  #
-  # **Absent is unanswered; present-and-empty is an answer.** The card's
-  # controls are inputs, so once one has rendered every later post carries
-  # it — which means "no photo" and a cleared biography arrive as `""` and
-  # are left exactly as they are. Only a person nobody has posted anything
-  # about yet has no key at all, and that is the one this fills.
+  # Absent is unanswered; present-and-empty is an answer. The controls are
+  # inputs, so once one has rendered every later post carries it, and a
+  # cleared biography arrives as `""` and is left alone.
   defp answered(staged, key, candidates) do
     case Map.fetch(staged, key) do
       {:ok, value} -> value
@@ -416,22 +363,16 @@ defmodule AmbryWeb.Admin.NewPerson do
     end
   end
 
-  # The card is titled by the credit and asks its pen-name question in the
-  # credit's words, so it needs one — built from the row it hangs off. The
-  # section and index address a credit inside a draft, which an edit form
-  # does not have; every event the card raises from here carries the person's
-  # key as well, which is what this surface answers to.
-  # The card is titled by the CREDIT and asks its pen-name question in the
-  # credit's words: "Foo, a pen name of Bar" only reads that way if the title
-  # is the identity's name. Titling it from the person's own name renamed the
-  # card letter by letter while the operator typed the very thing it is about.
-  # `person_keys` is not decoration here: `Credit.simple?/1` reads its length,
-  # and the card asks two things of the answer. A pen name standing for one
-  # human is titled by the credit and offers a name box only if you ask for
-  # one; a pen name standing for several has no single "their name" to fall
-  # back to, so every card opens with its own box and the way back out of the
-  # reveal goes away. Claiming one human always gave a freshly added second
-  # card a folded box and an offer to be told a name it was already showing.
+  # A `Credit` built from the row the card hangs off. Section and index
+  # address a credit inside a draft, which an edit form has none of, so every
+  # event carries the person's key instead.
+  #
+  # Titled by the CREDIT: titling it from the person's own name would rename
+  # the card letter by letter as it is typed.
+  #
+  # `person_keys` is not decoration: `Credit.simple?/1` reads its length, and
+  # a pen name standing for several humans has no single "their name" to fall
+  # back to.
   defp group(credited, kind, people_count) do
     %{
       credit: %Credit{
@@ -440,9 +381,8 @@ defmodule AmbryWeb.Admin.NewPerson do
         mode: :create,
         person_keys: Enum.map(1..max(people_count, 1)//1, &"person-#{&1}")
       },
-      # The card asks "is this pen name more than one person?" of authors and
-      # not of narrators, and it asks it of the section — a narrator stays
-      # one-to-one with a human by design.
+      # Asked of authors and not of narrators, who stay one-to-one with a
+      # human by design.
       section: (kind == :author && "work") || "recording",
       index: 0,
       kind: kind
@@ -455,9 +395,8 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   The person a credit row is about to invent, as a pill beside it.
 
-  The inbox's own reference — enough to recognise who the credit means, and a
-  way down to their card. It only ever names one human here, because an edit
-  form's pen name has one person behind it until somebody splits it.
+  The inbox's own reference: enough to recognise who the credit means, and a
+  way down to their card.
   """
   def new_person_pill(assigns) do
     assigns = assign(assigns, :faces, [face(assigns.row, assigns.key)])
@@ -472,9 +411,8 @@ defmodule AmbryWeb.Admin.NewPerson do
     """
   end
 
-  # The inbox's own answer to "what does this pill say" — the library's name
-  # and face where the decision links to somebody, the staged ones where it
-  # will create them. Written once, there.
+  # The library's name and face where the decision links to somebody, the
+  # staged ones where it will create them.
   defp face(row, key), do: person_face(decision(row, key, %__MODULE__{}))
 
   defp presence(nil), do: nil
@@ -525,9 +463,8 @@ defmodule AmbryWeb.Admin.NewPerson do
      })}
   end
 
-  # The photo and the biography are inputs, and the button blanks them on the
-  # client the way the chips fill them (`assets/js/hooks/set-input.js`); what
-  # is left for the server is the evidence itself.
+  # The photo and the biography are inputs, blanked on the client the way the
+  # chips fill them (`assets/js/hooks/set-input.js`).
   def handle_event("uncatalogued-person", %{"key" => key}, socket) do
     state = state(socket.assigns.new_people, key)
 
@@ -535,9 +472,8 @@ defmodule AmbryWeb.Admin.NewPerson do
      put_state(socket, key, %{state | curated?: true, evidence: Evidence.use_none(state.evidence)})}
   end
 
-  # What the box holds, which stops following the credited name the moment
-  # somebody types into it — the name worth searching for is often not the
-  # name being credited, which is the whole reason the box is there.
+  # Stops following the credited name the moment somebody types into it: the
+  # name worth searching for is often not the name being credited.
   def handle_event("person-query", %{"key" => key, "value" => query}, socket) do
     state = state(socket.assigns.new_people, key)
     {:noreply, put_state(socket, key, %{state | query: query})}
@@ -548,10 +484,9 @@ defmodule AmbryWeb.Admin.NewPerson do
     {:noreply, put_state(socket, key, %{state | expanded?: not state.expanded?})}
   end
 
-  # The pen-name reveal, both ways. `own_name?` is the card's only piece of
-  # view state that isn't a form input: it says the human's name is theirs
-  # rather than the credit's, and until it is set no name is posted at all,
-  # so the person keeps following the credit while it is still being typed.
+  # `own_name?` is the card's only view state that isn't a form input: until
+  # it is set no name is posted, so the person keeps following the credit
+  # while it is still being typed.
   def handle_event("separate-name", %{"key" => key}, socket) do
     state = state(socket.assigns.new_people, key)
     {:noreply, put_state(socket, key, %{state | own_name?: true})}
@@ -600,20 +535,17 @@ defmodule AmbryWeb.Admin.NewPerson do
   @doc """
   Downloads the photo every new person was given, in the params, before saving.
 
-  The URL is what the chips write and what the form posts; `people.image_path`
-  only ever holds a local upload path, so the download happens here — the same
-  trade the person form makes, one level down. A save that then fails leaves
-  the file behind, which is what has always happened on the person form too.
+  The URL is what the chips write and what the form posts, while
+  `people.image_path` only holds a local upload path, so the download happens
+  here. A save that then fails leaves the file behind, the same as the person
+  form.
 
-  The walk is blind to the shape below the association on purpose: an author
-  reaches their person through `author_people` and a narrator reaches theirs
-  directly, and neither route is worth spelling out twice.
+  The walk is blind to the shape below the association: an author reaches
+  their person through `author_people` and a narrator reaches theirs directly.
 
-  **A download that fails stops the save.** It used to drop the URL and carry
-  on, so a form that saved perfectly well created a person with no face and
-  said nothing about it — indistinguishable, from the operator's side, from a
-  photo that was never chosen. The recording's own cover has always flashed
-  in that case; so does a person's now, naming the ones that failed.
+  **A download that fails stops the save**, and names what failed. Dropping
+  the URL and carrying on creates a person with no face and says nothing,
+  which is indistinguishable from a photo that was never chosen.
   """
   def import_photos(params, assoc) when is_map(params) do
     case Map.get(params, assoc) do

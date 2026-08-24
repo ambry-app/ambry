@@ -1,19 +1,18 @@
 defmodule Ambry.Metadata.Providers.Hardcover do
   @moduledoc """
   Work-level metadata provider backed by Hardcover's GraphQL API
-  (hardcover.app) — an alternative/complement to rreading-glasses.
+  (hardcover.app).
 
-  Evaluated 2026-08-01: search results arrive fully hydrated in one request
-  (title, description, contributions with roles, large covers with
-  dimensions, featured series with decimal-capable positions); author
-  profiles carry bios and large images (450–1000px, better than Goodreads'
-  ~700px ceiling). Series listings include translations as separate books
-  at the same positions — harmless for importing a single work's facts.
+  Search results arrive fully hydrated in one request: title, description,
+  contributions with roles, large covers, and featured series with
+  decimal-capable positions. Author profiles carry bios and large images.
+  Series listings include translations as separate books at the same
+  positions, which is harmless for importing a single work's facts.
 
-  Requires the operator's API token (free account). Tokens are JWTs that
-  **expire after one year** — expiry is decoded locally from the token and
-  surfaced as admin notices via `config_notices/1`. Hardcover describes the
-  API as still in flux, so queries stay minimal and parsing defensive.
+  Requires an API token (free account). Tokens are JWTs that **expire after
+  one year**; expiry is decoded locally and surfaced as admin notices via
+  `config_notices/1`. The API is still in flux, so queries stay minimal and
+  parsing defensive.
   """
 
   @behaviour Ambry.Metadata.Provider
@@ -47,8 +46,8 @@ defmodule Ambry.Metadata.Providers.Hardcover do
         type: :secret,
         default: nil,
         help:
-          "Free token from #{@token_url}. Hardcover tokens expire after one year — " <>
-            "a reminder appears here as expiry approaches."
+          "Free token from #{@token_url}. Hardcover tokens expire after one year, " <>
+            "and a reminder appears here as expiry approaches."
       }
     ]
   end
@@ -61,7 +60,7 @@ defmodule Ambry.Metadata.Providers.Hardcover do
     if available?(config) do
       expiry_notice(token_expiry(config[:api_token]))
     else
-      [{:warning, "No API token configured — get a free token at #{@token_url}."}]
+      [{:warning, "No API token configured. Get a free token at #{@token_url}."}]
     end
   end
 
@@ -118,18 +117,15 @@ defmodule Ambry.Metadata.Providers.Hardcover do
     end
   end
 
-  # Hardcover's `contribution` is free text and the narrator credit is written
-  # at least five ways. Measured across 400 audiobook editions: "Narrator" 286,
-  # "Reading" 9, "Reader" 7, "narrator" 7, "Read by" 5. Matching the one
-  # spelling dropped a tenth of all narrator credits, and on The Martian it
-  # dropped R.C. Bray's recording — the delisted one this whole capability
-  # exists to recover — while keeping every Wil Wheaton record.
+  # Hardcover's `contribution` is free text and the narrator credit is
+  # written at least five ways: "Narrator", "narrator", "Reading", "Reader",
+  # "Read by". Matching one spelling drops roughly a tenth of all narrator
+  # credits.
   @narrator_roles ["narrator", "reader", "reading", "read by"]
 
   # The same set in the casings seen upstream: the server's `_in` is
-  # case-sensitive, and `_ilike`/`_iregex` are refused outright (403 "ilike and
-  # related operations are not permitted on this server"). Recall only — the
-  # authoritative, case-insensitive test is `narrator_role?/1` below.
+  # case-sensitive and `_ilike`/`_iregex` are refused outright. Recall only;
+  # the authoritative test is `narrator_role?/1` below.
   @narrator_roles_upstream [
     "Narrator",
     "narrator",
@@ -143,12 +139,11 @@ defmodule Ambry.Metadata.Providers.Hardcover do
 
   @audiobook_format 2
 
-  # The audio filter belongs in the WHERE clause, not in Elixir. Fetching an
-  # arbitrary unordered page and filtering it here silently capped coverage at
-  # whichever editions the server happened to return first: The Martian has
-  # **150** editions, so `limit: 60` decided by nothing at all which ones we
-  # got, and the audiobooks were not among them. Filtering upstream, the same
-  # book yields 13 rows — the entire audio set, comfortably inside the limit.
+  # The audio filter belongs in the WHERE clause, not in Elixir. A popular
+  # book can carry 150 editions, so fetching an arbitrary unordered page and
+  # filtering it here caps coverage at whichever ones the server returned
+  # first, audiobooks or not. Filtered upstream, the audio set fits the limit
+  # comfortably.
   @editions_query """
   query AudioEditions($id: Int!, $roles: [String!]) {
     editions(
@@ -176,10 +171,9 @@ defmodule Ambry.Metadata.Providers.Hardcover do
   }
   """
 
-  # The same filter as `@editions_query`, over several books at once. Hasura
-  # takes `_in` on `book_id`, so asking about seven works costs one request
-  # rather than seven -- which is what makes it possible to open *every*
-  # candidate work instead of guessing which few are worth opening.
+  # The same filter as `@editions_query`, over several books at once. `_in`
+  # on `book_id` makes asking about seven works one request rather than seven,
+  # which is what allows opening every candidate work.
   #
   # The limit is across all of them, so it is generous and its exhaustion is
   # reported rather than silently truncating.
@@ -244,11 +238,10 @@ defmodule Ambry.Metadata.Providers.Hardcover do
   @doc """
   The audiobook editions of a work.
 
-  This is the answer to recordings a storefront has delisted. Audible's
-  catalog API is a storefront, not a bibliography: when a publisher loses the
-  rights and the title is pulled, it disappears from search *and* from direct
-  ASIN lookup, leaving no trace that the recording ever existed. Hardcover
-  keeps the edition, its narrator and its cover.
+  The answer to recordings a storefront has delisted: a catalog API is a shop
+  rather than a bibliography, so a pulled title disappears from search and
+  from direct ASIN lookup alike. Hardcover keeps the edition, its narrator and
+  its cover.
   """
   @impl Provider
   def editions(work_id, config) do
@@ -262,12 +255,10 @@ defmodule Ambry.Metadata.Providers.Hardcover do
     end
   end
 
-  # `reading_format_id` is unreliable as a *negative* — several Neuromancer
-  # editions with explicit Narrator credits and audio publishers are stored as
-  # format 1 ("Read"), which is why it can't be the filter. As a positive it is
-  # perfectly good evidence, so it joins the other two tells rather than
-  # replacing them: a narrator credit under any of its spellings, a runtime, or
-  # the format saying audiobook.
+  # `reading_format_id` is unreliable as a negative: real audiobook editions
+  # with explicit Narrator credits are stored as format 1 ("Read"). As a
+  # positive it is good evidence, so it joins the other two tells rather than
+  # replacing them: a narrator credit, a runtime, or the format.
   defp audio_edition?(edition) do
     narrators(edition) != [] or not is_nil(edition["audio_seconds"]) or
       edition["reading_format_id"] == @audiobook_format
@@ -281,9 +272,9 @@ defmodule Ambry.Metadata.Providers.Hardcover do
     |> Enum.reject(&is_nil/1)
   end
 
-  # A nil contribution is NOT admitted, tempting as it is: nil is also how
-  # Hardcover credits the author (Andy Weir is nil on every Martian edition),
-  # so reading it as a narrator would credit authors as their own readers.
+  # A nil contribution is NOT admitted: nil is also how Hardcover credits the
+  # author, so reading it as a narrator would credit authors as their own
+  # readers.
   defp narrator_role?(role) when is_binary(role), do: String.downcase(role) in @narrator_roles
   defp narrator_role?(_role), do: false
 
@@ -305,9 +296,9 @@ defmodule Ambry.Metadata.Providers.Hardcover do
       # was pre-ticked for it, because naming a superset of the right authors
       # reads as corroboration. The work's own list can't be wrong that way.
       #
-      # Editions need an author at all because a record naming none used to be
-      # scored as naming the WRONG one — a flat quarter off, enough on The
-      # Martian for Audible's Wheaton edition to outrank the recording
+      # Editions need an author at all, because a record naming none is
+      # otherwise scored as naming the WRONG one, a flat quarter off, which is
+      # enough for a storefront's re-recording to outrank the recording
       # actually in hand.
       authors: contributions_to_authors(get_in(edition, ["book", "contributions"])),
       # The book's blurb, for the same reason and by the same hop. `editions`
@@ -429,12 +420,12 @@ defmodule Ambry.Metadata.Providers.Hardcover do
 
     cond do
       days_left < 0 ->
-        [{:error, "API token expired on #{date} — regenerate it at #{@token_url}."}]
+        [{:error, "API token expired on #{date}. Regenerate it at #{@token_url}."}]
 
       days_left <= @expiry_warning_days ->
         [
           {:warning,
-           "API token expires on #{date} (in #{days_left} days) — regenerate it at #{@token_url}."}
+           "API token expires on #{date} (in #{days_left} days). Regenerate it at #{@token_url}."}
         ]
 
       true ->

@@ -1,24 +1,15 @@
 defmodule Ambry.Library.Root do
   @moduledoc """
   A folder the library's audio lives in, organized by the naming template.
-  Ambry writes here and nowhere else — a root is the only place it serves
-  from, so **at least one root is required to import anything**. The inbox
-  surfaces `:no_library_root` as "create a library root first" rather than
-  offering an import that cannot place.
+  Ambry writes here and nowhere else, so at least one root is required to
+  import anything.
 
   Roots are destinations, not sources: they aren't watched, and files only
-  arrive in one by being imported into it. An operator with hand-placed
-  files points an `Ambry.Library.Source` at them and imports like anything
-  else — a `:move` policy organizes them into template shape without
-  copying a byte when source and root share a filesystem.
+  arrive in one by being imported. Images are derived artifacts and keep to
+  Ambry's own uploads storage (`Ambry.Paths`); roots hold audio only.
 
-  Images (covers, person photos) never live in a root — they're derived,
-  re-fetchable artifacts and keep to Ambry's internal uploads storage
-  (`Ambry.Paths`); roots hold audio only.
-
-  Several roots is a first-class arrangement, not a fallback: a hardlink
-  can't cross a filesystem, so each disk that receives imports needs a root
-  of its own (see `Ambry.Library`).
+  A hardlink can't cross a filesystem, so each disk that receives imports
+  needs a root of its own.
   """
 
   use Ecto.Schema
@@ -55,9 +46,8 @@ defmodule Ambry.Library.Root do
     end
   end
 
-  # Every path Ambry stores is absolute. Relative paths would resolve against
-  # whatever the release's working directory happens to be, which is not
-  # something an operator can reason about from a text field.
+  # Absolute only: a relative path would resolve against the release's
+  # working directory, which no operator can reason about from a text field.
   defp validate_absolute_path(changeset) do
     validate_change(changeset, :path, fn :path, path ->
       if Path.type(path) == :absolute,

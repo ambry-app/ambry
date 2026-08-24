@@ -1,14 +1,11 @@
 defmodule Ambry.Media.RecordingGroup do
   @moduledoc """
-  A set of separately-released recordings that together cover one work.
+  A set of separately-released recordings that together cover one work:
+  GraphicAudio's "Part 1 of 3" releases, or episodic full-cast seasons.
 
-  Examples: GraphicAudio's "Part 1 of 3" releases, or episodic full-cast
-  seasons ("The Audio Immersion Experience — Season One"). A group is to
-  media what a series is to books: a named, first-class entity its members
-  point at with a `part_number`. The set-level facts live here — the name
-  (required), how many releases the set has when known (`parts_total`), and
-  what one release is called (`part_word`) — while per-release facts (cover,
-  date, chapters) live on each media.
+  A group is to media what a series is to books. Set-level facts live here
+  (the name, `parts_total`, `part_word`); per-release facts live on each
+  media.
   """
 
   use Ecto.Schema
@@ -24,9 +21,8 @@ defmodule Ambry.Media.RecordingGroup do
     belongs_to :book, Book
     has_many :media, Media, preload_order: [asc: :part_number]
 
-    # a local name: it distinguishes this set from the book's OTHER
-    # recordings ("Graphic Audio"), so it's unique per book, not globally —
-    # displays compose "name (book)" where context is missing
+    # unique per book, not globally: it distinguishes this set from the
+    # book's other recordings
     field :name, :string
     field :parts_total, :integer
 
@@ -34,9 +30,8 @@ defmodule Ambry.Media.RecordingGroup do
     # per-group operator choice, never inferred from the name itself
     field :show_label, :boolean, default: false
 
-    # what one release in this set is called ("part" by default; "episode",
-    # "volume", ...). Stored lowercase; display capitalizes as needed. nil
-    # means the default wording.
+    # what one release is called ("episode", "volume", ...); lowercase, nil
+    # for the default "part"
     field :part_word, :string
     field :part_word_plural, :string
 

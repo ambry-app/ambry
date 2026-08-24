@@ -33,7 +33,6 @@ defmodule AmbryApp.Application do
       AmbryWeb.Telemetry,
       # Start the Ecto repository
       Ambry.Repo,
-      # Start the PubSub system
       {Phoenix.PubSub, name: Ambry.PubSub},
       # HTTP Client for Swoosh API based providers (not used for SMTP providers)
       {Finch, name: Ambry.Finch},

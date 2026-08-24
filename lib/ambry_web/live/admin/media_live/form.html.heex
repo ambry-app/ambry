@@ -4,12 +4,9 @@
       1920px viewport does not read as belonging to the form beneath it. --%>
   <div class="relative max-w-4xl">
     <%!-- A fan-out rebuilds the chips under every field it can fill, so a form
-        with one running is not the operator's to edit yet — and it says so
-        over the whole thing, the way the import form does while matching
-        holds an item. `sticky top-0 h-screen` keeps the scrim one viewport
-        tall and the label in view however far down the form the click was;
-        `z-40` clears the sticky footer with the Save in it, and stays under
-        the header. --%>
+        with one running is not the operator's to edit. `sticky top-0
+        h-screen` keeps the label in view however far down the click was;
+        `z-40` clears the sticky footer and stays under the header. --%>
     <.busy_overlay
       busy={@evidence.running?}
       label="Asking the databases…"
@@ -138,10 +135,10 @@
               <.sort_input field={@form[:media_narrators_sort]} index={media_narrator_form.index} />
               <.position_input field={media_narrator_form[:position]} index={media_narrator_form.index} />
 
-              <%!-- Controls trail the input: a leading column pushed every input
-                off the box edge whenever a list crossed one row (§3). Order
-                matches the import form's cards — reorder first, remove last —
-                so the destructive control is at the end of the row. --%>
+              <%!-- Controls trail the input: a leading column pushes every
+                input off the box edge once a list crosses one row (§3). Order
+                matches the import form's cards, so the destructive control is
+                at the end. --%>
               <div class="flex items-start gap-2">
                 <.input
                   field={media_narrator_form[:narrator_id]}
@@ -176,10 +173,9 @@
               </div>
             </.inputs_for>
 
-            <%!-- The narrators a ticked record names. Two readings of one book
-              differ by nothing else, so this is the field a record most needs
-              to fill; `adds_rows` is what stops a chip crediting the same
-              person twice (design language §6). --%>
+            <%!-- The narrators a ticked record names, which is the field a
+              record most needs to fill. `adds_rows` is what stops a chip
+              crediting the same person twice (§6). --%>
             <:proposals>
               <.proposal_row
                 id="proposals-narrators"
@@ -197,20 +193,16 @@
           </.list_cluster>
 
           <%!-- The humans these credits are about, in the import form's own
-            section and under its own name — under the credits that name
-            them, because that is where they came from, and separate from
-            them, because "what is this person called, and what do they look
-            like" is a different question from "who read this book". The book
-            form's twin, one join shallower. --%>
+            section: what a person is called is a different question from who
+            read this book. --%>
           <.form_section
             :if={NewPerson.any?(@form.source, :media_narrators, [:narrator])}
             id="people"
             title="People"
           >
             <%!-- Ten narrators accepted from a record is ten cards, each with
-              a Search of its own; this presses them all. It counts what it
-              would ask about, because a control that might do nothing should
-              say so before it is pressed. --%>
+              a Search of its own; this presses them all, and counts what it
+              would ask about. --%>
             <:action :if={NewPerson.searchable(@people_cards, @new_people) > 1}>
               <.button
                 color={:zinc}
@@ -242,39 +234,29 @@
             </.inputs_for>
           </.form_section>
 
-          <%!-- the mirror of the book form's series rows, singular: a recording
-          is in at most one group, and a group belongs to this book — the
-          list follows the chosen book. Like an empty series list, an
-          ungrouped recording says so and offers one add; unlike series, the
-          add disappears once the (single) row is showing. The group's own
-          facts — name, total, wording — are edited on its page under
-          Groups. --%>
+          <%!-- The book form's series rows, singular: a recording is in at
+          most one set, and a set belongs to this book. A set's own facts are
+          edited on its own page. --%>
           <div class="space-y-2">
             <.field_group label="Part of a set">
               <p :if={!@group_row_visible} class="pl-3 text-sm text-zinc-400">
                 Not part of a set.
               </p>
 
-              <%!-- The removal has to be *stated*, not merely stopped being
-                mentioned. Hiding the row took its two inputs out of the DOM,
-                so the submit posted neither key and `cast` changes only what
-                it is handed — the picker vanished, Save reported success, and
-                the recording came back still in its set. --%>
+              <%!-- The removal has to be stated, not merely stopped being
+                mentioned: hiding the row takes its inputs out of the DOM, and
+                `cast` changes only what it is handed. --%>
               <.input :if={!@group_row_visible} type="hidden" field={@form[:recording_group_id]} />
               <.input :if={!@group_row_visible} type="hidden" field={@form[:part_number]} />
 
-              <%!-- The import form's row, read in its order: which set, then
-                where in it — "<set> no. 1 of 3". A set's own facts are its
-                own: joining one shows its total, and only a set being named
-                here asks for one, because editing a set from a member's form
-                would edit it for every other member too. Its page under Sets
-                is where that belongs. --%>
+              <%!-- The import form's row, in its order: which set, then where in it.
+                Joining one shows its total, and only a set being *named* here
+                asks for one: editing a set from a member's form would edit it
+                for every other member too. --%>
               <div :if={@group_row_visible} class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <%!-- A book has one set, or none, or occasionally two. That is a
-                  drop-down — and where the book has none there is nothing to
-                  drop down to, so the only thing on offer is naming one. The
-                  import form settled this shape: a typeahead here searched
-                  for sets belonging to a book that usually has none. --%>
+                <%!-- A book has one set, none, or occasionally two, which is a
+                  drop-down. Where it has none there is nothing to drop down
+                  to, so the only thing on offer is naming one. --%>
                 <%!-- One box's worth of width between them, the way the
                   import form shares it: whichever controls are showing split
                   the same `min-w-48 max-w-md` column, rather than each
@@ -365,16 +347,10 @@
               <%!-- One cover, on the text rail (an image is content, §3) — the
                 five-variant parade said nothing the operator could act on.
                 Whether the derived sizes exist is one fact, so it's one line. --%>
-              <%!-- The derived size inline, the original behind the magnifier.
-                Rendering the original was showing whatever the publisher
-                embedded, at whatever size and in whatever format they used —
-                and one Martian import put 753KB of TIFF in a file named
-                `.jpg`, so the form showed a broken image while cheerfully
-                reporting five thumbnails generated. libvips reads by content
-                and the thumbnails were always fine; only the original was a
-                lie. `extract_embedded/1` no longer produces that file, and
-                showing the derived image means the form survives the next
-                thing a publisher embeds either way. --%>
+              <%!-- The derived size inline, the original behind the magnifier: a
+                publisher can embed a TIFF in a stream the container calls
+                PNG, and libvips reads by content, so the thumbnail is right
+                even where the original would not render. --%>
               <div class="pl-3">
                 <.image_with_size
                   id={"image-#{@media.id}"}
@@ -481,11 +457,9 @@
           IS. Nothing here is editable any more: the files arrive through the
           inbox and this says what they are. --%>
         <.form_section title="Audio" id="audio">
-          <%!-- The files this recording is served from, which is its tracks.
-            A fact display, not a dropzone: nothing here accepts a file, and
-            dressing it as though it might would promise what it can't
-            deliver. Absent for a transcoded recording, whose audio is the
-            packaged trio in the fold below. --%>
+          <%!-- The files this recording is served from. A fact display, not a
+            dropzone: nothing here accepts a file. Absent for a transcoded
+            recording, whose audio is the packaged trio below. --%>
           <.file_list files={@audio_files} label="Files">
             <%!-- Which library root these paths are relative to. The same
               answer the import form's tag gives about the same list: where
@@ -536,11 +510,9 @@
             </.disclosure>
           </.field_group>
 
-          <%!-- The one list on this form that wasn't a card: a bare upload
-            control on the ground, and a card below it that existed only
-            once there was something in it — so the section had no name
-            until it had contents. `list_cluster`'s grammar instead (§3b),
-            with the dropzone as the add. --%>
+          <%!-- `list_cluster`'s grammar with the dropzone as the add (§3b): a bare
+            upload control on the ground leaves the section unnamed until it
+            has contents. --%>
           <.list_cluster label="Supplemental files">
             <p
               :if={@live_action != :edit || @form[:supplemental_files].value == []}
@@ -585,6 +557,18 @@
 
         <.form_footer>
           <.button>Save</.button>
+
+          <:danger :if={@live_action == :edit}>
+            <.button
+              type="button"
+              color={:red}
+              phx-click="delete"
+              data-confirm="Delete this audiobook? Its audio files are deleted from disk too."
+              data-role="delete-media"
+            >
+              Delete
+            </.button>
+          </:danger>
         </.form_footer>
       </.simple_form>
     </div>

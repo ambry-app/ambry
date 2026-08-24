@@ -20,13 +20,10 @@
 
         <%!-- A watch six months out is a fact, not a bad state, so the
               headline counts only what is due: the date the provider promised
-              has been and gone and nobody has said what happened. That is the
-              tile test — it can be in a bad state, and clicking it lands where
-              you would fix it.
+              has been and gone and nobody has said what happened.
 
               Queue-shaped rather than problem-shaped, so nothing-due still
-              renders: "what am I waiting for next" is worth the glance, and a
-              card that vanished would take the answer with it. --%>
+              renders: "what am I waiting for next" is worth the glance. --%>
         <.card label="Upcoming" navigate={~p"/admin/watches"} link_words="See what you're watching">
           <div :if={@watches.due_count > 0}>
             <.headline_stat count={@watches.due_count} tone={:amber} role="watches-due-count">
@@ -103,18 +100,14 @@
                 <span class="text-sm text-zinc-200">{worker_words(failure.worker)}</span>
                 <span class="text-xs tabular-nums text-zinc-500">{failure_time(failure.at)}</span>
               </div>
-              <%!-- Wrapped rather than truncated: the error is the whole
-                    point of this card, and an ellipsis on a phone hides
-                    exactly the end of the line that names the failure. It
-                    is already only the first line of the exception, so
-                    wrapping costs two rows, not a stack trace.
+              <%!-- Wrapped rather than truncated: an ellipsis hides exactly
+                    the end of the line that names the failure, and this is
+                    already only the first line of the exception.
 
-                    Ordinary wrapping, NOT `whitespace-pre-wrap`: this value
-                    holds no meaningful internal spacing, and pre-wrap
-                    preserves the template's own newline and indentation
-                    around the interpolation, which rendered as a mystery
-                    indent on the first line. `break-words` is what matters
-                    here — these errors carry long unbroken paths. --%>
+                    Ordinary wrapping, NOT `whitespace-pre-wrap`, which would
+                    preserve the template's own newline and indentation around
+                    the interpolation. `break-words` is what matters: these
+                    errors carry long unbroken paths. --%>
               <p :if={failure.error} class="font-mono break-words text-xs text-red-300">
                 {failure.error}
               </p>
@@ -155,11 +148,10 @@
       <h2 class="text-xl font-bold text-zinc-100">Library</h2>
 
       <.card label="What's in it">
-        <%!-- No file count. `Ambry.Media.Audit` still understands only the
-              legacy uploads tree and knows nothing about library roots, so
-              on a direct-play library it reports zero — and a zero that is
-              simply wrong is worse than a tile that isn't there. It comes
-              back with the audit rewrite. --%>
+        <%!-- No file count: `Ambry.Media.Audit` understands only the uploads
+              tree and knows nothing about library roots, so on a direct-play
+              library it reports zero, and a zero that is simply wrong is
+              worse than a tile that isn't there. --%>
         <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
           <.inventory_stat navigate={~p"/admin/books"} count={@inventory.books} role="book-count">
             Books

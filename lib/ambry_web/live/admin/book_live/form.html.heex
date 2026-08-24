@@ -153,7 +153,7 @@
 
           "People", not "New people": a card can link somebody the library
           already holds, so the section is not only about the ones being
-          made (operator, 2026-08-21).
+          made.
 
           The rows are walked a second time with their hidden inputs skipped:
           the credit rows above already post those. What renders only here is
@@ -307,6 +307,18 @@
 
         <.form_footer>
           <.button>Save</.button>
+
+          <:danger :if={@live_action == :edit}>
+            <.button
+              type="button"
+              color={:red}
+              phx-click="delete"
+              data-confirm="Delete this book? A book that has audiobooks can't be deleted."
+              data-role="delete-book"
+            >
+              Delete
+            </.button>
+          </:danger>
         </.form_footer>
       </.simple_form>
     </div>

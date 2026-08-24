@@ -33,8 +33,8 @@ defmodule AmbryWeb.FileResponse do
   `Phoenix.Endpoint.RenderErrors` believes nothing has been sent: it renders
   a full 500 error page onto the closed socket, which runs `before_send`
   again and logs the same request a second time as `Sent 500 in <the whole
-  transfer>`. Every one of those pairs in the production log is a listener
-  pressing pause.
+  transfer>`. Every one of those pairs in the log is a listener pressing
+  pause.
 
   So the rescue below reports what actually happened — the response is over —
   by handing back a conn in the `:sent` state. Nothing escapes to be rendered

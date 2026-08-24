@@ -2,27 +2,21 @@ defmodule AmbryWeb.Admin.ImageProxyController do
   @moduledoc """
   Proxies remote metadata-provider images for admin import previews.
 
-  Browsers with tracking protection (e.g. Firefox ETP) block hotlinked
-  images from provider CDNs — Amazon's image hosts are on the tracker
-  blocklists — so import previews render blank even though the URLs are
-  fine and the eventual server-side import succeeds. Serving previews
-  same-origin sidesteps that entirely.
+  Browsers with tracking protection block hotlinked images from provider CDNs,
+  so previews render blank even though the URLs are fine and the eventual
+  server-side import succeeds. Serving them same-origin sidesteps that.
 
-  Admin-only, http(s) only, images only. Fetching operator-supplied remote
-  URLs server-side matches the existing import behavior
-  (`UploadHelpers.handle_image_import/1`).
+  Admin-only, http(s) only, images only.
 
-  What decides "image" is the bytes, not the `content-type` header, because
-  the header is not reliably an answer. Hardcover's CDN serves every asset —
-  author photos included — as `application/octet-stream`, so gating on the
-  header 404'd a perfectly good PNG and left a broken image sitting next to
-  the chip offering it. Sniffing is also the stricter reading: a page that
-  *claims* `image/png` can no longer be echoed back under an image content
-  type, which trusting the header allowed.
+  **What decides "image" is the bytes, not the `content-type` header**, which
+  is not reliably an answer: provider CDNs serve every asset as
+  `application/octet-stream`, so gating on the header 404s a perfectly good
+  PNG. It is also the stricter reading, since a page that merely *claims*
+  `image/png` cannot be echoed back under an image content type.
 
   That check is `Ambry.Images.browser_safe/1`, the same one the embedded-art
-  path uses — one policy about what a servable image is, so a preview and the
-  import it precedes can never disagree about whether something is showable.
+  path uses, so a preview and the import it precedes cannot disagree.
+
   """
 
   use AmbryWeb, :controller

@@ -36,6 +36,37 @@ mix ecto.rollback                      # Rollback last migration
 
 ## Important Conventions
 
+### Comments and documentation
+
+**When in doubt, delete it.** The code says what it does. Prose is for what
+the code cannot say, and nothing else.
+
+- **No comment that narrates the line under it.** If the comment restates the
+  code, the code was already clear enough.
+- **Moduledocs and `@doc`s are brief.** A sentence or two saying what the
+  thing is for. Not an essay, not a design rationale, not a tour of the
+  alternatives.
+- **Keep only:** a non-obvious invariant, a gotcha that will bite the next
+  person, or the reason the obvious implementation is wrong. One or two
+  sentences each.
+- **No history.** Never "this used to be X", "previously", "no longer", "the
+  old behaviour", version numbers, PR numbers, dates, or a record of what was
+  tried and rejected. State the rule and the consequence that makes it right.
+  Git has the history.
+- **No references to a particular deployment.** No "in production", no "the
+  operator's library", no counts or measurements taken from one instance, no
+  links to working notes outside the repo. Ambry is self-hosted open source:
+  whoever runs it is not whoever wrote it. Where a measurement is worth
+  keeping, state the finding generically ("roughly 96% of releases carry a
+  title in tags"), never its provenance.
+- **Nothing rendered may encode one operator's taste.** No placeholder or
+  example drawn from what somebody happened to be doing; a placeholder either
+  teaches the _format_ of a field or is absent. No feature that grades one
+  valid arrangement as better than another.
+
+The admin's own visual rules live in `docs/admin-design-language.md`, which
+follows the same standard: read it before touching an admin surface.
+
 ### Creating Migrations
 
 Always use `mix ecto.gen.migration` to create new migration files - never manually create migration files or generate timestamps. The mix task handles timestamp generation and proper file placement automatically.
@@ -127,15 +158,15 @@ curl -s -X POST http://localhost:4000/tidewave/mcp \
 
 Available tools:
 
-| Tool | Description |
-|------|-------------|
-| `mcp__tidewave__get_ecto_schemas` | List all Ecto schemas in the project |
-| `mcp__tidewave__get_logs` | Retrieve live server logs with optional filtering |
-| `mcp__tidewave__get_source_location` | Find source file location for a module/function |
-| `mcp__tidewave__get_docs` | Get documentation for modules and functions |
-| `mcp__tidewave__project_eval` | Execute Elixir code in the running server context |
-| `mcp__tidewave__execute_sql_query` | Run SQL queries against the database |
-| `mcp__tidewave__search_package_docs` | Search Hex documentation for dependencies |
+| Tool                                 | Description                                       |
+| ------------------------------------ | ------------------------------------------------- |
+| `mcp__tidewave__get_ecto_schemas`    | List all Ecto schemas in the project              |
+| `mcp__tidewave__get_logs`            | Retrieve live server logs with optional filtering |
+| `mcp__tidewave__get_source_location` | Find source file location for a module/function   |
+| `mcp__tidewave__get_docs`            | Get documentation for modules and functions       |
+| `mcp__tidewave__project_eval`        | Execute Elixir code in the running server context |
+| `mcp__tidewave__execute_sql_query`   | Run SQL queries against the database              |
+| `mcp__tidewave__search_package_docs` | Search Hex documentation for dependencies         |
 
 ### Hot Reloading Code Changes
 
@@ -151,6 +182,7 @@ This hot-reloads code changes into the running server. Avoid using `mix compile`
 ### Test User Account
 
 A test user exists for development/testing:
+
 - **Email:** `agent@test.local`
 - **Password:** `AgentTestPassword123!`
 

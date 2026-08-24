@@ -3,34 +3,21 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   The staged import form: everything this release will become, before any of
   it is real.
 
-  Built on one invariant — **an import is a tree of decisions, and import is
-  possible iff every decision is resolved**. The button at the bottom reads
+  Built on one invariant: **an import is a tree of decisions, and import is
+  possible iff every decision is resolved.** The button at the bottom reads
   `Draft.unresolved/1` and nothing else, which is what guarantees the form
-  never offers an action that fails: everything that could go wrong at
-  import was a visible decision before the button was pressed.
+  never offers an action that fails.
 
-  ## Two kinds of interaction, deliberately
+  Two kinds of interaction. Typing is ordinary form input, autosaved on
+  change, so there is never an unsaved edit to lose. Choosing (which
+  candidate, which identity, who is behind a credit) is a named event that
+  transforms the stored draft through `Draft.Edit`.
 
-  Typing is ordinary form input, autosaved on change — so there is never an
-  unsaved edit to lose when something else is clicked. Choosing (which
-  candidate, which identity, who's behind a credit) is a named event that
-  transforms the stored draft through `Draft.Edit`, because those aren't text
-  and pretending they are is where hidden-input tricks come from.
-
-  ## Vocabulary
-
-  A credit reads as one line — "Written by" / "Read by" — and the humans
-  behind it live in their own section, one card each. An earlier version
-  showed both levels inside every credit, on the theory that "Credited as /
-  Written by" teaches the model for free; in practice it charged every
-  ordinary import for a question about personhood that only two imports in a
-  hundred have an interesting answer to, and printed a person twice whenever
-  an author read their own book.
-
-  What is left of that question on the credit is "This is a pen name" /
-  "This is a stage name": the credited name is not the human's name. It gives
-  that human a name of their own and takes the operator to the card where the
-  box for it has just appeared.
+  A credit reads as one line ("Written by" / "Read by") and the humans behind
+  it live in their own section, one card each: asked inside every credit, the
+  personhood question charges every ordinary import for an answer only a
+  handful have, and prints a person twice when an author reads their own book.
+  What is left on the credit is "This is a pen name".
   """
 
   use AmbryWeb, :admin_live_view
@@ -69,9 +56,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # Regrouping replaces items rather than editing them, so the id in the
-  # address bar can outlive the item: browser Back after a split or a combine
-  # lands on one of the items that were just replaced. That is the queue
-  # working, and a 404 page said the admin was broken.
+  # address bar can outlive the item. Back after a split is the queue
+  # working, not a 404.
   defp gone(params, socket) do
     {:ok,
      socket
@@ -90,21 +76,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> assign(page_title: InboxItem.name(item))
      |> assign(researching: nil, retrying: nil, enriching: nil)
      # What the in-flight search asked for. The stored query only updates
-     # when results land, so a form that renders storage describes the
-     # PREVIOUS search for the whole round trip — the typed words vanish from
-     # the boxes at the click and the scrim names the wrong book. The edit
-     # forms have always captured this (`Evidence.begin/2`); this is the same
-     # discipline for the staged form.
+     # when results land, so rendering it describes the previous search for
+     # the whole round trip.
      |> assign(research_fields: %{})
-     # Which people are being looked up right now (key => the name asked
-     # about), and whose photo strip is showing in full. Both view state keyed
-     # by person key — the results themselves are evidence and live on the
-     # item.
-     #
-     # A map rather than one key, because a full cast is fifteen people and
-     # the operator does not queue up behind each search. One key meant the
-     # second search stole the first's spinner and the first to land cleared
-     # both.
+     # View state keyed by person key; the results are evidence and live on
+     # the item. A map rather than one key, because a full cast is fifteen
+     # people searched at once.
      |> assign(searching_people: %{}, photos_expanded: %{})
      |> assign(ticking: false)
      # The pending chapter-title fetch, and which ASIN's titles were last
@@ -120,16 +97,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # The list state the operator arrived with, echoed back as a path. The
-  # whitelist is `ReturnTo`'s now, which is how this stopped dropping
-  # `problem`: a form opened from a queue narrowed to "Files couldn't be read"
-  # used to return to the whole queue.
+  # whitelist is `ReturnTo`'s, so a form opened from a narrowed queue returns
+  # to that queue.
   defp return_to(params), do: ReturnTo.path(~p"/admin/inbox", ReturnTo.list_params(params))
 
-  # An imported item's draft is the record of what was imported — the operator
-  # already created the library records from it, and an edit here would make
-  # the record lie. The banner and `inert` explain; this enforces, because
-  # markup is advisory and a stale tab can still send anything. The only
-  # events allowed through are pure view state.
+  # An imported item's draft is the record of what was imported. The banner
+  # and `inert` explain; this enforces, since a stale tab can send anything.
   @view_events ~w(toggle-photos)
 
   defp refuse_when_imported(event, _params, socket) do
@@ -140,11 +113,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # **The overlay explains; this enforces.** `inert` and a scrim are markup,
-  # and markup is advisory — a stale tab, a keyboard, or a reconnect can all
-  # still send an event. Matching rebuilds an untouched draft when a retried
-  # provider finally answers, so an edit accepted here would be thrown away by
-  # work the operator couldn't see.
+  # The overlay explains; this enforces. Matching rebuilds an untouched draft
+  # when a retried provider answers.
   defp refuse_while_busy(event, _params, socket) do
     if busy?(socket) do
       Logger.debug(fn -> "Inbox form: refusing #{event} while a job owns item" end)
@@ -158,9 +128,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   Whether anything owns this form right now — a matching job, or the
   operator's own import.
 
-  One predicate for both, because the form's answer is the same either way:
-  the overlay, the `inert`, and the refusal are about "not yours to edit",
-  not about who took it.
+  One predicate for both, because the form's answer is the same either way.
   """
   def busy?(%{assigns: assigns}), do: busy?(assigns)
   def busy?(%{busy: busy}), do: busy
@@ -191,9 +159,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   What the job on this item is doing, in the words the overlay uses.
   """
-  # Naming the slow part, because it is the part that makes the operator
-  # wonder whether the click landed: a multi-file release is re-probed file
-  # by file and then every one of them is placed.
+  # Naming the slow part: a multi-file release is re-probed file by file and
+  # then every one of them is placed.
   def busy_label(:importing), do: "Adding to the library…"
   def busy_label(:working), do: "Matching…"
   def busy_label(:retrying), do: "A provider couldn't be reached. Retrying…"
@@ -205,36 +172,25 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   and the last one asked otherwise.
 
   The stored query is only written when results land, so rendering it during
-  the round trip describes the *previous* search — which is why typed words
-  appeared to revert the moment Search was pressed and the scrim named the
-  wrong book. The edit forms never had this because `Evidence.begin/2`
-  records the submitted fields at the click; this is the same rule for a
-  form whose query lives in the database instead of a struct.
+  the round trip would describe the previous search.
   """
   def search_fields(level, level, in_flight, _seeded), do: in_flight
   def search_fields(_researching, _level, _in_flight, seeded), do: seeded
 
-  # The query keys a search form can submit — the same set
-  # `Provider.Query.from_fields/1` reads, so what comes back is exactly what
-  # was asked for.
+  # The query keys a search form can submit, the same set
+  # `Provider.Query.from_fields/1` reads.
   @query_keys ~w(title author narrator)
 
   defp submitted_fields(params), do: Map.take(params, @query_keys)
 
   # What each level's boxes hold when no search is in flight.
   #
-  # The stored query is what was last *asked*, and for a recording matched by
-  # its ASIN that is `%{"keywords" => "B0…"}` — a shape this form has no box
-  # for. So the audiobook card rendered three empty boxes above a button
-  # that submitted a blank query, which `Lookup.research/3` correctly treats
-  # as nothing to do: a dead control that said nothing about why. Falling
-  # back to the hints matching itself used means a box always holds
-  # something submittable, the way the edit forms seed their panel from the
-  # record they belong to.
+  # The stored query is what was last asked, and an ASIN match stores a shape
+  # this form has no box for, so it falls back to the hints matching used and
+  # a box always holds something submittable.
   #
   # Wholesale, never per key: merging hints into a stored query would put
-  # back an author the operator deliberately cleared, which is the bug this
-  # whole pass is about.
+  # back an author the operator deliberately cleared.
   defp search_seeds(item) do
     hints = Inbox.hints(item)
 
@@ -263,9 +219,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   What a level's search is looking for, for the scrim that covers it.
 
-  Named rather than a bare "Searching…", because the operator has just typed
-  the words into the box above it and seeing them come back is what says the
-  click landed on the search they meant.
+  Named rather than a bare "Searching…", so the operator can see the click
+  landed on the search they meant.
   """
   def searching_label(fields) do
     case (fields || %{})["title"] do
@@ -300,10 +255,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   The people on this draft nobody has asked the databases about, as
   `{key, name}` — what the People section's "Search all" presses.
 
-  Matching asks about everyone an item arrives with, so this is normally
-  empty and the control is absent; it fills up when the operator *adds*
-  credits, which is the same state an edit form is in the whole time
-  (`AmbryWeb.Admin.NewPerson.search_all/2`).
+  Matching asks about everyone an item arrives with, so this fills only when
+  the operator adds credits.
   """
   def unsearched_people(item, searching) do
     for group <- Draft.people_groups(item.draft),
@@ -320,24 +273,17 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   The people the library already has by this human's name.
 
-  Collected by matching whenever a credited name is already in the library —
+  Collected by matching whenever a credited name is already in the library:
   the author who turns up narrating, whose name the credit's typeahead cannot
-  offer because the identity they need doesn't exist yet. Without a route to
-  them the form's only answer was a second Person of the same name.
+  offer because the identity they need doesn't exist yet.
   """
   def person_locals(item, key), do: get_in(item.matches, ["people", key, "local"]) || []
 
   @doc """
   The name this person's records were searched for.
 
-  The person level's `query_fields`: seeded by matching with the credited
-  name and rewritten by every re-search, so the search box can hold the query
-  rather than the person's name decision — which is a different answer and
-  was snapping the box back the moment results arrived.
-
-  In flight it is the name just submitted, for the same reason
-  `search_fields/3` is: until the results land, storage still describes the
-  previous search.
+  The person level's `query_fields`, so the search box holds the query rather
+  than the person's name decision. In flight it is the name just submitted.
   """
   def person_query_name(item, key, searching) do
     case Map.get(searching, key) do
@@ -350,13 +296,10 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   def handle_event("validate", %{"inbox_item" => params}, socket) do
     params = curate_chapter_params(params, socket.assigns.item)
 
-    # Autosave: the form and the stored draft are never allowed to disagree,
-    # so a click on any of the choice controls below can't discard typing.
+    # Autosave, so a click on any choice control below cannot discard typing.
     #
-    # The one write here that can't be replayed against a newer draft — these
-    # params were rendered against a particular one — so it is the one that
-    # can come back refused. Reloading is the only honest answer: applying
-    # them anyway would overwrite whatever moved the row, unseen.
+    # The one write that cannot be replayed against a newer draft, so it is
+    # the one that can come back refused. Reloading is the honest answer.
     case Inbox.update_draft(socket.assigns.item, params["draft"] || %{}) do
       {:ok, item} ->
         {:noreply, load(socket, item)}
@@ -366,7 +309,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          socket
          |> put_flash(
            :error,
-           "Something else changed this item while you were typing. Reloaded — check the last thing you entered."
+           "Something else changed this item while you were typing. Reloaded; check the last thing you entered."
          )
          |> load(Inbox.get_item!(socket.assigns.item.id))}
 
@@ -385,12 +328,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # The decision above every other one: these files are a better copy of
-  # something the library already has, so nothing below is in question.
-  #
-  # A blank id is the surrounding form reporting itself for some other reason,
-  # not an answer — the way back from a replacement is the chip beside the
-  # box, the same as at the work level. (`EntityResolver` only reports a pure
-  # picker's value when something is picked, so this is belt and braces.)
+  # something the library already has. A blank id is the surrounding form
+  # reporting itself for some other reason, not an answer.
   def handle_event("replace-recording", %{"media_id" => id}, socket) do
     case to_int(id) do
       nil -> {:noreply, socket}
@@ -427,10 +366,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       record ->
         socket = edit(socket, &Draft.Edit.toggle_source(&1, item, atom(level), record))
 
-        # A record nobody had asked about is a summary. Ticking it is the
-        # moment its description and cover start to matter, so that's when
-        # they're fetched — and when it's a work record, when its editions
-        # become worth asking for.
+        # A record nobody asked about is a summary, so ticking it is when its
+        # description and cover (and, for a work, its editions) are fetched.
         {:noreply, enrich(socket, level, record)}
     end
   end
@@ -453,9 +390,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   # ── chapters ───────────────────────────────────────────────────────────
   #
-  # The same event vocabulary as the media form: the fetched titles render
-  # into the rows as a proposed column, and Take applies them through
-  # `Draft.Edit.set_chapters/2` so the answer survives reseeds.
+  # The media form's event vocabulary. Take applies fetched titles through
+  # `Draft.Edit.set_chapters/2`, so the answer survives reseeds.
 
   def handle_event("fetch-chapter-titles", %{"asin" => asin}, socket) do
     chip =
@@ -496,11 +432,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, assign(socket, chapter_import: nil)}
   end
 
-  # The way back to the machine's value, which every other decision has and
-  # this one didn't: re-derive the rows from the probe and record that the
-  # operator chose them. Taking a value the rows already hold still counts as
-  # reviewing it — that is the whole point of the tier, and why agreeing with
-  # the files must not require editing them first.
+  # The way back to the machine's value, which every other decision has.
+  # Taking a value the rows already hold still counts as reviewing it.
   def handle_event("take-file-chapters", _params, socket) do
     case Seed.file_chapters(socket.assigns.item) do
       %Chapters{chapters: [_row | _rest] = rows, chapter_marker_source: source} ->
@@ -567,9 +500,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # Recomputed here rather than taken from the assigns: the queue may have
-  # moved since this form was rendered, and the items being combined are the
-  # ones waiting under that folder *now*.
+  # Recomputed here rather than taken from the assigns: the items being
+  # combined are the ones waiting under that folder now.
   def handle_event("combine", _params, socket) do
     case Inbox.combine_item(socket.assigns.item) do
       {:ok, combined} ->
@@ -649,10 +581,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
          group = Media.get_recording_group!(id)
          Draft.Edit.link_group(draft, id, %{name: group.name, parts_total: group.parts_total})
        else
-         # Rename only when the form actually posted one. Switching a link to
-         # a new set posts no name — the name box is not on the page yet —
-         # and blanking the set's name because a drop-down moved would throw
-         # away the one thing detection got right.
+         # Only when the form actually posted one: switching a link to a new
+         # set posts no name, and blanking it would throw away what detection
+         # got right.
          draft
          |> Draft.Edit.create_group()
          |> then(fn draft ->
@@ -684,10 +615,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.reset_series_name(&1, to_int(i)))}
   end
 
-  # The credited name is not always the human's name — "David Wong" is Jason
-  # Pargin — so this separates the two: the person gets a name of their own,
-  # which is what puts a box on their card. It is offered from both ends, the
-  # credit and the card, because either is where the operator notices.
+  # Separates the credited name from the human's, which is what puts a box on
+  # their card. Offered from both the credit and the card, because either is
+  # where the operator notices.
   def handle_event("separate-name", %{"section" => section, "index" => index}, socket) do
     {:noreply, edit(socket, &Draft.Edit.separate_person_name(&1, atom(section), to_int(index)))}
   end
@@ -706,15 +636,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, edit(socket, &Draft.Edit.create_person(&1, key))}
   end
 
-  # The photos and bios matching already found are in the person's own fields,
-  # so there is nothing to fetch to show them. This is the escape hatch for
-  # when the *name* has moved since — a rename, a pen name revealed, a person
-  # split in two — where nobody has ever searched for who this now is.
-  #
-  # Writes evidence into `matches`, exactly as the work-level re-search does,
-  # rather than into page assigns: results that vanish on reload were fine
-  # when nothing else knew about people, and are now just a second place for
-  # the same thing to live.
+  # The escape hatch for when the name has moved since and nobody has
+  # searched for who this now is. Writes evidence into `matches` like every
+  # other re-search, not into page assigns.
   def handle_event("find-person", %{"key" => key}, socket) do
     item = socket.assigns.item
     name = person_name(item.draft, key)
@@ -744,8 +668,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # A person's description is a description like any other: an imported blurb
-  # is a starting point, and the recording's has been an editable box since
-  # the form existed.
+  # is a starting point.
   def handle_event("person-bio", %{"key" => key} = params, socket) do
     {:noreply, edit(socket, &Draft.Edit.edit_person_bio(&1, key, params["description"]))}
   end
@@ -782,8 +705,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # "None of these" at the person level. A human no database has heard of is
-  # a normal outcome — plenty of narrators are in none — so this settles the
-  # level and creates them from their name alone.
+  # a normal outcome, so this settles the level and creates them from their
+  # name alone.
   def handle_event("uncatalogued-person", %{"key" => key}, socket) do
     item = socket.assigns.item
     {:noreply, edit(socket, &Draft.Edit.uncatalogued_person(&1, item, key))}
@@ -881,9 +804,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   end
 
   # Re-defaulted after each pick, because the policy is a fact about the
-  # pairing: changing the root changes what "how the files come in" should
-  # propose, and an unpicked policy has no business keeping the answer that
-  # belonged to the previous root.
+  # pairing.
   def handle_event("choose-root", %{"root_id" => root_id}, socket) do
     item = socket.assigns.item
     id = to_int(root_id)
@@ -916,18 +837,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      |> load(item)}
   end
 
-  # Queued and handed back to the queue. Importing re-probes every file and
-  # then moves the bytes — measured on a 28-file release, seven seconds of
-  # ffprobe plus a 131MB copy, and a copy off a NAS is slower still. Held in
-  # an async task it pinned the operator to a spinner, and worse, the task
-  # **died with the LiveView**: closing the tab killed the import mid-copy.
+  # Queued rather than run here: an async task dies with the LiveView, so
+  # closing the tab would kill the import mid-copy.
   #
-  # Now the server owns it. The operator goes back to the list they came from
-  # and the row wears the same busy overlay every other job gives it.
-  # The pre-flight is what `@collisions` carries, and passing it back is what
-  # says "yes, those ones". A first click sends the empty list, so anything
-  # found stops it; a second sends what the operator just read, and if the
-  # library moved in between the lists differ and it stops them again.
+  # `@collisions` carries the pre-flight, and passing it back says "yes, those
+  # ones". A first click sends the empty list; a second sends what was just
+  # read, so a library that moved in between stops them again.
   def handle_event("import", _params, socket) do
     case Inbox.import_item_async(socket.assigns.item, acknowledged: socket.assigns.collisions) do
       {:ok, job} ->
@@ -1000,9 +915,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     {:noreply, update_pending_import(socket, &AsyncResult.failed(&1, async_fail(reason)))}
   end
 
-  # A provider being unreachable at this moment is a thing to report, not a
-  # thing to crash on — the operator is mid-edit and the rest of the form is
-  # still perfectly usable.
+  # A provider being unreachable is a thing to report, not to crash on: the
+  # rest of the form is still usable.
   def handle_async(_name, result, socket) do
     Logger.warning(fn -> "Inbox form lookup failed: #{inspect(result)}" end)
 
@@ -1024,11 +938,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # Ticking a thin record is the moment its details start to matter; ticking a
-  # work record is the moment its editions do.
-  # Ticking a thin record is the moment its details start to matter; ticking a
-  # work record is the moment its editions do. Both are provider calls, so
-  # they happen off the render and the row says it's working.
+  # Ticking a thin record is when its details start to matter, and ticking a
+  # work record is when its editions do. Both are provider calls, so they run
+  # off the render.
   defp enrich(socket, level, record) do
     item = socket.assigns.item
     ref = Inbox.record_ref(record)
@@ -1057,12 +969,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   defp hydrate_if_thin(item, _level, _ref, %{"hydrated" => true}), do: {:ok, item}
   defp hydrate_if_thin(item, level, ref, _record), do: Inbox.hydrate_record(item, level, ref)
 
-  # Applied to the draft the row holds rather than the one this socket is
-  # showing. A form can sit open for a long time while background work — a
-  # sibling import's relink sweep, a rescan — moves the row under it, and an
-  # answer written from the stale copy would take the row back with it.
-  # `fun` is a transformation, so handing it the committed draft is both
-  # safe and the only version that can't lose anything.
+  # Applied to the draft the row holds, not the one this socket shows: a form
+  # can sit open while background work moves the row under it.
   defp edit(socket, fun) do
     case Inbox.update_draft_with(socket.assigns.item, fn draft, _item -> fun.(draft) end) do
       {:ok, item} ->
@@ -1092,31 +1000,25 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # which is what decides whether the rest of the form is a question at
       # all.
       replacing: replacing,
-      # The recording under that decision — the operator's choice, or the
-      # proposal the path evidence made, or the one they declined. All three
-      # render the same row: they are the same answer at different degrees of
-      # confidence, and a declined proposal is how the way back stays open.
+      # The operator's choice, the path evidence's proposal, or the one they
+      # declined: the same answer at three degrees of confidence.
       replaces: replaces,
       replacement_blocker: replacement_blocker(replacing, replaces),
-      # Why the button is off when every decision is settled. Both halves are
-      # facts about the world rather than about the draft — a root that went
-      # away, an audiobook that was deleted — so they're read here and not
-      # counted as outstanding decisions.
+      # Why the button is off when every decision is settled: facts about the
+      # world rather than the draft, so not outstanding decisions.
       blocker:
         missing_blocker(item) || destination.blocker ||
           replacement_blocker(replacing, replaces),
-      # What each level's search box starts from, resolved once per load
-      # rather than per render — the hints are parsed out of the release
-      # text.
+      # What each level's search box starts from, resolved once per load: the
+      # hints are parsed out of the release text.
       search_seeds: search_seeds(item),
       # Where each person is credited, so a row can say "same person as the
-      # author". Derived, never stored — one human is one record now, and a
-      # second copy of "who is where" is what used to drift.
+      # author". Derived, never stored.
       appearances: Draft.appearances(item.draft),
       destination: destination,
       # Which ways of dividing this item would actually divide it, for the
-      # split controls. Both grains exist on a GraphicAudio set; a folder of
-      # three files has only the finer one.
+      # split controls. A part-set folder has both grains; a folder of three
+      # files has only the finer one.
       grains: Inbox.split_grains(item),
       # The other half of that question, for when the walk went wrong the
       # other way: the items waiting under the same folder as this one, which
@@ -1130,10 +1032,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
       # Roots are configuration and can change between seeding a draft and
       # approving it, so they're read now rather than frozen into the draft.
       roots: Ambry.Library.list_roots(),
-      # What the pre-flight found when Add was last pressed. Cleared here on
-      # purpose: any change to the draft is a change to what it would create,
-      # so an answer given about the old one may not be an answer about this
-      # one.
+      # What the pre-flight found when Add was last pressed. Cleared on
+      # purpose: any change to the draft changes what it would create.
       collisions: []
     )
     |> schedule_tick()
@@ -1142,9 +1042,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   What the button does, which changes once the pre-flight has spoken.
 
-  Named for what pressing it does, same as it always was: after a collision
-  the thing it does is override an objection, and a button that still said
-  "Add to the library" would hide that pressing it again is the answer.
+  After a collision what pressing it does is override an objection, and a
+  button that still said "Add to the library" would hide that.
   """
   def import_words(true, _collisions), do: "Replace the files"
   def import_words(false, []), do: "Add to the library"
@@ -1153,9 +1052,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   Where a pre-flight match lives, so the operator can go and look at it.
 
-  `Ambry.Inbox.Preflight` names the record and leaves the route alone: it
-  runs nowhere near a web layer, and an author or a narrator is edited on
-  the person behind them rather than on a page of their own.
+  `Ambry.Inbox.Preflight` names the record and leaves the route alone. An
+  author or narrator is edited on the person behind them.
   """
   def collision_path({:book, id}), do: ~p"/admin/books/#{id}/edit"
   def collision_path({:series, id}), do: ~p"/admin/series/#{id}/edit"
@@ -1179,9 +1077,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   The book this import links, if it links one.
 
-  A set is reachable only through its book, so the set picker offers something
-  exactly when the work links a library book — a `:create` work has no sets
-  yet, and there the resolver is create-only.
+  A set is reachable only through its book, so the set picker offers
+  something exactly when the work links a library book.
   """
   def linked_book_id(%Draft{work: %Work{mode: :link, book_id: book_id}}), do: book_id
   def linked_book_id(_draft), do: nil
@@ -1206,11 +1103,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     Enum.find(@placement_policies, &(to_string(&1) == value))
   end
 
-  # Named, not explained. Each label used to carry a parenthetical about
-  # what the door costs, which is a definition an operator reads once and
-  # then re-reads on every import forever. The one consequence that still
-  # needs saying is the one that stops an import, and it says itself when
-  # the impossible door is picked.
+  # Named, not explained: a parenthetical about what each door costs is read
+  # once and re-read on every import forever.
   defp placement_policies do
     Enum.map(Placement.policies(), &{Phoenix.Naming.humanize(&1), &1})
   end
@@ -1221,9 +1115,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   What a background job is doing to this item, if anything.
 
   The form is where somebody looks when a match seems wrong, and "still
-  working" is a completely different answer from "nothing was found" —
-  especially now that a rate-limited provider means minutes of backoff rather
-  than an immediate give-up.
+  working" is a different answer from "nothing was found" — a rate-limited
+  provider means minutes of backoff.
   """
   def job_label(:working), do: {"Still matching…", :blue}
   def job_label(:retrying), do: {"A provider couldn't be reached, retrying", :yellow}
@@ -1236,18 +1129,12 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   Whether the file list below already states where this item is.
 
-  The header prints the item's path and the list prints the directory its
-  files share, and on most items those are the same string two cards apart:
-  a release folder holds its own files, and a loose file is its own path with
-  the folder above it on the list's first line. The header drops the line
-  rather than the list, because the list is where the operator is looking
-  when they want it.
+  On most items the header's path and the list's common directory are the
+  same string two cards apart, so the header drops its line.
 
-  It stays when the files sit *deeper* than the item does (a release folder
-  whose audio is all in one "Disc 1"): the list then names the subfolder, and
-  which of the two this item is is exactly what a split or a combine is
-  about. It stays when there are no files at all, where the path is the only
-  thing known about the item.
+  It stays when the files sit deeper than the item does, where which of the
+  two this item is is what a split or a combine is about, and when there are
+  no files at all.
   """
   def stated_by_files?(%InboxItem{files: []}), do: false
 
@@ -1293,10 +1180,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   defp draft_chapter_rows(_item), do: []
 
-  # A change event from the chapters form is the operator touching the rows:
-  # typed titles stop claiming the source that would let a merge overwrite
-  # them, and the decision records its curation — which is what survives
-  # reseeds.
+  # A change from the chapters form is the operator touching the rows: typed
+  # titles stop claiming a source a merge could overwrite.
   defp curate_chapter_params(params, item) do
     case get_in(params, ["draft", "recording", "chapters"]) do
       nil ->
@@ -1317,9 +1202,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   The files' own list as a proposal chip, or nil when they carry none.
 
   Chosen when the staged rows still match what the probe read, so the chip
-  reports as well as offers. Files with no chapters propose nothing: a chip
-  that emptied the rows an operator typed by hand would be a destructive
-  control wearing a proposal's clothes.
+  reports as well as offers. Files with no chapters propose nothing, or the
+  chip would be a destructive control wearing a proposal's clothes.
   """
   def file_chapter_chip(item) do
     case Seed.file_chapters(item) do
@@ -1331,9 +1215,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
     end
   end
 
-  # Compared on what the operator can see and change — a time and a title.
-  # `title_source` is bookkeeping about where a title came from, and two
-  # identical lists that disagree about it are still the same list.
+  # Compared on what the operator can see and change: two identical lists
+  # that disagree about `title_source` are still the same list.
   defp same_chapters?(staged, from_files) when length(staged) == length(from_files) do
     staged
     |> Enum.zip(from_files)
@@ -1367,9 +1250,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   What the files themselves said, before anybody interpreted it.
 
-  The tags are the primary source — 98% of the operator's real releases carry
-  a usable one — so when a match goes somewhere strange this is where the
-  cause is, and it was previously visible nowhere in the form.
+  The tags are the primary source, carried by nearly every release, so when a
+  match goes somewhere strange this is where the cause is and the form has to
+  show it.
   """
   def tag_rows(%InboxItem{tags: tags}) when is_map(tags) do
     for key <- ~w(book_title authors narrators series series_number published publisher asin),
@@ -1429,9 +1312,9 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   @doc """
   Which providers were asked at this level, and what each said.
 
-  A provider that errors contributes nothing and used to leave no trace, so a
-  rate-limited or misconfigured source looked exactly like one that genuinely
-  had no answer — and the operator's only clue was a shorter list than they
+  A provider that errors contributes nothing, so without a trace of it a
+  rate-limited or misconfigured source looks exactly like one that genuinely
+  had no answer, and the operator's only clue is a shorter list than they
   expected.
   """
   def provider_outcomes(%InboxItem{matches: matches}, level) when is_map(matches) do
@@ -1445,18 +1328,16 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   defp replaces(_no_proposal), do: nil
 
-  # A recording can be deleted between the moment it was chosen and the
-  # moment the button is pressed, and the one thing this form may not do is
-  # offer an action that fails. Not an unresolved *decision* — the operator
-  # answered the question, and the answer stopped being true.
-  # The first thing that can be wrong with an import, and the one that makes
-  # every other answer moot: there is nothing left to import. Read here with
-  # the other two because it is the same kind of fact — about the world, not
-  # about the draft — and an outstanding decision is not what it is.
+  # A recording can be deleted between being chosen and the button being
+  # pressed. Not an unresolved *decision*: the operator answered, and the
+  # answer stopped being true.
+  #
+  # Missing files make every other answer moot, and are the same kind of fact,
+  # about the world rather than the draft.
+  #
   # Only where something is still being decided. An imported item is not
-  # importing, so "this can't be imported" is not a fact about it — and for a
-  # `move` placement its source is gone *because the import took it*, which
-  # is the design working rather than a fault to paint red.
+  # importing, and for a `move` placement its source is gone *because the
+  # import took it*.
   @doc """
   Whether this item's files have gone away since it was found.
   """
@@ -1478,8 +1359,8 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
 
   Read at render rather than stored, because it is a fact about the disk
   right now: a library copy hardlinked from a torrent that has since been
-  removed is down to one name, and the draft was written before that
-  happened. See `Ambry.Media.only_copy?/1` for why the link count is the
+  removed is down to one name, and the draft was written before that could
+  happen. See `Ambry.Media.only_copy?/1` for why the link count is the
   test and not the policy the import remembered.
   """
   def only_copy?(nil), do: false

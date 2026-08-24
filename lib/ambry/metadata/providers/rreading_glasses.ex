@@ -2,25 +2,23 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
   @moduledoc """
   Work-level metadata provider backed by a rreading-glasses server.
 
-  rreading-glasses (github.com/blampe/rreading-glasses) serves
-  Goodreads-quality work/edition/author/series data over a clean JSON API
-  (originally the Readarr metadata contract). The default configuration
-  points at the public instance (`api.bookinfo.pro`); operators can point
-  the base URL at a self-hosted instance instead.
+  Serves Goodreads-quality work/edition/author/series data over a JSON API.
+  The default configuration points at the public instance; operators can
+  point the base URL at a self-hosted one.
 
-  API notes (verified against the public instance, 2026-08-01):
+  API notes:
 
-    * `GET /search?q=` returns skinny results (`bookId`/`workId`/author id)
-      which are hydrated in one round-trip via `GET /book/bulk?id=…&id=…`
-      (book ids, repeated params). The swagger spec's `GET /bulk` is stale —
-      the real route is `/book/bulk`.
-    * `GET /work/{id}` returns a work with its editions (`Books`), series
-      (with per-work positions), and authors embedded.
-    * `GET /author/{id}` is a large payload (hundreds of KB) but fine for
-      interactive use; there is no author search endpoint, so author search
-      goes through book search and hydrates the distinct author ids.
-    * Edition ASINs are present on most editions — the bridge to
+    * `GET /search?q=` returns skinny results, hydrated in one round-trip via
+      `GET /book/bulk?id=…&id=…` (repeated params). The swagger spec's
+      `GET /bulk` is stale; the real route is `/book/bulk`.
+    * `GET /work/{id}` returns a work with its editions, series positions and
+      authors embedded.
+    * `GET /author/{id}` is a large payload but fine interactively. There is
+      no author search endpoint, so author search goes through book search and
+      hydrates the distinct author ids.
+    * Edition ASINs are present on most editions, which is the bridge to
       recording-level providers.
+
   """
 
   @behaviour Ambry.Metadata.Provider
@@ -116,10 +114,9 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
   defp base_url(config), do: config[:base_url] || "https://api.bookinfo.pro"
 
   # Search hits are book-relevance-ordered, so the first hit's author can be
-  # an editor/scholar of a work *about* the searched person. Hydrate the
-  # authors appearing most often across the hits, then present them ordered
-  # by name similarity to the query — searching "arthur conan doyle" should
-  # preselect Doyle, not the editor of an anthology that ranked first.
+  # the editor of a work *about* the searched person. Hydrate the authors
+  # appearing most often across the hits, then order by name similarity to
+  # the query.
   defp rank_by_frequency(author_ids) do
     frequencies = Enum.frequencies(author_ids)
 
@@ -138,12 +135,10 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
     )
   end
 
-  # Goodreads image URLs need two normalizations: photo-less people get a
-  # literal placeholder image (`…/nophoto/user/…`), which should read as
-  # "no image", and real photos arrive constrained by an Amazon-style size
-  # modifier (`…/999015._UY200_CR102,0,200,200_.jpg`) — stripping the
-  # modifier segment yields the full-size original (up to ~700px; that is
-  # all Goodreads stores) for the thumbnail pipeline.
+  # Two normalizations: a photo-less person gets a literal placeholder image
+  # (`…/nophoto/user/…`), which has to read as "no image", and a real photo
+  # arrives with an Amazon-style size modifier that has to be stripped to
+  # reach the original.
   defp full_size_image(nil), do: nil
 
   defp full_size_image(url) do
@@ -155,10 +150,9 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
   defp hydrate_books([], _config), do: {:ok, []}
 
   defp hydrate_books(book_ids, config) do
-    # Hand-built query string: the endpoint only honors repeated `id=`
-    # params (the swagger's csv form silently drops all but the first id),
-    # and Req's :params option collapses duplicate keys — so neither csv
-    # nor params-based encoding can express this request.
+    # Hand-built: the endpoint only honors repeated `id=` params (the csv
+    # form silently drops all but the first), and Req's `:params` collapses
+    # duplicate keys.
     path = "/book/bulk?" <> Enum.map_join(book_ids, "&", &"id=#{&1}")
 
     case Client.get_json(base_url(config), path, []) do
@@ -211,10 +205,8 @@ defmodule Ambry.Metadata.Providers.RreadingGlasses do
     }
   end
 
-  # Book.published means the work's ORIGINAL publication date, never a
-  # specific edition's. The work-level ReleaseDateRaw carries it (verified
-  # live 2026-08-02: The Hobbit 1937-09-21, The Martian 2011-09-27 self-pub
-  # vs its 2014 Crown edition, Eragon 2002-06-01 vs 2005 hits); when a work
+  # `Book.published` means the work's ORIGINAL publication date, never an
+  # edition's, and the work-level `ReleaseDateRaw` carries it. Where a work
   # lacks one, the earliest edition date is the closest safe approximation.
   defp work_published(work, editions) do
     published_date(work["ReleaseDateRaw"]) ||

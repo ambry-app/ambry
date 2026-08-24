@@ -6,11 +6,10 @@ defmodule Ambry.Inbox.ReleaseName do
   is common enough to matter: without it those items reach the operator with
   nothing to search on but a filename.
 
-  Release naming has no standard, so nothing here is trusted — the output is
-  a *hint* used to build a provider query and to prefill the inbox item, and
-  everything it produces is reviewed before it becomes a record. It's tuned
-  against a real 295-release downloads folder, and the shapes it handles are
-  the ones that actually occur there:
+  Release naming has no standard, so nothing here is trusted: the output is a
+  *hint* used to build a provider query and to prefill the inbox item, and
+  everything it produces is reviewed before it becomes a record. The shapes it
+  handles are the ones that actually occur in downloads folders:
 
       Cory Doctorow - The Bezzle [m4b]
       Dan Brown ~ [Robert Langdon 06] - The Secret of Secrets (M4b)
@@ -40,9 +39,8 @@ defmodule Ambry.Inbox.ReleaseName do
   # Quality/format noise that shows up in brackets and parens.
   #
   # `disc` and the bare small number are a pair: `noise?/1` splits a bracket
-  # on whitespace and requires *every* word to be noise, so "[Disc 1]" needs
-  # both halves listed. The bare number also finishes the job `cd\d*` only
-  # half did — it matched "CD1" but never "CD 1".
+  # on whitespace and requires every word to be noise, so "[Disc 1]" needs
+  # both halves listed, as does "CD 1".
   @noise ~r/^(m4b|mp3|m4a|flac|ogg|opus|aax|aaxc|unabridged|abridged|audiobook|
               retail|complete|chapterized|chaptered|dramatized|dramatised|graphicaudio|
               \d{4}|\d+\s*k(bps)?|\d+kb|v\d+|cd\d*|discs?\d*|web|h?\d{2,3}\.\d+|
@@ -82,11 +80,10 @@ defmodule Ambry.Inbox.ReleaseName do
   tags, mostly.
 
   Tag titles carry the same noise folder names do ("Children of Time
-  (Unabridged)", "Project Hail Mary [m4b]"), but unlike a zero-result search a
-  noisy one *succeeds*, with sub-par results — so the plainer-title retry that
-  rescues failed searches never fires. Parentheticals carrying real title
-  material ("(A Court of Thorns and Roses #2)") are kept, by the same noise
-  test the parser applies.
+  (Unabridged)"), and unlike a zero-result search a noisy one *succeeds* with
+  sub-par results, so the plainer-title retry never fires. Parentheticals
+  carrying real title material are kept, by the same noise test the parser
+  applies.
 
   Returns nil when nothing but noise remains, so callers fall back exactly as
   they would for a missing tag.
@@ -105,11 +102,10 @@ defmodule Ambry.Inbox.ReleaseName do
 
   def strip_noise(_other), do: nil
 
-  # "Part N of M" and its spellings — a release's place in a part set
-  # (GraphicAudio's shape), stated in the file name or a tag title's tail.
-  # Sanity-gated: the numbers must read as a position in a set, or "2 of
-  # Swords" and "1 of 1000" become parts. The bare trailing form gets the
-  # tighter cap — it has no "part" keyword vouching for it.
+  # "Part N of M" and its spellings: a release's place in a part set, stated
+  # in the file name or a tag title's tail. Sanity-gated, or "2 of Swords"
+  # and "1 of 1000" become parts. The bare trailing form gets the tighter cap,
+  # having no "part" keyword vouching for it.
   @part_explicit ~r/\b(?:part|pt\.?)\s*(\d{1,3})\s*(?:of|\/)\s*(\d{1,3})\b/i
   @part_paren ~r/\((\d{1,3})\s+of\s+(\d{1,3})\)/
   @part_trailing ~r/\b(\d{1,3})\s+of\s+(\d{1,3})\s*$/
@@ -131,9 +127,8 @@ defmodule Ambry.Inbox.ReleaseName do
     end
   end
 
-  # Tag titles carry the same phrase ("…A Court of Thorns and Roses 1 of 2"),
-  # and like the other noise it poisons the provider query while still
-  # returning *something*, so the zero-result retry never rescues it.
+  # Tag titles carry the same phrase, and like the other noise it poisons the
+  # provider query while still returning something.
   defp remove_part_phrase(title) do
     case extract_part(title) do
       {nil, _base} -> title
@@ -142,17 +137,15 @@ defmodule Ambry.Inbox.ReleaseName do
   end
 
   # Deliberately strict. "Disc 02" and "3 of 5" are parts; "Gwendy's Button
-  # Box 2" and "01 - The Restaurant at the End of the Universe" are their own
-  # books, and a looser pattern (anything ending in a number) would swallow
-  # them into one item.
+  # Box 2" is its own book, and a looser pattern would swallow it.
   @part_folder ~r/^(disc|cd|part|vol|volume)\s*\.?\s*\d+$|^\d+\s*of\s*\d+$|\((disc|cd|part)\s*\d+\)$/i
 
   @doc """
   Whether a folder name states nothing but a position in a set.
 
   Discovery reads it to decide that a folder of such subfolders is one
-  release rather than several, and an item named after one reads it to say
-  which release it belongs to — "1 of 5" alone names nothing.
+  release, and an item named after one reads it to say which release it
+  belongs to, since "1 of 5" alone names nothing.
   """
   def part_folder?(name) when is_binary(name),
     do: name |> String.trim() |> then(&Regex.match?(@part_folder, &1))
@@ -162,9 +155,8 @@ defmodule Ambry.Inbox.ReleaseName do
   @doc """
   The part-set position a name states, as `{number, total}`, or nil.
 
-  For provider record titles — Audible lists GraphicAudio parts as
-  "The Way of Kings (1 of 3)" — where the caller wants the fact without the
-  rest of the parse.
+  For provider record titles ("The Way of Kings (1 of 3)"), where the caller
+  wants the fact without the rest of the parse.
   """
   def part_of(name) when is_binary(name) do
     case extract_part(name) do
@@ -175,12 +167,11 @@ defmodule Ambry.Inbox.ReleaseName do
 
   def part_of(_other), do: nil
 
-  # Album tags carry shelf ordering the way folder names do: the operator's
-  # Mr. Mercedes is tagged "01 Mr. Mercedes" and Limitless "Limitless 01",
-  # and both sent the provider search into junk ("01 Mistrunner" led at
-  # 0.569, the right book absent). A leading track number mirrors the
-  # parser's rule; a trailing one only goes when zero-padded — "Limitless
-  # 01" is ordering, "Judicator Jane 4" and "Fahrenheit 451" are titles.
+  # Album tags carry shelf ordering the way folder names do ("01 Mr.
+  # Mercedes", "Limitless 01"), which sends the provider search into junk. A
+  # leading track number mirrors the parser's rule; a trailing one only goes
+  # when zero-padded, since "Judicator Jane 4" and "Fahrenheit 451" are
+  # titles.
   defp remove_sequence_numbers(title) do
     title
     |> String.replace(~r/^\d{1,3}[-.\s]+(?=\D)/, "")
@@ -188,21 +179,17 @@ defmodule Ambry.Inbox.ReleaseName do
   end
 
   # "Jurassic Park: A Novel" — a marketing subtitle that carries no
-  # information and sends provider search sideways: with it, neither
-  # provider returned the actual book (The Lost World and Jurassic Park III
-  # led instead), and because they returned *something*, the zero-result
-  # plainer-title retry never fired. Only these known pure-noise phrases go;
-  # a real subtitle disambiguates and stays.
+  # information and sends provider search sideways while still returning
+  # something, so the zero-result retry never fires. Only these known
+  # pure-noise phrases go; a real subtitle disambiguates and stays.
   @noise_subtitle ~r/\s*[:—-]\s+an?\s+(novel|memoir|thriller|mystery|novella)\s*$/i
 
   defp remove_noise_subtitle(title), do: Regex.replace(@noise_subtitle, title, "")
 
-  # "Kill Joy - A Good Girl's Guide to Murder Series, Book 0" — the series
-  # statement a tag title carries in its tail. Real information, which is why
-  # only the *query* loses it: the series parser reads its own fields off the
-  # unstripped title, and the verbatim tag stays on offer as a chip. As a
-  # title search it is poison — the catalogue title is "Kill Joy", and the
-  # whole string returns nothing from any provider.
+  # The series statement a tag title carries in its tail ("Kill Joy - A Good
+  # Girl's Guide to Murder Series, Book 0"). Real information, which is why
+  # only the query loses it: the series parser reads its own fields off the
+  # unstripped title. As a title search the whole string returns nothing.
   #
   # A separator has to introduce it, and the run before "Series" may not
   # cross another one, so a book actually called "The Series" keeps its name.
@@ -235,9 +222,9 @@ defmodule Ambry.Inbox.ReleaseName do
     if extension in @audio_extensions, do: Path.rootname(name), else: name
   end
 
-  # "(Read by Steven Briggs - Clear sound)" — a narrator credit hiding in the
-  # folder name, worth keeping and definitely worth removing before the rest
-  # of the parse sees that dash.
+  # A narrator credit hiding in the folder name ("(Read by … - Clear
+  # sound)"), worth keeping and worth removing before the rest of the parse
+  # sees that dash.
   defp extract_narrator(base) do
     case Regex.run(~r/\((?:read|narrated)\s+by\s+([^)\-]+)[^)]*\)/i, base) do
       [match, narrator] ->
@@ -366,9 +353,8 @@ defmodule Ambry.Inbox.ReleaseName do
         {String.trim(series), to_decimal(number)}
 
       nil ->
-        # "A Fearful Symmetry Destiny's Crucible, Book 8" — nothing marks
-        # where the title stops and the series starts, and guessing costs the
-        # title. Keep the number, leave the series for the operator.
+        # Nothing marks where the title stops and the series starts, and
+        # guessing costs the title. Keep the number, leave the series.
         case Regex.run(~r/,?\s+(?:book|bk\.?|vol\.?|volume)\s+(\d+(?:\.\d+)?)\s*$/i, title) do
           [_match, number] -> {nil, to_decimal(number)}
           nil -> series_from_hash(title)

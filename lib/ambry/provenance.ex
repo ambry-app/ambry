@@ -2,33 +2,24 @@ defmodule Ambry.Provenance do
   @moduledoc """
   Field-level metadata provenance and locks.
 
-  Every provider-fillable scalar field on a schema records where its current
-  value came from and whether it's locked against automated overwrite. The
-  provenance lives in a `field_provenance` jsonb map on the record itself,
-  keyed by field name:
+  Every provider-fillable scalar field records where its current value came
+  from and whether it is locked, in a `field_provenance` jsonb map keyed by
+  field name:
 
       %{"description" => %{"source" => "provider:audible", "locked" => false, "at" => "..."}}
 
-  Sources:
+    * `"manual"` — the operator typed it. Always locked.
+    * `"provider:<id>"` — an accepted suggestion. Unlocked, so a refresh may
+      update it: accepting is a choice of source, not curation of the value.
+    * `"legacy"` — no recorded origin. Locked.
 
-    * `"manual"` — the operator typed/edited the value. Always locked.
-    * `"provider:<id>"` — an accepted metadata-provider suggestion. Unlocked,
-      so future refresh may update it; accepting a suggestion is a choice of
-      source, not curation of the value itself.
-    * `"legacy"` — a value that predates provenance tracking (set by the
-      backfill migration, locked) or had no recorded origin when it was
-      first locked.
+  Locks gate **automated writers only**, which route through
+  `reject_locked/2`. Operator-driven forms may always write any field; what
+  varies is the provenance recorded, via `track_changes/3` and the per-field
+  source hints the form collected. A tracked change with no hint is manual.
 
-  Locks gate **automated writers only** (the future inbox approval and
-  background refresh — they must route their updates through
-  `reject_locked/2`). Operator-driven forms may always write any field; what
-  varies is the provenance they record: schemas call `track_changes/3` from
-  their changeset with the per-field source hints the form collected, and
-  any tracked change without a hint is a manual edit — locked.
-
-  Each schema owns its tracked-field list (its provider-fillable scalars)
-  and passes it in; structural associations are operator-owned by definition
-  and never carry provenance.
+  Each schema owns its tracked-field list. Structural associations are
+  operator-owned by definition and never carry provenance.
   """
 
   import Ecto.Changeset
@@ -57,13 +48,11 @@ defmodule Ambry.Provenance do
   @doc """
   Records provenance for the tracked fields a save touches.
 
-  `sources` maps field names (strings) to the source the pending value came
-  from (e.g. `"provider:audible"`): a hinted field records that source
-  unlocked — even when the accepted value happens to equal what was already
-  stored (the operator's acceptance is a statement about where the current
-  value comes from, and it's what lets refresh update the field later). A
-  changed field without a hint is a manual edit — recorded `"manual"` and
-  locked. Unchanged, unhinted fields keep whatever provenance they had.
+  `sources` maps field names to where the pending value came from. A hinted
+  field records that source unlocked, even where the accepted value equals
+  what was stored: the acceptance is a statement about where the value comes
+  from, and what lets a refresh update it later. A changed field with no hint
+  is manual and locked; unchanged, unhinted fields keep what they had.
   """
   @spec track_changes(Ecto.Changeset.t(), [atom()], %{String.t() => source()}) ::
           Ecto.Changeset.t()
@@ -112,11 +101,9 @@ defmodule Ambry.Provenance do
   @doc """
   Drops every locked field from a proposed attrs map (string or atom keys).
 
-  This is the gate all automated writers (inbox approval, background
-  refresh, auto-match) must route proposed updates through before calling a
-  context update function — it's what makes re-syncing facts safe for
-  curated records. Operator-driven forms do NOT use this; explicit operator
-  action may always write.
+  The gate every automated writer routes through before calling a context
+  update, which is what makes re-syncing facts safe for curated records.
+  Operator-driven forms do not use it: explicit action may always write.
   """
   @spec reject_locked(struct(), map()) :: map()
   def reject_locked(record, attrs) when is_map(attrs) do

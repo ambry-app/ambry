@@ -77,7 +77,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       refute has_element?(view, "[data-role='book-title']", book.title)
       assert has_element?(view, "[data-role='empty-message']")
-      assert render(view) =~ "Book deleted successfully"
+      assert render(view) =~ "Deleted #{book.title}."
     end
 
     test "cannot delete a book that has media", %{conn: conn} do
@@ -94,7 +94,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       # Book should still be visible
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert render(view) =~ "Can&#39;t delete book because it has audiobooks"
+      assert render(view) =~ "#{book.title} has audiobooks in the library."
     end
   end
 

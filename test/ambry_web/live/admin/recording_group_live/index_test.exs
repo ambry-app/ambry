@@ -81,7 +81,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.IndexTest do
 
       refute has_element?(view, "[data-role='group-name']", "Delete Me")
       assert has_element?(view, "[data-role='empty-message']", "No sets yet.")
-      assert render(view) =~ "Set deleted successfully"
+      assert render(view) =~ "Deleted Delete Me."
 
       reloaded = Media.get_media!(media.id)
       assert reloaded.recording_group_id == nil

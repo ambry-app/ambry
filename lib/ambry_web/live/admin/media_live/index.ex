@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   alias Ambry.Media.PubSub.MediaCreated
   alias Ambry.Media.PubSub.MediaDeleted
   alias Ambry.Media.PubSub.MediaUpdated
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :status,
@@ -100,13 +101,13 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
     )
   end
 
-  # The list it is already showing, re-queried. This used to go back out
-  # through `current_params/2`, which is a lossy round trip: a key it doesn't
-  # restate parses as `nil` and `Map.merge` lets that `nil` win. `problem` was
-  # restated after a search inside "Files couldn't be read" quietly widened to
-  # the whole library; `sort` never was, so any recording created, updated or
-  # deleted anywhere put the operator's sort back to the default underneath
-  # them, with the address bar still naming the sort they had picked.
+  # The list it is already showing, re-queried, never round-tripped through
+  # `current_params/2`: any key that trip does not restate parses as `nil` and
+  # `Map.merge` lets that `nil` win. A `problem` lost that way widens a search
+  # inside "Files couldn't be read" to the whole library, and a lost `sort`
+  # means any recording created, updated or deleted anywhere puts the
+  # operator's sort back to the default underneath them, with the address bar
+  # still naming the sort they picked.
   defp refresh_media(socket), do: load_media(socket, get_list_opts(socket))
 
   # Still a params round trip, because the search box legitimately *changes*
@@ -124,9 +125,9 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     media = Media.get_media!(id)
-    {:ok, _media} = Media.delete_media(media)
+    {:ok, message} = Deletion.outcome(Media.delete_media(media), media_display_title(media))
 
-    {:noreply, refresh_media(socket)}
+    {:noreply, socket |> refresh_media() |> put_flash(:info, message)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -151,7 +152,7 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_media(opts, default_sort) do
     filters =

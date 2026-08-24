@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   alias Ambry.Books.PubSub.BookCreated
   alias Ambry.Books.PubSub.BookDeleted
   alias Ambry.Books.PubSub.BookUpdated
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :title,
@@ -74,11 +75,11 @@ defmodule AmbryWeb.Admin.BookLive.Index do
     )
   end
 
-  # The list it is already showing, re-queried — not rebuilt out of string
-  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
-  # and nothing else, and since a missing `"sort"` parses as `nil` and
-  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
-  # operator's sort away and put the list back on the default — while the
+  # The list it is already showing, re-queried, never rebuilt out of string
+  # params. Handing `maybe_update_*` a map of `"filter"` and `"page"` and
+  # nothing else means a missing `"sort"` parses as `nil`, and since
+  # `Map.merge` lets that `nil` win, every PubSub event silently throws the
+  # operator's sort away and puts the list back on the default while the
   # address bar went on claiming the sort they had chosen.
   defp refresh_books(socket), do: load_books(socket, get_list_opts(socket))
 
@@ -86,20 +87,9 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     book = Books.get_book!(id)
 
-    case Books.delete_book(book) do
-      {:ok, _book} ->
-        {:noreply,
-         socket
-         |> refresh_books()
-         |> put_flash(:info, "Book deleted successfully")}
-
-      {:error, :has_media} ->
-        message = """
-        Can't delete book because it has audiobooks.
-        You must delete the audiobooks before you can delete this book.
-        """
-
-        {:noreply, put_flash(socket, :error, message)}
+    case Deletion.outcome(Books.delete_book(book), book.title) do
+      {:ok, message} -> {:noreply, socket |> refresh_books() |> put_flash(:info, message)}
+      {:error, message} -> {:noreply, put_flash(socket, :error, message)}
     end
   end
 
@@ -120,7 +110,7 @@ defmodule AmbryWeb.Admin.BookLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_books(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}

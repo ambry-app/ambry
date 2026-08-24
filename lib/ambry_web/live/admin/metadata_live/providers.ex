@@ -22,15 +22,14 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user} socket={@socket}>
-      <div class="max-w-4xl space-y-8">
-        <p class="text-zinc-400">
+      <div class="max-w-4xl space-y-14">
+        <p class="text-sm text-zinc-400">
           Priority sets the order providers appear in on import forms. Changes apply
           immediately.
         </p>
 
-        <section :for={{level, title, blurb} <- levels()}>
-          <h2 class="mb-1 text-lg font-bold">{title}</h2>
-          <p class="mb-4 text-sm text-zinc-400">{blurb}</p>
+        <.form_section :for={{level, title, blurb} <- levels()} title={title}>
+          <:blurb>{blurb}</:blurb>
 
           <div class="space-y-4">
             <div
@@ -38,8 +37,8 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
               class="rounded-lg bg-zinc-900 p-4"
             >
               <div class="flex items-center gap-3">
-                <span class={["inline-block h-2.5 w-2.5 rounded-full", (entry.enabled && "bg-lime-500") || "bg-zinc-600"]} />
-                <h3 class="grow font-semibold">{entry.display_name}</h3>
+                <.status_dot on={entry.enabled} />
+                <p class="grow text-sm font-semibold text-zinc-200">{entry.display_name}</p>
 
                 <%!-- The same stacked-chevron reorder control the form rows
                     wear (§6: one costume per job) — it was two square
@@ -154,7 +153,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
               </div>
             </div>
           </div>
-        </section>
+        </.form_section>
       </div>
     </.layout>
     """

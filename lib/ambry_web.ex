@@ -1,20 +1,15 @@
 defmodule AmbryWeb do
   @moduledoc """
-  The entrypoint for defining your web interface, such
-  as controllers, components, channels, and so on.
-
-  This can be used in your application as:
+  The entrypoint for defining the web interface: controllers, components,
+  channels and so on.
 
       use AmbryWeb, :controller
       use AmbryWeb, :html
 
-  The definitions below will be executed for every controller,
-  component, etc, so keep them short and clean, focused
-  on imports, uses and aliases.
+  The definitions below run for every controller and component, so keep them
+  to imports, uses and aliases. Define functions in their own modules and
+  import those here.
 
-  Do NOT define functions inside the quoted expressions
-  below. Instead, define additional modules and import
-  those modules here.
   """
   use Boundary,
     deps: [Ambry, AmbrySchema, AmbryScraping],
@@ -89,9 +84,8 @@ defmodule AmbryWeb do
   A LiveView mounted inside another one rather than by the router.
 
   No layout, because it renders into a hole in a page that already has one.
-  Its point is a lifecycle of its own: its timers, its state and its
-  re-renders belong to its own process, so a widget that polls does not
-  drag the page it sits on through a render every time it ticks.
+  The point is a lifecycle of its own, so a widget that polls does not drag
+  the page it sits on through a render on every tick.
   """
   def nested_live_view do
     quote do

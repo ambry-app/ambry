@@ -19,7 +19,7 @@
     <:row :let={user}>
       <.index_row navigate={~p"/admin/users/#{user}/playthroughs"}>
         <:cover>
-          <img class="h-16 w-16 rounded-full" src={gravatar_url(user.email)} alt="" />
+          <.row_cover src={gravatar_url(user.email)} shape={:face} />
         </:cover>
 
         <:headline>

@@ -90,9 +90,9 @@ defmodule AmbryWeb.Admin.ProvenanceHints do
   # untouched while something else becomes the answer.
   #
   # Only that hint. A cover taken from the file's own art watches
-  # `image_type` itself, so switching away from it is an edit like any other
-  # — and this rule, written when a URL was the only way a provider could
-  # give you a picture, used to throw that hint away the moment it was made.
+  # `image_type` itself, so switching away from it is an edit like any other.
+  # Watching the URL param alone would throw the hint away the moment it was
+  # made, because accepting a provider image sets `image_type` too.
   defp image_source_changed?(%{watch: "image_import_url"}, %{"image_type" => type}),
     do: type != "url_import"
 
