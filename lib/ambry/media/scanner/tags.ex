@@ -1,6 +1,6 @@
 defmodule Ambry.Media.Scanner.Tags do
   @moduledoc """
-  Embedded metadata read out of an audiobook file — the tags-first half of
+  Embedded metadata read out of an audiobook file: the tags-first half of
   discovery.
 
   Audiobook tagging is a set of conventions rather than a standard, and the
@@ -16,21 +16,16 @@ defmodule Ambry.Media.Scanner.Tags do
   | series number | `TXXX:SERIES-PART`, `MVIN` | freeform, `mvi` |
   | ASIN | `TXXX:ASIN` | `----:com.apple.iTunes:ASIN` |
 
-  The narrator-in-composer convention is what Audible and Libation-style rips
-  use, and it's the one genuinely load-bearing mapping here — it's the only
-  place a narrator credit appears in a file at all.
+  Narrator-in-composer is the one genuinely load-bearing mapping: it is the
+  only place a narrator credit appears in a file at all.
 
-  ffprobe surfaces both `TXXX:` frames and MP4 freeform atoms under their
-  bare names, which is why no tag library beyond it is needed (the open
-  question in the roadmap's 1b). Cover art arrives as an `attached_pic`
-  stream and is detected here; pulling the image out is
-  `ffmpeg -i <file> -an -c:v copy <out>.jpg` when something wants it.
+  ffprobe surfaces both `TXXX:` frames and MP4 freeform atoms under their bare
+  names, so no tag library beyond it is needed. Cover art arrives as an
+  `attached_pic` stream and is detected here; pulling the image out is
+  `ffmpeg -i <file> -an -c:v copy <out>.jpg`.
 
-  ## What this deliberately does not do
-
-  Nothing here is applied to anything. Providers and tags *propose*; the
-  operator owns structure (the roadmap's 1c non-goal). The consumer is 1g
-  auto-match, which turns these into pre-filled inbox items for confirmation.
+  Nothing here is applied to anything. Providers and tags propose; the
+  operator owns structure.
   """
 
   alias Ambry.Media.Scanner.Tags
@@ -85,11 +80,10 @@ defmodule Ambry.Media.Scanner.Tags do
   The string-keyed form, for callers that store or render tags rather than
   match on them.
 
-  One normalization with two consumers: the inbox writes it onto an item as
-  what the file said, and the edit forms turn it into a record the evidence
-  panel can propose from. `published` becomes an ISO8601 string and
-  `series_number` a plain string, because both are headed for JSON and for
-  form params.
+  One normalization with two consumers: the inbox writes it onto an item, and
+  the edit forms turn it into a record the evidence panel proposes from.
+  `published` and `series_number` become strings, headed for JSON and form
+  params.
   """
   def to_map(%Tags{} = tags) do
     %{
@@ -111,14 +105,12 @@ defmodule Ambry.Media.Scanner.Tags do
   end
 
   # Which of `album` and `title` holds the book depends on how many files
-  # there are, and getting it backwards is expensive: it's the search query.
+  # there are, and getting it backwards costs the search query.
   #
-  # The convention is album = book, title = this file's chapter — true for a
-  # folder of mp3s. But a single-file recording has no chapter to name, and
-  # measured across a real library `title` was the better book title in 11 of
-  # the 12 cases where the two differed ("Interdependency Book 1" vs "The
-  # Collapsing Empire"; "01 Electric Angel" vs "Electric Angel"): taggers put
-  # series and track numbers in `album`.
+  # The convention is album = book, title = this file's chapter, which holds
+  # for a folder of mp3s. A single-file recording has no chapter to name, and
+  # where the two differ `title` is nearly always the better book title,
+  # because taggers put series and track numbers in `album`.
   defp book_title(tags, opts) do
     if Keyword.get(opts, :single_file, false) do
       get(tags, ~w(title album))
@@ -167,26 +159,18 @@ defmodule Ambry.Media.Scanner.Tags do
 
   # Multi-value tags are a single string with no agreed separator. Splitting
   # can be wrong ("Sanderson, Brandon" is one person), which is fine here:
-  # these are proposals, the operator confirms them, and `raw` keeps the
-  # original string for a consumer that wants to try a whole-string match
-  # first.
+  # these are proposals, and `raw` keeps the original string for a consumer
+  # that wants to try a whole-string match first.
   #
-  # **The slash is a separator too**, and leaving it out was expensive out of
-  # all proportion to how rare it is. Measured across all 295 releases of the
-  # operator's library: 4 credit values carry a slash, in 3 releases, and it
-  # is the ONLY separator character in the whole library this doesn't handle
-  # (no `|`, `+`, `·`, `•` anywhere). A person whose name contains a slash
-  # does not appear at all.
+  # The slash is a separator too, rare but expensive to omit: no single name
+  # is 0.85-similar to two names glued together, so an unsplit
+  # `composer=A/B` fails `apply_narrator/3` against every correct candidate
+  # and takes the decisive mismatch penalty meant for the wrong reader's
+  # edition. Nothing then scores well enough to adopt, and the fallback
+  # writes the joined string into the library as one person's name.
   #
-  # What one unsplit value cost, on "This Is How You Lose the Time War"
-  # (`composer=Cynthia Farrell/Emily Woo Zeller`): the recording search
-  # carried the joined string as a query token; every correct candidate —
-  # Audible's and Hardcover's, all of which listed the two readers properly —
-  # then failed `apply_narrator/3`, because no single name is 0.85-similar to
-  # both names glued together, and took the decisive `@narrator_mismatch`
-  # penalty meant for *the wrong reader's edition*. Four right answers at
-  # 0.50, nothing confident enough to adopt, and the fallback wrote the
-  # joined string into the library as one person's name.
+  # It is also the only separator character that turns up in practice, and a
+  # person whose name contains one does not appear at all.
   @separators ~r{\s*[;,&/]\s*|\s+(?:and|feat\.?|with)\s+}i
 
   defp get_list(tags, keys) do

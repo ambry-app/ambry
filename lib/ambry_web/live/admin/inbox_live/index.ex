@@ -2,9 +2,6 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @moduledoc """
   The curation queue: what discovery found, what it is, and what it claims
   about itself.
-
-  Deliberately plain — the inbox is the surface the admin redesign will be
-  built around, so this is the least that makes the workflow usable.
   """
 
   use AmbryWeb, :admin_live_view
@@ -66,8 +63,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   end
 
   # Nothing in the library moves. The flash says so, because "re-open" beside
-  # a row that is wearing an audiobook could otherwise read as undoing the
-  # import rather than reopening the paperwork.
+  # a row wearing an audiobook could read as undoing the import.
   def handle_event("reopen", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
@@ -84,10 +80,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
-  # Queued, not run here. Importing re-probes every file and then copies every
-  # byte, and doing that inside `handle_event` blocked the whole LiveView —
-  # the queue froze for the length of a NAS copy, with no sign the click had
-  # landed. The row wears the busy overlay instead, same as any other job.
+  # Queued, not run here: importing re-probes every file and then copies
+  # every byte, which inside `handle_event` would freeze the whole LiveView
+  # for the length of the copy. The row wears the busy overlay instead.
   def handle_event("import", %{"id" => id}, socket) do
     item = Inbox.get_item!(id)
 
@@ -103,8 +98,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
         {:noreply, socket |> put_flash(:info, message) |> reload()}
 
       # The queue can refuse, but it can't ask: weighing "is this the same
-      # book" needs the records side by side, and the answer to it ("link
-      # that one instead") can only be given on the form.
+      # book" needs the records side by side, which only the form has.
       {:error, {:collisions, _findings} = reason} ->
         {:noreply, put_flash(socket, :error, Inbox.describe_error(reason))}
 
@@ -113,10 +107,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     end
   end
 
-  # Reports what actually happened. Oban answers a uniqueness conflict with
-  # `{:ok, %{job | conflict?: true}}` — an insert that looks successful and
-  # discards the job — so the old handlers matched `{:ok, _job}` and flashed
-  # success for work that was never queued.
+  # Oban answers a uniqueness conflict with an insert that looks successful
+  # and discards the job, so a bare `{:ok, _job}` would flash success for work
+  # that was never queued.
   def handle_event("rescan", %{"id" => id}, socket) do
     id
     |> Inbox.get_item!()
@@ -130,10 +123,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
         # Reload, or the row the operator just handed to a job keeps looking
         # idle: the overlay is driven by `@progress`, which is only read when
-        # the page loads. Nothing else re-read it here, so the cover appeared
-        # on the next refresh — after the slow part was over — and in the
-        # meantime the row invited clicks on work that was already gone. This
-        # also starts the tick that takes the cover back off.
+        # the page loads. This also starts the tick that takes the cover off.
         {:noreply, socket |> put_flash(:info, message) |> reload()}
 
       # The button is gone from imported rows; this catches a stale tab.
@@ -179,9 +169,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
       has_next: has_more?,
       has_prev: list_opts.page > 1,
       page_info: page_info(list_opts, length(items), Inbox.count_items(query)),
-      # Built from the full query, not the shared filter+page helpers —
-      # those drop the status, so paging out of "Imported" silently landed
-      # back on the default view.
+      # Built from the full query, not the shared filter+page helpers, which
+      # drop the status and page out of the tab the operator is on.
       next_page_path: ~p"/admin/inbox?#{page_query(list_opts, status, list_opts.page + 1)}",
       prev_page_path:
         ~p"/admin/inbox?#{page_query(list_opts, status, max(list_opts.page - 1, 1))}"
@@ -221,8 +210,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   def busy?(status), do: Inbox.busy?(status)
 
   # What the row's background work is doing. `:done` and `:issue` say nothing
-  # here — the row already shows its matches or its issue, and repeating
-  # "done" on every settled row is noise that hides the rows that aren't.
+  # here: the row already shows its matches or its issue.
   defp progress_label(:importing), do: "Adding to the library…"
   defp progress_label(:working), do: "Working on it…"
   defp progress_label(:retrying), do: "A provider couldn't be reached. Waiting to try again."
@@ -236,8 +224,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp progress_label(_settled), do: nil
 
   # Blank values are dropped rather than passed as nil: the shared pagination
-  # helpers read params with `Map.get(params, "filter", "")`, which only
-  # defaults on a *missing* key, so an explicit nil would crash on trim.
+  # helpers default only on a missing key, so a nil would crash on trim.
   defp patch(socket, overrides) do
     %{
       "filter" => Keyword.get(overrides, :filter, socket.assigns.list_opts.filter),
@@ -254,10 +241,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @doc """
   The list state, as the params that reproduce it.
 
-  Carried into the form so every way back out of it — imported, ignored, or
-  the plain Back button — returns to the tab and page the operator was on.
-  Landing them on an unfiltered page one after an import is how "where did my
-  queue go" happens.
+  Carried into the form so every way back out of it returns to the tab and
+  page the operator was on.
 
   The status is stated even when it is "all", because this queue's default tab
   is not its unfiltered one.
@@ -269,11 +254,9 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
     query(list_opts, %{"page" => page, "status" => to_string(status || "all")})
   end
 
-  # The overview counts queue items carrying an issue, and a count the
-  # operator can't open is half an answer — so it links here naming the
-  # trouble, exactly as the audiobooks list does. An issue is not a status:
-  # it cuts across the three buckets (see `Inbox.queue_summary/0`), so it
-  # narrows the tab the operator is on rather than replacing it.
+  # The overview's issue count links here naming the trouble. An issue is not
+  # a status: it cuts across the three buckets (see `Inbox.queue_summary/0`),
+  # so it narrows the tab the operator is on rather than replacing it.
   @problems %{
     "issue" => %{
       words: "Queue items with an issue",
@@ -306,8 +289,7 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   defp parse_status(_anything), do: :pending
 
   # The segmented filter: the active segment reads as a raised tab, the rest
-  # recede. Spans rather than buttons so the existing test selectors (and the
-  # click affordance pattern used across this page) stay put.
+  # recede.
   defp segment_class(active?) do
     [
       "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 font-semibold",
@@ -338,9 +320,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @doc """
   Whether the matcher found a recording the operator is waiting for.
 
-  Read off the item's own proposals rather than asked again per row:
-  `AutoMatch` marked them while it was ranking them, so this reports what the
-  matcher already decided instead of forming a second opinion at render time.
+  Read off the item's own proposals rather than asked again per row, so this
+  reports what the matcher decided rather than a second opinion.
   """
   def wanted?(%InboxItem{matches: %{"recording" => %{"candidates" => candidates}}})
       when is_list(candidates) do
@@ -353,23 +334,16 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   The row's state badge: what this item is, in the words that vary from row to
   row.
 
-  One badge, not two. A pending row used to wear its status *and* its
-  readiness, but inside the Pending tab "pending" is the tab's own word
-  repeated on every row — it never told two rows apart. What does is how much
-  the row still owes, which is what a settled row's "ready" already said and
-  what an outstanding one now says with a number.
+  Inside the Pending tab a row's status is the tab's own word repeated on
+  every row, which never tells two rows apart. What does is how much the row
+  still owes.
 
   A draft that doesn't exist yet is not a pile of decisions to work through;
-  it is one nobody has asked. Counting it as one decision would send the
-  operator to a form with nothing on it, so it says what is actually true and
-  the card's progress line says what to do about it.
+  it is one nobody has asked, so it says that instead of counting as one.
 
-  **One *state* badge, still.** `wanted?/1` can put a second badge beside this
-  one, and it does not reopen the argument this settled: the objection was to
-  a badge that read the same on every row in the tab, and a watched recording
-  is the rarest thing the queue ever has to say. It is also not a state — the
-  row can be in any of them and still be the one the operator went looking
-  for.
+  One *state* badge: `wanted?/1` can put a second beside it, which is not a
+  state — the row can be in any of them and still be the one the operator
+  went looking for.
   """
   def state_words(%InboxItem{status: :pending, ready: true}), do: {"ready", :brand}
   def state_words(%InboxItem{status: :pending, draft: nil}), do: {"not prepared", :yellow}
@@ -395,10 +369,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   Whether that is worth the row's one badge.
 
   Only where it changes what can be done. A pending item's files going away
-  is what stops it being imported, and it outranks whatever the row still
-  owes — the decisions stop mattering when there is nothing to make them
-  about. An ignored item was never going to be imported, so the same fact
-  says nothing and would cost the row the one word that does.
+  outranks whatever it still owes; an ignored item was never going to be
+  imported, so the same fact says nothing.
   """
   def missing_blocks?(%InboxItem{status: :pending} = item), do: missing?(item)
   def missing_blocks?(%InboxItem{}), do: false
@@ -406,9 +378,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @doc """
   Whether an imported item can go back into the queue.
 
-  The files it would be worked on again have to still be there. A `move`
-  placement consumed its source at import time, so those never can, and that
-  is the right answer rather than a gap.
+  The files it would be worked on again have to still be there, so a `move`
+  placement can never be re-opened.
   """
   def reopenable?(%InboxItem{status: :imported} = item), do: Inbox.item_files_present?(item)
   def reopenable?(%InboxItem{}), do: false
@@ -416,8 +387,8 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @doc """
   What the Import button promises, or why it won't.
 
-  A disabled control that doesn't say what is missing is just a dead button;
-  the count comes from the same `Draft.unresolved/1` the form lists in full.
+  The count comes from the same `Draft.unresolved/1` the form lists in
+  full.
   """
   # Nothing else on the row can be the reason: an item whose files are gone
   # has nothing to import whatever its decisions say.
@@ -441,16 +412,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   Whether this item replaces an audiobook the library already has.
 
   The queue's Import is the one control that acts without the form being
-  opened, so it has to name what it will do: a replacement takes an
-  audiobook's files away and puts these in their place. What that costs — the
-  existing files, unless they are a known hardlink — is a question about the
-  disk, and it stays on the form where it can be answered.
+  opened, so it has to name what it will do. What a replacement costs is a
+  question about the disk, and it stays on the form.
   """
   def replacing?(%InboxItem{draft: draft}), do: Replacement.replacing?(draft && draft.replacement)
 
-  # The card's left edge carries the item's state — a 4px rail reads from
-  # across the room and renders crisp at any DPI, unlike hairline borders.
-  # Amber = needs the operator, lime = ready/done, dim = out of the queue.
+  # The card's left edge carries the item's state: amber needs the operator,
+  # lime is ready or done, dim is out of the queue.
   defp rail_class(%{status: :pending, ready: true}), do: "border-l-4 border-brand-dark"
   defp rail_class(%{status: :pending}), do: "border-l-4 border-amber-400"
   defp rail_class(%{status: :imported}), do: "border-brand-dark/40 border-l-4"
@@ -503,14 +471,13 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   @doc """
   The proposed work and recording, each with how sure the match is.
 
-  Both are shown even when one is missing: knowing that nothing matched at
-  the recording level is itself the useful thing.
+  Both are shown even when one is missing: nothing matching at the recording
+  level is itself the useful thing.
   """
   def match_summary(%InboxItem{matches: matches} = item) when is_map(matches) do
     Enum.map(["work", "recording"], fn level ->
-      # `|| []` on both lines: a level present without candidates used to
-      # crash `List.first/1` here, taking the whole page down over one
-      # malformed row, while the line below already guarded for it.
+      # `|| []` on both lines: a level present without candidates would take
+      # the whole page down over one malformed row.
       candidates = get_in(matches, [level, "candidates"]) || []
 
       %{
@@ -526,14 +493,11 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
 
   def match_summary(_item), do: []
 
-  # The draft is the live truth: its tier moves when the operator decides,
-  # where `matches[level]["confidence"]` was frozen at match time — so the
-  # queue used to keep calling an item "unsure" after a human had settled it,
-  # and could disagree with the form after a background re-match. The
+  # The draft is the live truth: `matches[level]["confidence"]` was frozen at
+  # match time and keeps calling an item unsure after a human settled it. The
   # fallback covers the moment between matching and the draft existing.
   #
-  # One vocabulary with the form, or the two drift: the queue says what the
-  # form's rail says, in the same four words.
+  # One vocabulary with the form, or the two drift.
   defp level_tier(%InboxItem{draft: %Draft{work: %{} = work}}, "work"), do: Tier.of(work)
 
   defp level_tier(%InboxItem{draft: %Draft{recording: %{} = recording}}, "recording"),
@@ -568,15 +532,12 @@ defmodule AmbryWeb.Admin.InboxLive.Index do
   When the operator imported this item.
 
   `updated_at` is the moment the status changed, and nothing writes to an
-  item afterwards — a scan skips imported items outright, and every write
-  path refuses one. It is already what the imported tab sorts by.
+  imported item afterwards.
   """
   def imported_at(%InboxItem{updated_at: at}), do: at
 
-  # The library's own state, which only an imported row can have: the badges
-  # the audiobooks list wears, in the same colors, on the cover it belongs to.
-  # `:ready` renders nothing — every audiobook is meant to be ready, so saying
-  # it on all of them hides the ones that aren't.
+  # The library's own state, which only an imported row can have. `:ready`
+  # renders nothing: every audiobook is meant to be ready.
   defp library_status_color(:pending), do: :yellow
   defp library_status_color(:processing), do: :blue
   defp library_status_color(:error), do: :red

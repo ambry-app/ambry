@@ -14,10 +14,8 @@ defmodule AmbryWeb.Admin.Components do
   attr :user, User, required: true
   attr :title, :string, required: true
   # The header hosts a nested LiveView, which needs the parent socket to
-  # mount into. Required rather than defaulted: a default would answer "a
-  # new admin page forgot it" by silently dropping the indicator from that
-  # one page, which is the failure mode this project keeps paying for.
-  # Required makes it a compile warning, and CI treats warnings as errors.
+  # mount into. Required rather than defaulted, so a page that forgets it is
+  # a compile warning rather than a page silently missing the indicator.
   attr :socket, Phoenix.LiveView.Socket, required: true
 
   slot :inner_block, required: true
@@ -30,34 +28,24 @@ defmodule AmbryWeb.Admin.Components do
         {render_slot(@subheader)}
       </.layout_header>
 
-      <%!-- `#main-content` keeps its id and its `p-4` — the sticky-footer hook
-            and §3's sticky-bar arithmetic both name it — but it is no longer a
-            scrollport. It was `overflow-y-auto` inside an `h-screen` shell,
-            and that one declaration is why nothing in the admin could remember
-            a scroll position: LiveView's restoration reads and writes
-            `window.scrollY` and nothing else.
+      <%!-- The document is the scrollport, not this element: LiveView
+            restores `window.scrollY` and nothing else, so an
+            `overflow-y-auto` here would cost the admin its scroll position on
+            every navigation. The id and the `p-4` stay, because the
+            sticky-footer hook and §3's arithmetic both name them.
 
-            It carries no horizontal overflow guard, and that is deliberate.
-            `overflow-x-hidden` can't come back — `hidden` on one axis forces
-            the other to `auto`, which would quietly make this a scrollport
-            again and re-break every sticky box inside it — and `overflow-x:
-            clip` would put an untested clipping ancestor between every sticky
-            bar in the admin and the viewport it is positioned against, to
-            defend against a stray wide child that may not exist. §3's
-            `min-w-0` rule is where that defect actually gets fixed; a
-            horizontal scrollbar is the signal to go and apply it, which is
-            exactly what the old guard was suppressing. --%>
+            No horizontal overflow guard, deliberately: `hidden` forces the
+            other axis to `auto` and makes this a scrollport again, and `clip`
+            puts a clipping ancestor between every sticky bar and the
+            viewport. A horizontal scrollbar is the signal to apply §3's
+            `min-w-0` rule to whatever is wide. --%>
       <main id="main-content" class="p-4">
         {render_slot(@inner_block)}
       </main>
 
-      <%!-- The image lightbox — tiny previews and chips are for telling
-          records apart, and sometimes that takes the full-size art. Opened
-          by any [data-zoomable] magnifier (see app.js); click or Escape
-          closes. phx-update="ignore": it's pure client state.
-
-          Near the top of the ladder on layout_header/1: it opens from inside
-          content that a modal may itself be covering. --%>
+      <%!-- Telling two records apart sometimes takes the full-size art.
+          Opened by any [data-zoomable] magnifier (see app.js);
+          `phx-update="ignore"` because it is pure client state. --%>
       <div
         id="image-lightbox"
         phx-update="ignore"
@@ -75,11 +63,10 @@ defmodule AmbryWeb.Admin.Components do
 
   slot :inner_block, required: true
 
-  # **The z-index ladder for the whole admin.** One list, here, because content
-  # scrolls *under* the chrome now instead of sitting in a box below it, and
-  # almost all of this shares the root stacking context: an `index_row` is
-  # `relative` with no z-index of its own, so its layers are not scoped to the
-  # card and compete directly with the page's chrome.
+  # **The z-index ladder for the whole admin.** One list, here, because
+  # content scrolls under the chrome and almost all of this shares the root
+  # stacking context: an `index_row` is `relative` with no z-index of its own,
+  # so its layers compete directly with the page's chrome.
   #
   #   10   the clickable layer inside a card (a row's action rail)
   #   20   a busy scrim over a single card
@@ -96,12 +83,11 @@ defmodule AmbryWeb.Admin.Components do
   #   90   the image lightbox, which opens from inside a modal's content
   #   100  flash toasts, which are the one thing that outranks everything
   #
-  # Gaps in the tens are deliberate: the ladder has been renumbered twice in
-  # one branch already, and each of those was a value that had nowhere to go.
+  # Gaps in the tens are deliberate: a new layer needs somewhere to go.
   #
-  # A tie is not a tie — equal z-index falls back to DOM order, and page
-  # content always comes after the header. So anything that must stay above
-  # the page needs a strictly greater number, not an equal one.
+  # A tie is not a tie: equal z-index falls back to DOM order, and page
+  # content always comes after the header, so anything that must stay above
+  # the page needs a strictly greater number.
   defp layout_header(assigns) do
     ~H"""
     <header
@@ -120,10 +106,9 @@ defmodule AmbryWeb.Admin.Components do
         <div class="grow overflow-hidden text-ellipsis whitespace-nowrap pl-0 text-2xl font-bold text-zinc-100 sm:pl-4 lg:pl-0">
           {@title}
         </div>
-        <%!-- A LiveView of its own, not a component: it polls, and a poll
-              that lives on the page's socket makes the page re-render every
-              tick. Sticky so a live navigation doesn't tear it down and
-              rebuild it, which would blink the spinner off mid-job. --%>
+        <%!-- A LiveView of its own, not a component: it polls, and a poll on
+              the page's socket makes the page re-render every tick. Sticky so
+              a live navigation doesn't blink the spinner off mid-job. --%>
         {live_render(@socket, AmbryWeb.Admin.JobIndicatorLive,
           id: "admin-job-indicator",
           sticky: true
@@ -156,27 +141,22 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   The header's controls: how you narrow a list, and how you add to it.
 
-  Paging used to live here too, as two bare chevrons in the top right corner.
-  That put the control for moving through a list as far from the list as the
-  page allows, gave no page number and no total, and — because the header
-  doesn't move — meant a "next page" click left the scroll where it was, so
-  the operator arrived looking at the *bottom* of the page they just asked
-  for. It is `pagination_footer/1` now, under the last row.
+  Moving *through* a list is `pagination_footer/1`, under the last row: the
+  header does not move, so a "next page" up here would land the operator at
+  the bottom of the page they just asked for.
   """
   def list_controls(assigns) do
     ~H"""
     <div class="flex items-end gap-4">
       <%!-- The attr is optional, so the form has to be too: a short list
-            that is never searched (what you are waiting for) still wants the
-            New button, and the grow div stays either way so the button keeps
-            its corner. --%>
+            that is never searched still wants the New button, and the grow
+            div stays either way so the button keeps its corner. --%>
       <div class="grow">
         <.admin_table_search_form :if={@search_form} search_form={@search_form} />
       </div>
       <%!-- A list page's one constructive action, so it wears §6's primary
-            costume — the same solid button the inbox's "Scan for new" has
-            always had in this exact slot. It was a lime text link everywhere
-            else, which read as navigation rather than the page's point. --%>
+            costume: a text link in this slot reads as navigation rather than
+            as the thing the page is for. --%>
       <div :if={@new_path}>
         <.button navigate={@new_path}>
           <.icon name="fa-plus" class="mr-2 h-4 w-4 text-current" />{@new_text}
@@ -242,10 +222,9 @@ defmodule AmbryWeb.Admin.Components do
           name="fa-magnifying-glass"
           class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500"
         />
-        <%!-- The app-standard fill, like every other control. It used to wear
-              a 1px border and its own two-step lime focus ring — the one
-              control on a list page, looking unlike every control on the page
-              it leads to. --%>
+        <%!-- The app-standard fill, like every other control: the one input
+              on a list page should not look unlike every input on the page it
+              leads to. --%>
         <input
           id={@search_form.id}
           type="search"
@@ -268,23 +247,9 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Where a list says how far through it you are, and moves you.
 
-  The list's own footer, sticky, in `form_footer/1`'s costume — because it is
-  the same object doing the same job. Paging belongs to the list, so it sits
-  at the list's end rather than in a corner of the header, where two bare
-  chevrons used to sit as far from the rows as the page allows. But a page is
-  50 rows, which is two or three screens, so a bar purely *in* the flow would
-  trade one kind of "far away" for another: reaching page 3 from the top of
-  the list would mean scrolling to the bottom first, to find a control that
-  used to be one click away.
-
-  Sticky answers both. It rides the bottom of the window while there are rows
-  below it, and settles into place at the end of the scroll — and the
-  sticky-footer hook takes off its shadow and rounds its bottom corners when
-  the page has nothing to scroll, so a single-page list gets an ordinary card
-  rather than a slab promising an edge that isn't there.
-
-  It carries the numbers the chevrons never had: which rows these are, how
-  many there are, and which page of how many.
+  In `form_footer/1`'s costume, because it is the same object doing the same
+  job. Sticky rather than merely in the flow, since a page is two or three
+  screens.
   """
   def pagination_footer(assigns) do
     ~H"""
@@ -330,10 +295,9 @@ defmodule AmbryWeb.Admin.Components do
   attr :trailing, :boolean, default: false, doc: "put the glyph after the word"
   slot :inner_block, required: true
 
-  # Worded, like every other action in this admin (§3a): two bare chevrons in
-  # a corner were the only control on a list page that made you know what a
-  # glyph meant. An unavailable step is present and dead rather than absent,
-  # so the bar keeps its shape at both ends of the list.
+  # Worded, like every other action in this admin (§3a). An unavailable step
+  # is present and dead rather than absent, so the bar keeps its shape at
+  # both ends of the list.
   defp pagination_step(assigns) do
     ~H"""
     <%= if @active do %>
@@ -357,12 +321,7 @@ defmodule AmbryWeb.Admin.Components do
 
   @doc """
   The shell a list page's rows sit in: the spacing, and what an empty list
-  says.
-
-  The rows themselves are `index_row/1`. This used to own their geometry too,
-  through a `:row` slot and a `row_click` callback, which meant every surface
-  hand-built its own anatomy inside one anonymous slot — and ten of them
-  drifted apart doing it.
+  says. A row's anatomy is `index_row/1`.
   """
   attr :id, :string, default: "list", doc: "the list-scroll-reset hook needs one"
   attr :rows, :list, required: true
@@ -410,45 +369,26 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   One row of a list page, in the one anatomy they all share.
 
-  **The whole card is the link.** The headline is a real `<a>` whose `::after`
-  covers the card, which is the only way to get both halves of what the two
-  older idioms each had half of: the library lists made the whole row
-  clickable with `JS.navigate` on the div (a big target, but not a link — no
-  focus, no middle click, no open-in-new-tab), and the inbox linked only its
-  title (a real link, a 200px target). It also fixes a defect neither idiom
-  could see: LiveView dispatches a click to the *closest* `phx-click`
-  ancestor, so an `<a>` nested inside a `JS.navigate` row fired the anchor
-  **and** the row, which on the users list meant clicking Devices also
-  navigated to Playthroughs.
+  **The whole card is the link, and it is a real one.** The headline is an
+  `<a>` whose `::after` covers the card: a card-sized target that still takes
+  focus, a middle click and open-in-new-tab.
 
-  Everything the operator can click therefore sits in a `z-10` layer above
-  that pseudo-element; the busy overlay is `z-20` and covers both.
+  Everything clickable sits in a `z-10` layer above that pseudo-element; the
+  busy overlay is `z-20` and covers both.
 
-  The slots are the anatomy, and each has exactly one home:
+  Each slot has exactly one home:
 
-    * `:cover` — a 64px image, at the card's left edge (§3: an image is
-      content, so it sits on the rail like the words beside it).
+    * `:cover` — `row_cover/1`, at the card's left edge.
     * `:headline` — the title. Always the link, always `font-semibold`.
-    * `:inner_block` — the credit stack and meta lines under the headline.
-    * `:badges` — state, at the top of the right rail, on the headline's
-      baseline. Not under the cover: one home per kind of thing, and the
-      media list was the only surface that put them there.
-    * `:facts` — the glyph-and-count strip. It used to be its own
-      `hidden sm:flex` column, which didn't fold on a phone, it *vanished*.
-    * `:action` — one entry per verb, worded. Never icon-only: §6's exception
-      for that was written for a five-verb media row whose verbs have all
-      since moved onto the form.
-    * `:footer` — **system timestamps only** (added, imported, joined, last
-      seen). A publication date and a duration are facts about the work, not
-      a record of something the app did, and reading them in the column that
-      says "Added 8/17/26" made them look like both.
+    * `:inner_block` — the credit stack and meta lines.
+    * `:badges` — state, top of the right rail, on the headline's baseline.
+    * `:facts` — the glyph-and-count strip, folding into the card on a phone.
+    * `:action` — one entry per verb, worded, never icon-only.
+    * `:footer` — **system timestamps only**. A publication date and a
+      duration are facts about the work, so they go on the meta line.
 
-  **The rail is 224px, which is two buttons wide, and actions wrap.** Four
-  buttons stacked one per line is tall and ragged; two rows of two is neither.
-  So the rail is sized to the pair rather than the label, and the constraint
-  that falls out is on the *labels*: keep them short enough that two fit
-  ("Origin", not "Import record"). One slot entry per verb is what keeps them
-  all in one costume.
+  **The rail is 224px, two buttons wide, and actions wrap** into two rows of
+  two. The constraint falls on the labels: short enough that two fit.
   """
   attr :record_id, :any,
     default: nil,
@@ -513,8 +453,7 @@ defmodule AmbryWeb.Admin.Components do
         <p :if={@headline != []} class="overflow-hidden text-ellipsis whitespace-nowrap font-semibold">
           <%= if @navigate || @patch do %>
             <%!-- after:inset-0 against the card's own `relative`: the anchor
-                  stays an ordinary inline element (so the headline still
-                  truncates and wraps normally) and only its pseudo-element
+                  stays an ordinary inline element and only its pseudo-element
                   spreads to the card's edges. --%>
             <.link navigate={@navigate} patch={@patch} class="after:absolute after:inset-0">
               {render_slot(@headline)}
@@ -527,11 +466,9 @@ defmodule AmbryWeb.Admin.Components do
         {render_slot(@inner_block)}
       </div>
 
-      <%!-- The rail's corners share the card's baselines: the badges align
-            with the headline, the dates with the content's last line
-            (self-stretch + justify-between — without the stretch the column
-            is content-height and justify-between does nothing, which is why
-            the older lists' dates sat jammed under their icons). --%>
+      <%!-- The rail's corners share the card's baselines. `self-stretch` is
+            load-bearing, or the column is content-height and
+            `justify-between` does nothing. --%>
       <div
         :if={[@badges, @facts, @action, @footer] != [[], [], [], []]}
         class="relative z-10 flex w-full flex-none flex-wrap items-center gap-x-3 gap-y-2 sm:w-56 sm:flex-col sm:items-end sm:justify-between sm:self-stretch"
@@ -539,11 +476,7 @@ defmodule AmbryWeb.Admin.Components do
       >
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-col sm:items-end">
           <%!-- The rail sets the badge size, rather than every caller
-                remembering to. `<.badge>` has no default size, so each of
-                these lists was passing `text-xs` by hand and a new one simply
-                did not — which is the same defect as a shared style its
-                callers have to re-type: it is only shared if it arrives on
-                its own. Callers still passing it are harmless. --%>
+                remembering to. Callers passing `text-xs` are harmless. --%>
           <div :if={@badges != []} class="flex flex-wrap items-center gap-1.5 text-xs">
             {render_slot(@badges)}
           </div>
@@ -558,13 +491,10 @@ defmodule AmbryWeb.Admin.Components do
             {render_slot(@facts)}
           </div>
 
-          <%!-- Content-sized and right-aligned, not one fixed width per rail:
-                that rule was written when the queue stacked four identical
-                buttons, and sharing one rail across every list would force
-                the widest label anywhere onto every "Edit". Right alignment
-                is what makes the edge read as a column; the fixed width never
-                was. Which of the two layouts applies is decided by the number
-                of verbs, never by what fits. --%>
+          <%!-- Content-sized and right-aligned, never one fixed width per
+                rail, which would force the longest label anywhere in the
+                admin onto every "Edit". Which layout applies is decided by
+                the number of verbs, never by what fits. --%>
           <div
             :if={@action != []}
             class="flex flex-wrap items-center justify-end gap-1.5"
@@ -601,13 +531,73 @@ defmodule AmbryWeb.Admin.Components do
   end
 
   @doc """
+  The one dash §8 leaves standing: a cell with no value in it.
+
+  It has one home so it stays the only one. `AmbryWeb.VoiceTest` allows a
+  string that is *nothing but* the dash, which is exactly this.
+  """
+  def empty_value, do: "\u2014"
+
+  attr :on, :boolean, required: true
+  attr :attention, :boolean, default: false, doc: "amber rather than dim: on, but behind"
+
+  @doc """
+  The ambient state of a thing that is either running or not.
+
+  §6b's rule wearing one costume: an indicator renders its quiet state too,
+  so the dot is always there and only its colour moves.
+  """
+  def status_dot(assigns) do
+    ~H"""
+    <span class={[
+      "inline-block h-2.5 w-2.5 flex-none rounded-full",
+      @on && "bg-lime-500",
+      !@on && @attention && "bg-amber-500",
+      !@on && !@attention && "bg-zinc-600"
+    ]} />
+    """
+  end
+
+  attr :src, :string, default: nil, doc: "nil renders the empty box, never a broken image"
+
+  attr :shape, :atom,
+    default: :cover,
+    doc: ":cover for a book or a recording, :face for a person"
+
+  @doc """
+  The image at a row's left edge, in the one 64px box every list shares.
+
+  **A row whose record has an image shows it** (§3a), and one whose record
+  has none shows the empty box rather than collapsing, so headlines stay on
+  one rail.
+
+  A remote URL is proxied here, not by the caller (§7), since
+  `proxied_remote_image_url/1` leaves a local path alone.
+  """
+  def row_cover(assigns) do
+    ~H"""
+    <div class={[
+      "h-16 w-16 overflow-hidden",
+      @shape == :face && "rounded-full",
+      @shape == :cover && "rounded-sm",
+      !@src && "bg-zinc-800"
+    ]}>
+      <img
+        :if={@src}
+        src={proxied_remote_image_url(@src)}
+        alt=""
+        class={["h-full w-full object-cover", @shape == :face && "object-top"]}
+      />
+    </div>
+    """
+  end
+
+  @doc """
   The credit stack's own lines: bare author names, then the narrators muted.
 
-  What is left of the stack once the series moves to `record_meta/1` — and
-  what is left is exactly the part every record has, which is what lets a row
-  be three fixed lines and one variable one. Names join with commas and
-  nothing is prefixed with "by" (§8); "Read by" is the one word that stays,
-  because a list of names with no label is a list of authors.
+  The part every record has, which is what lets a row be three fixed lines
+  and one variable one. Names join with commas and nothing is prefixed with
+  "by" (§8); "Read by" stays, because an unlabelled list reads as authors.
   """
   attr :authors, :list, default: []
   attr :narrators, :list, default: []
@@ -638,21 +628,12 @@ defmodule AmbryWeb.Admin.Components do
   A row's last line: where it sits, when it came out, who put it out, how
   long it is.
 
-  **The row's first lines are what every record has, and this line is
-  everything that varies.** Title, authors and narrators are always there, so
-  they are always three lines; series, publisher, published and duration are
-  each sometimes there, so they share the fourth and it collapses to nothing
-  when a record has none of them. A series that owned a line of its own made
-  every audiobook row taller for a fact most rows state in four words.
+  **Three fixed lines, then this one.** Title, authors and narrators are what
+  every record has; series, publisher, published and duration are each
+  sometimes there, so they share the fourth and it collapses to nothing.
 
-  It lives with the credits rather than in the rail because it is prose and
-  reads like it — "The Stormlight Archive #1 · Published August 30, 2022 by
-  Recorded Books · 32 hours and 43 minutes". These spent a while as terse
-  cells in the rail (`8/30/22`, `14:04:02`), which is the shape a spreadsheet
-  wants, not a reader.
-
-  Takes either flat view: a book has no publisher and no duration, so it
-  reduces to its series and its date.
+  With the credits rather than in the rail, because it is prose. Takes either
+  flat view.
   """
   def record_meta(record) do
     [
@@ -676,9 +657,8 @@ defmodule AmbryWeb.Admin.Components do
   One worded action on a list row, in the one costume they all wear.
 
   A link when it goes somewhere, a `role="button"` span when it fires an
-  event — the two the older lists spelled out by hand, differently, on every
-  surface. `:red` reveals the danger fill on hover rather than wearing it, so
-  a row of actions doesn't read as a row of warnings (§6).
+  event. `:red` reveals the danger fill on hover rather than wearing it, so a
+  row of actions doesn't read as a row of warnings (§6).
   """
   attr :navigate, :string, default: nil
   attr :patch, :string, default: nil
@@ -695,10 +675,9 @@ defmodule AmbryWeb.Admin.Components do
 
   # A disabled action is still an action: it holds its place and its order.
   #
-  # `disabled:` variants are a `:disabled` pseudo-class, which a `<span>` can
-  # never match, so the refusing state is spelled out. It also drops the click
-  # binding rather than relying on `pointer-events-none` alone — that stops a
-  # mouse and nothing else.
+  # `disabled:` variants need a `:disabled` pseudo-class, which a `<span>`
+  # can never match, so the refusing state is spelled out and the click
+  # binding is dropped: `pointer-events-none` stops a mouse and nothing else.
   def row_action(%{disabled: true} = assigns) do
     ~H"""
     <span
@@ -764,36 +743,19 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Covers whatever it sits in while a background job owns it.
 
-  The inbox does everything in background jobs, and a form whose draft is
-  about to be rebuilt under the operator looked exactly like one waiting for
-  them to type in it. Matching now keeps retrying until every provider has
-  answered, so that window is minutes rather than moments, and anything typed
-  into it would be silently discarded by work nobody could see.
+  A form whose draft is about to be rebuilt under the operator looks exactly
+  like one waiting for them to type in it, and matching retries for minutes.
+  A scrim over the whole thing, not a badge in a corner: the point is that
+  this is not yours right now.
 
-  So it is deliberately a **scrim over the whole thing**, not a badge in a
-  corner: the point is that the row or the form is not yours right now, and
-  that reads at a glance from across the page in a way a status chip does not.
+  Must sit inside a `relative` container. It swallows clicks by covering them;
+  `inert` on the content beside it stops keyboard focus, and the LiveView
+  refuses the events anyway.
 
-  Must be placed inside a `relative` container. The scrim swallows clicks by
-  covering them; `inert` on the content beside it is what actually stops
-  keyboard focus, and the LiveView refuses the events anyway — the overlay is
-  the explanation, not the enforcement.
-
-  ## Two scopes, because a form is not a card
-
-  `:card` covers one block and sits at 20. `:form` covers a whole form and
-  sits at **40, above the sticky footer** — a scrim that leaves Save clickable
-  is only advisory, which is what the layer ladder above has always said and
-  what this component could not actually do: it took the classes through
-  `:global`, which rendered a *second* `class` attribute that the browser
-  discards. Every page-wide scrim in the admin was a card scrim at 20 with its
-  label centred somewhere down a form nobody could see.
-
-  So the shape is named rather than passed in. A `:form` scrim keeps its label
-  in a `sticky top-0 h-screen` child: one viewport tall, pinned to the top of
-  the view, centring its contents — so the message sits in the middle of the
-  screen and follows the scroll, instead of in the middle of a form that may
-  be three screens long.
+  Two scopes, named rather than passed in. `:card` covers one block at z-20.
+  `:form` covers a whole form at z-40, above the sticky footer, since a scrim
+  that leaves Save clickable is only advisory; it keeps its label in a
+  `sticky top-0 h-screen` child so the message stays centred on screen.
   """
   def busy_overlay(assigns) do
     ~H"""
@@ -884,8 +846,6 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Renders a colored badge with a label in it.
 
-  ## Examples
-
       <.badge color={:red}>Foo</.badge>
   """
   attr :color, :atom, doc: "one of yellow, blue, red, brand, or gray"
@@ -928,9 +888,9 @@ defmodule AmbryWeb.Admin.Components do
   the chevron hanging in the 12px gutter to its left
   (docs/admin-design-language.md §3).
 
-  Browsers place the native summary marker where they like — Firefox renders
-  it `inside`, which pushes the summary text off the rail by the marker's own
-  width — so the native marker is hidden and the chevron drawn by hand.
+  Browsers place the native summary marker where they like and `inside`
+  pushes the summary text off the rail, so it is hidden and the chevron drawn
+  by hand.
   """
   attr :summary, :string, default: nil
   attr :class, :string, default: nil, doc: "summary text classes — replaces the size and color"
@@ -1010,21 +970,14 @@ defmodule AmbryWeb.Admin.Components do
 
   def delete_button(assigns) do
     ~H"""
-    <%!-- ✕, not a trash can: removing a row from a list is the import form's
-        remove idiom (undoable until save), and two removal costumes for one
-        gesture read as two different gestures.
+    <%!-- ✕, not a trash can: removing a row is undoable until save, and two
+        costumes for one gesture read as two gestures (§6).
 
-        **It sits beside the field, never on top of one.** This used to be
-        dropped inside a picker's box with `absolute top-3 right-2`, which was
-        wrong twice over. It says the wrong thing — the gesture removes the
-        *row*, not the field's value, and a mark inside a box belongs to that
-        box. And it collides: the moment a control grew a glyph of its own
-        (the drop-down's chevron) the two drew on the same pixels.
+        Beside the field, never inside one: the gesture removes the row, not
+        the field's value, and a mark inside a box belongs to that box.
 
-        Exactly one input tall with its glyph centred, the same idiom and for
-        the same reason as `move_buttons/1`: it lines up with the field it
-        removes by being as tall as it, not by a hand-picked `mt-3` that
-        lands 2px shy and slides off as soon as the row carries an error. --%>
+        Exactly one input tall with its glyph centred, so it lines up by being
+        the same height rather than by a hand-picked `mt-3` (§7). --%>
     <button
       type="button"
       name={@field.name <> "[]"}
@@ -1040,10 +993,9 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Carries a row's place in the list back to the server.
 
-  Not decoration: a reorder that changes no field is invisible to Ecto —
-  `cast_assoc` returns `:ignore` when every child changeset comes back empty,
-  and the new order is silently dropped. This input is what makes a moved row
-  a real change. See `AmbryWeb.Admin.Reordering`.
+  Not decoration: `cast_assoc` returns `:ignore` when every child changeset
+  comes back empty, so a reorder that changes no field is invisible to Ecto.
+  See `AmbryWeb.Admin.Reordering`.
   """
   attr :field, FormField, required: true
   attr :index, :integer, required: true
@@ -1057,15 +1009,13 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Up/down buttons for reordering one entry of an ordered association.
 
-  The button at each end of the list is rendered disabled rather than hidden,
-  so the controls don't shift horizontally as rows move past them.
+  The button at each end is disabled rather than hidden, so the controls do
+  not shift horizontally as rows move past them.
 
-  **These send no event.** They are read by the `reorder-rows` hook on the
-  form, which swaps two hidden inputs and dispatches a change — the same
-  arrangement `inputs_for/1` documents for adding and removing rows, where the
-  client edits the form and the server only casts what it is posted. A form
-  holding one of these therefore needs `phx-hook="reorder-rows"`; the count
-  comes from `AmbryWeb.Admin.Reordering.row_count/2`.
+  **These send no event.** The `reorder-rows` hook on the form swaps two
+  hidden inputs and dispatches a change. A form holding one needs
+  `phx-hook="reorder-rows"`; the count comes from
+  `AmbryWeb.Admin.Reordering.row_count/2`.
   """
   attr :field, :atom, required: true, doc: "the association field being reordered"
   attr :index, :integer, required: true
@@ -1074,12 +1024,11 @@ defmodule AmbryWeb.Admin.Components do
 
   def move_buttons(assigns) do
     ~H"""
-    <%!-- The control is exactly one input tall (`py-[7px]` + `leading-6` +
-        the transparent border = 40px) with its glyphs centred in it, so it
-        lines up with the field it reorders by being the same height as it —
-        design language §7. Every call site used to nudge it down by a
-        hand-picked `mt-3` instead, which lands 2px shy and slides off
-        entirely as soon as the row carries an error or a second control. --%>
+    <%!-- Exactly one input tall (`py-[7px]` + `leading-6` + the transparent
+        border = 40px) with its glyphs centred, so it lines up with the field
+        it reorders by being the same height as it (§7). A hand-picked `mt-3`
+        at each call site lands short and slides off entirely as soon as the
+        row carries an error or a second control. --%>
     <div class={["flex h-10 flex-none flex-col justify-center", @class]} data-role="move-buttons">
       <button
         type="button"
@@ -1125,24 +1074,19 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   One cluster of fields on an edit form, as a block.
 
-  The edit forms were a single stack of bare controls on the ground while the
-  import form was entirely blocks — the same operator, the same records, two
-  visual languages. A cluster is the unit: the fields that answer one
-  question about the record ("who wrote it", "where it lives"), on the
-  zinc-900 block every other decision in this admin sits on.
+  A cluster is the unit: the fields answering one question about the record
+  ("who wrote it", "where it lives"), on the zinc-900 block every other
+  decision in this admin sits on.
 
-  The label is the cluster's name and sits on the text rail, so it lines up
-  with the text inside the controls under it (§3). Fields that speak for
-  themselves need no label — the block and its spacing are the grouping.
+  The label names the cluster and sits on the text rail (§3). Fields that
+  speak for themselves need none: the block and its spacing are the grouping.
   """
   def field_group(assigns) do
     ~H"""
-    <%!-- **A block holds the whole cluster: its name, its rows, and the way
-        to add one.** The import form is the other shape — each row there is
-        its own decision card, so its label and its add have nowhere to be
-        but the ground above and below the run. Here there is one block, so
-        everything about the cluster lives in it. Same costumes either way;
-        what differs is whether the list has a card of its own. --%>
+    <%!-- **A block holds the whole cluster: its name, its rows, and the way to
+        add one.** The import form is the other shape, where each row is its
+        own decision card and the label and add sit on the ground around the
+        run. Same costumes either way. --%>
     <div class={["space-y-2 rounded-lg bg-zinc-900 p-4", @class]} {@rest}>
       <.label :if={@label} class="pl-3">{@label}</.label>
       <p :if={@hint} class="max-w-prose pl-3 text-sm text-zinc-400">{@hint}</p>
@@ -1162,15 +1106,12 @@ defmodule AmbryWeb.Admin.Components do
   slot :flag, doc: "a provenance flag beside the label — where a list's members came from"
 
   @doc """
-  A list the operator is building — authors, series, narrators — in the one
-  grammar every form shares: **the card names itself** (label, provenance
-  flag and hint at the top of the container, on the rail), rows follow, the
-  add sits below the container on the ground.
+  A list the operator is building, in the one grammar every form shares:
+  **the card names itself** (label, provenance flag and hint at the top of the
+  container, on the rail), rows follow, the add sits below the container on
+  the ground.
 
-  The label lived *above* the container for a while, which put the same
-  fact's name in a different place than every decision card, field group and
-  library-root block — all of which carry their name inside. One rule now:
-  ground level is for section headings and helper prose only; everything a
+  Ground level is for section headings and helper prose only; everything a
   card says about itself, it says inside.
   """
   def list_cluster(assigns) do
@@ -1193,20 +1134,14 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   The costume a bar wears when it is pinned to the bottom of the page.
 
-  Two of them: `form_footer/1`, where a form is saved, and
-  `pagination_footer/1`, which moves through a list. Stated once so they
-  cannot drift, because they are the same object doing the same job — the
-  thing this page is *for*, at the end of the thing, reachable without
-  scrolling to find it.
+  Two of them, `form_footer/1` and `pagination_footer/1`, stated once so they
+  cannot drift.
 
   `bottom-0` because a sticky box is positioned against its scrollport and the
-  viewport has no padding. (It was `-bottom-4` when `#main-content` was the
-  scrollport, reaching through that box's own `p-4`.) `-mb-4` is the other
-  half: a sticky box can't leave its containing block, so without it the
-  block's bottom edge holds the bar 16px up at the end of the scroll, with the
-  page's ground showing through underneath. A form puts that negative margin
-  on its content wrapper, since the wrapper is the containing block there; the
-  pagination bar is a direct child of `#main-content` and wears it itself.
+  viewport has no padding. `-mb-4` is the other half: a sticky box cannot
+  leave its containing block, so without it the block's bottom edge holds the
+  bar 16px up at the end of the scroll. A form wears that negative margin on
+  its content wrapper; the pagination bar wears it itself.
   """
   def sticky_slab_classes do
     "shadow-[0_-12px_32px_rgba(0,0,0,0.55)] sticky bottom-0 z-30 rounded-t-lg bg-zinc-900"
@@ -1217,22 +1152,19 @@ defmodule AmbryWeb.Admin.Components do
   attr :rest, :global
   slot :inner_block, required: true
 
+  slot :danger,
+    doc: "destroying the record this form edits, pushed to the far end of the bar (§6)"
+
   @doc """
   The sticky footer slab every form's actions sit in.
 
-  One costume for "where a form is saved": the shadowed `zinc-900` slab the
-  import form has always had, instead of a bare button floating on the
-  ground after the last card. The chapters form is the argument — 47 rows
-  long, with the Save at the bottom of the scroll.
+  One costume for "where a form is saved": a shadowed `zinc-900` slab, never a
+  bare button on the ground after the last card, which on a long form is at
+  the bottom of the scroll. See `sticky_slab_classes/0` for the offsets.
 
-  §3's sticky-bar rule applies, and the document being the scroller is what
-  sets the offset: a sticky box is positioned against its scrollport, and the
-  viewport has no padding, so `bottom-0` puts the slab flush with the bottom
-  of the window. (It was `-bottom-4` when `#main-content` was the scrollport,
-  reaching through that box's own `p-4`.) The page's content wrapper still
-  wears `-mb-4`, for the other half: a sticky box can't leave its containing
-  block, so without it the wrapper's bottom edge holds the bar 16px up at the
-  end of the scroll.
+  **The `:danger` slot is where a record is destroyed**, one of the two homes
+  a delete has (§6). It sits at the far end, with the width of the bar between
+  it and Save.
   """
   def form_footer(assigns) do
     ~H"""
@@ -1242,6 +1174,11 @@ defmodule AmbryWeb.Admin.Components do
     <section id={@id} phx-hook="sticky-footer" class={[sticky_slab_classes(), "p-4", @class]} {@rest}>
       <div class="flex flex-wrap items-center gap-2">
         {render_slot(@inner_block)}
+
+        <%!-- The whole width of the bar between Save and this one, so the
+            irreversible thing is never adjacent to the thing pressed every
+            time. --%>
+        <div :if={@danger != []} class="ml-auto">{render_slot(@danger)}</div>
       </div>
     </section>
     """
@@ -1254,13 +1191,9 @@ defmodule AmbryWeb.Admin.Components do
   Which watched folder an inbox item came from.
 
   One tint for every source: they are told apart by name, and colouring them
-  apart would invent a taxonomy the model doesn't have. What import will *do*
-  with the files is deliberately not here — that is a per-import decision,
-  stated in full on the item's own destination card, and no item reaches the
-  library without passing through it.
-
-  Two surfaces ask this, so there is one answer: the queue row, and the
-  import form, where it was missing.
+  apart would invent a taxonomy the model does not have. What import will *do*
+  with the files is a per-import decision, stated on the item's destination
+  card and deliberately not here.
   """
   def source_tag(assigns) do
     ~H"""
@@ -1324,25 +1257,17 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   A read-only list of files: mono, muted, the common directory printed once.
 
-  This is a fact display, not a control — it deliberately does NOT wear the
-  dashed dropzone costume the media form used to put its file list in, which
-  made "the files you have" look like a place to drop more.
+  This is a fact display, not a control, so it deliberately does not wear the
+  dashed dropzone costume (§1): "the files you have" must not look like a
+  place to drop more.
 
-  Long lists scroll *inside* the card — the label and common-directory line
-  stay pinned, and the scrollbar sits in its own gutter (`pr-2`), the same
-  anatomy as the chapter editor's rows.
+  Long lists scroll *inside* the card, with the label and common-directory
+  line pinned and the scrollbar in its own gutter (`pr-2`).
 
-  ## Taking one file out
-
-  Given `toggle`, each row grows the list-row remove (§6's ✕, for something
-  undoable), and an excluded file **stays in the list** — struck through,
-  named as out, with the way back beside it. Hiding it would make the card
-  disagree with the folder it is describing, and the operator could not
-  change their mind.
-
-  The count line appears only when something is out. A card that said "7
-  files · 0 excluded" on every item in the queue would be paying for the rare
-  case on all of them.
+  Given `toggle`, each row grows the list-row remove (§6's ✕), and an excluded
+  file **stays in the list**, struck through with the way back beside it:
+  hidden, the card would disagree with the folder it describes. The count line
+  appears only when something is out.
   """
   def file_list(assigns) do
     assigns = assign(assigns, :common, common_dir(assigns.files))
@@ -1366,11 +1291,9 @@ defmodule AmbryWeb.Admin.Components do
       <p :if={@common != ""} class="font-mono truncate pl-3 text-xs text-zinc-500">{@common}/</p>
       <div class="max-h-64 overflow-y-auto pr-2">
         <ul class="space-y-0.5 pt-1">
-          <%!-- The row lights up as a whole, because the control is at the
-              far edge of a wide card and the name is at the near one: with
-              nothing joining them, lining up the ✕ with the file it belongs
-              to is a measuring exercise. Only when there is something to
-              click — a fact list has no reason to react to a cursor. --%>
+          <%!-- The row lights up as a whole: the control is at the far edge of a
+              wide card and the name at the near one, so nothing else joins
+              them. Only where there is something to click. --%>
           <li
             :for={file <- @files}
             class={["group flex items-baseline gap-2 rounded-sm py-0.5 pl-3 text-xs", @toggle && "hover:bg-white/5"]}
@@ -1406,18 +1329,12 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   What the probe found, as facts to read along one line.
 
-  One list, because the queue row and the import form describe the same files
-  and had already drifted apart: the form counted them and the queue did not,
-  from two different sources — `item.files` on one side and `probe["files"]`
-  on the other. Callers join it; where a surface puts the count is the one
-  thing they are allowed to disagree about, which is what `:files` is for.
+  One list for every surface that describes a set of files, so two of them
+  cannot count differently. Where a surface puts the count is the one thing
+  they may disagree about, which is what `:files` is for.
 
-  **Size and bitrate are here because the pair is the fact.** Two imports of
-  one audiobook can be the same recording at half the rate, and nothing in a
-  filename says so — a 1.64 GB and an 819 MB copy of the same 28 hours are
-  told apart by the second number and not the first. Neither costs a re-read:
-  the probe already stores size and duration, so every item already in the
-  queue gains this the moment it is rendered.
+  **Size and bitrate together are the fact**: two copies of one audiobook can
+  be the same recording at half the rate, which only the second number shows.
   """
   def probe_facts(probe, opts \\ [])
 
@@ -1518,19 +1435,16 @@ defmodule AmbryWeb.Admin.Components do
   slot :action,
     doc: "a control for the section as a whole, on the heading's line at its right edge"
 
+  slot :blurb, doc: "helper prose under the heading, on the ground (§3b)"
+
   @doc """
-  A named run of field groups, for a form long enough to need finding your
-  way around — the import form's anatomy, which is where this came from.
+  A named run of field groups, for a form long enough to need finding your way
+  around. Headings sit on the ground with no rule under them; the 56px section
+  gap and the blocks below do the dividing (§1, §3).
 
-  Headings sit on the ground with no rule under them; the 56px section gap
-  and the blocks below do the dividing (§1, §3).
-
-  The heading is optional, because a form's *first* section is usually the
-  thing the form is about and naming it says nothing: the audiobook form
-  opened with "The audiobook" under a page already titled with the
-  audiobook's name. The book and person forms never had one. A section
-  still earns a heading when it is a genuine change of subject — "Chapters",
-  "Audio and processing".
+  The heading is optional: a form's first section is usually the thing the
+  form is about, and naming it says nothing under a page already titled with
+  it. A section earns a heading when it is a genuine change of subject.
   """
   def form_section(assigns) do
     ~H"""
@@ -1538,9 +1452,13 @@ defmodule AmbryWeb.Admin.Components do
       <%!-- The heading stays on the ground with nothing under it; a control
           for the whole section sits at the other end of its line, which is
           where the list clusters put theirs. --%>
-      <div :if={@title || @action != []} class="flex items-baseline justify-between gap-4">
-        <h2 :if={@title} class="text-xl font-bold text-zinc-100">{@title}</h2>
-        <div :if={@action != []} class="flex-none">{render_slot(@action)}</div>
+      <div :if={@title || @action != []} class="space-y-2">
+        <div class="flex items-baseline justify-between gap-4">
+          <h2 :if={@title} class="text-xl font-bold text-zinc-100">{@title}</h2>
+          <div :if={@action != []} class="flex-none">{render_slot(@action)}</div>
+        </div>
+
+        <p :if={@blurb != []} class="text-sm text-zinc-400">{render_slot(@blurb)}</p>
       </div>
       {render_slot(@inner_block)}
     </section>
@@ -1562,24 +1480,14 @@ defmodule AmbryWeb.Admin.Components do
   @doc """
   Adds one more row to a list the operator is building.
 
-  **One costume for this job across the whole admin.** It was three: a
-  brand-colored link with a plus on the legacy forms, a lime "New +" on every
-  list header, and this — three answers to "add another one of these" on
-  three surfaces the operator moves between, and the import form's is the
-  one that was right.
+  **One costume for this job across the whole admin.** Deliberately not the
+  raised action costume: adding a blank row is the least consequential thing
+  on a form, and a row of pills competes with the decisions above it. Its box
+  sits on the container edge and `px-3` lands the label on the rail; nudging
+  the *box* onto the rail puts its text at a third x-position (§3).
 
-  Deliberately NOT the raised action costume Confirm and Split wear: adding
-  a blank row is the least consequential thing on a form, and a row of pills
-  competes with the decisions above it (tried, and rejected by the operator
-  on sight). Its box sits on the container edge like every other control,
-  and `px-3` lands its label on the text rail — a control whose box was
-  nudged onto the rail put its text at a third x-position nothing else
-  shares, which read as misalignment on every form (§3: text lands on the
-  rail exactly, wherever it lives).
-
-  Two call styles, because the legacy forms add a row by posting a sort
-  param and the import form does it with an event: pass `field` for the
-  former, `phx-click` for the latter.
+  Two call styles: pass `field` for a form built on `inputs_for`, `phx-click`
+  for one driven by events.
   """
   def add_button(%{navigate: navigate} = assigns) when is_binary(navigate) do
     ~H"""

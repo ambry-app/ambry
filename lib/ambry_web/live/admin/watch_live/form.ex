@@ -16,9 +16,10 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
 
   alias Ambry.Wanted
   alias Ambry.Wanted.Watch
+  alias AmbryWeb.Admin.ReturnTo
 
   @impl Phoenix.LiveView
-  def mount(%{"id" => id}, _session, socket) do
+  def mount(%{"id" => id} = params, _session, socket) do
     watch = Wanted.get_watch!(id)
 
     {:ok,
@@ -26,7 +27,10 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
      |> assign(
        page_title: watch.edition.title,
        watch: watch,
-       form: to_form(Wanted.change_watch(watch))
+       form: to_form(Wanted.change_watch(watch)),
+       # Whatever list the operator came from, so saving goes back to it. See
+       # `AmbryWeb.Admin.ReturnTo`.
+       list_params: ReturnTo.list_params(params)
      )}
   end
 
@@ -37,7 +41,7 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
     {:noreply,
      socket
      |> put_flash(:info, "Forgotten.")
-     |> push_navigate(to: ~p"/admin/watches")}
+     |> push_navigate(to: ReturnTo.path(~p"/admin/watches", socket.assigns.list_params))}
   end
 
   def handle_event("validate", %{"watch" => params}, socket) do
@@ -48,11 +52,13 @@ defmodule AmbryWeb.Admin.WatchLive.Form do
 
   def handle_event("save", %{"watch" => params}, socket) do
     case Wanted.update_watch(socket.assigns.watch, params) do
-      {:ok, _watch} ->
+      {:ok, watch} ->
         {:noreply,
          socket
          |> put_flash(:info, "Saved.")
-         |> push_navigate(to: ~p"/admin/watches")}
+         |> push_navigate(
+           to: ReturnTo.path(~p"/admin/watches", socket.assigns.list_params, watch.id)
+         )}
 
       {:error, changeset} ->
         {:noreply, assign(socket, form: to_form(changeset))}

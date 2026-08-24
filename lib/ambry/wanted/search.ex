@@ -2,60 +2,45 @@ defmodule Ambry.Wanted.Search do
   @moduledoc """
   Finding an audiobook to watch, across every provider that can name one.
 
-  ## Providers are selected by capability
+  **A provider is asked when it can produce audio editions**, in the
+  registry's configured order. That is the whole selection rule; nothing here
+  names a provider. Finding the book is not finding an audiobook, so a
+  work-level provider that cannot then say which recordings a work has is not
+  asked at all — it would cost a request and contribute nothing.
 
-  **Every enabled provider that can produce audio editions is asked**, in the
-  registry's configured order. That is the whole selection rule: a provider is
-  chosen by what it is tagged as able to do, the same way every other
-  provider-driven surface here chooses one. Nothing in this module names a
-  provider.
-
-  What differs between them is *shape*:
-
-    * Some answer with recordings directly. Their search results are already
-      audiobooks — narrators, runtime, cover — and nothing needs expanding.
-    * Some answer with works. A novel is not a recording, so each promising
-      work is expanded through `editions/2` into the audio editions it has.
+  What differs between the ones that are asked is shape. Some answer with
+  recordings directly, and nothing needs expanding. Some answer with works,
+  so each is expanded through `editions/2` into the audio editions it has.
 
   Asking all of them matters because they disagree about what exists, in both
-  directions and for structural reasons. A catalogue of what is *for sale*
-  carries preorders and drops anything delisted; a catalogue of what has been
-  *published* has no entry at all for a recording that has not come out yet.
-  Measured: *The Velvet Knife* is findable in one and absent from the other,
-  and *Blightfall* is in both under different ids — and is offered twice
-  rather than merged, because they are two records of one thing and choosing
-  between them is the operator's job.
+  directions: a catalogue of what is *for sale* carries preorders and drops
+  anything delisted, while a catalogue of what has been *published* has no
+  entry for a recording that has not come out yet. A recording both hold is
+  offered twice rather than merged.
 
-  Which is the import form's bargain: records are evidence, outcomes are
-  visible, the operator decides.
+  Candidates come back mixed and ranked by `Ambry.Inbox.score_records/3`, the
+  scorer matching already uses. Which database answered rides on the record as
+  a badge; grouping by it would rank every provider's best guess against a
+  different scale.
 
-  ## Only what has not come out yet
+  Only what has not come out yet: a watch is a thing to be reminded about, so
+  candidates are filtered to a known future release date, and undated records
+  go too. This is the one place that hides results, so it says how many, and
+  it is the only thing the notes are for. A provider in trouble reports an
+  `Ambry.Metadata.Outcome` under its own kind, the way every other provider
+  call in the app does.
 
-  A watch is a thing to be reminded about, so a recording that is already
-  published cannot be one. Candidates are filtered to a **known future
-  release date** — past-dated and undated records are both dropped, since
-  "no date" is not evidence of the future either.
-
-  This is the one place that hides results, so it says how many and why. A
-  search for a book whose recordings all came out years ago should read as
-  *there are twelve, they are all already out*, never as *nothing found*.
-
-  ## Every matched work is opened
-
-  A provider that answers with works ranks them by its own idea of relevance,
-  and the recording the operator wants can sit well down that list — asking
-  for *Neuromancer* by William Gibson puts the actual 1984 novel sixth, behind
-  a study guide and a graphic novel. So opening only the promising ones is a
-  guess about precisely the thing that is uncertain.
-
-  Instead every matched work is opened. Where a provider declares
-  `:editions_bulk` that is one request for all of them; otherwise it is one
-  apiece. Either way nothing is left unopened on the grounds that it looked
-  unpromising.
+  Every matched work is opened, never the first few: a work-level search ranks
+  by its own idea of relevance and the recording the operator wants can sit
+  well down that list. Where a provider declares `:editions_bulk` that is one
+  request for all of them, otherwise one apiece.
   """
 
+  alias Ambry.Inbox
+  alias Ambry.Metadata.Outcome
   alias Ambry.Metadata.Provider
   alias Ambry.Metadata.Providers
+  alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search
   alias Ambry.Wanted.Edition
 
@@ -63,7 +48,7 @@ defmodule Ambry.Wanted.Search do
 
   defmodule Candidate do
     @moduledoc "One recording a watch could be created from."
-    defstruct [:provider, :provider_id, :edition, :published, :work_title]
+    defstruct [:provider, :provider_id, :edition, :published, :work_title, :score]
 
     @type t :: %__MODULE__{}
   end
@@ -71,25 +56,30 @@ defmodule Ambry.Wanted.Search do
   @doc """
   Every recording the enabled providers can offer for this query.
 
-  Answers `{candidates, outcomes, notes}`: the candidates in provider order,
-  one outcome map per provider asked (the same vocabulary the outcome chips
-  already render), and any notes about coverage this search knowingly cut.
+  Answers `{candidates, outcomes, notes}`: candidates best first whoever
+  found them, one outcome map per provider asked, and any notes about what
+  was found and not shown.
   """
   def candidates(%Provider.Query{} = query, opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
 
-    {recordings, recording_outcomes} = recording_level(query, opts)
-    {editions, work_outcomes, notes} = work_level(query, opts)
+    hints =
+      Inbox.form_hints(%{title: query.title, author: query.author, narrator: query.narrator})
+
+    {recordings, recording_outcomes} = recording_level(query, hints, opts)
+    {editions, work_outcomes} = work_level(query, hints, opts)
 
     {upcoming, already_out} = split_by_release(recordings ++ editions, today)
 
-    {upcoming, recording_outcomes ++ work_outcomes, notes ++ already_out_note(already_out)}
+    {rank(upcoming), recording_outcomes ++ work_outcomes, already_out_note(already_out)}
   end
 
-  # A watch is a reminder about something that has not happened. A recording
-  # that is already published cannot be one, and an undated record is not
-  # evidence of the future — so both are dropped rather than offered and
-  # then explained.
+  # Best first, ties in the order the providers were asked: a stable sort is
+  # what keeps two searches for one thing from reshuffling.
+  defp rank(candidates), do: Enum.sort_by(candidates, & &1.score, :desc)
+
+  # A watch is a reminder about something that has not happened, and an
+  # undated record is not evidence of the future.
   defp split_by_release(candidates, today) do
     Enum.split_with(candidates, fn candidate ->
       not is_nil(candidate.published) and Date.after?(candidate.published, today)
@@ -102,57 +92,62 @@ defmodule Ambry.Wanted.Search do
     {dated, undated} = Enum.split_with(dropped, & &1.published)
 
     [
-      Enum.join(
-        Enum.reject(
-          [
-            dated != [] && "#{length(dated)} already published",
-            undated != [] && "#{length(undated)} with no announced date"
-          ],
-          &(&1 == false)
-        ),
-        ", "
-      ) <> " — not shown, since a watch is for something still to come."
+      [
+        dated != [] && "#{length(dated)} already released",
+        undated != [] && "#{length(undated)} with no date"
+      ]
+      |> Enum.filter(&is_binary/1)
+      |> Enum.join(", ")
+      |> Kernel.<>(" not shown.")
     ]
   end
 
   # A storefront's search results are already recordings; nothing to expand.
-  defp recording_level(query, opts) do
+  defp recording_level(query, hints, opts) do
     {found, outcomes} = Search.books(query, Keyword.put(opts, :level, :recording))
 
     candidates =
       Enum.flat_map(found, fn {entry, books} ->
-        Enum.map(books, &candidate(entry.id, &1, nil))
+        Enum.map(books, &candidate(entry, &1, nil, hints))
       end)
 
     {candidates, outcomes}
   end
 
-  defp work_level(query, opts) do
-    {found, outcomes} = Search.books(query, Keyword.put(opts, :level, :work))
+  defp work_level(query, hints, opts) do
+    Enum.reduce(edition_capable(), {[], []}, fn entry, {candidates, outcomes} ->
+      {works, searched} = Search.books_one(entry, query, opts)
+      {expanded, opened} = expand(entry, works, hints)
 
-    Enum.reduce(found, {[], outcomes, []}, fn {entry, works}, {candidates, outs, notes} ->
-      {expanded, entry_notes} = expand(entry, works)
-      {candidates ++ expanded, outs, notes ++ entry_notes}
+      {candidates ++ expanded, outcomes ++ List.wrap(searched) ++ opened}
     end)
   end
 
-  # Every matched work is opened, never the first few. A work-level search
-  # ranks by its own idea of relevance and the recording the operator wants
-  # can sit well down that list, so "open the promising ones" is a guess about
-  # exactly the thing that is uncertain.
-  defp expand(_entry, []), do: {[], []}
-
-  defp expand(entry, works) do
-    cond do
-      :editions_bulk in entry.capabilities -> expand_bulk(entry, works)
-      :editions in entry.capabilities -> expand_one_by_one(entry, works)
-      # Finding the book but not its recordings leaves nothing to watch, and
-      # saying so beats a silent absence.
-      true -> {[], [no_editions_note(entry)]}
-    end
+  # Selected before anything is asked, rather than after: a provider that
+  # finds the book and cannot say which recordings it has has nothing to
+  # offer a watch, and asking it anyway spends a request to earn a line
+  # apologising for itself.
+  defp edition_capable do
+    [level: :work, capability: :book_search]
+    |> Registry.enabled()
+    |> Enum.filter(
+      &Enum.any?(&1.capabilities, fn capability ->
+        capability in [:editions, :editions_bulk]
+      end)
+    )
   end
 
-  defp expand_bulk(entry, works) do
+  # Every matched work is opened, never the first few: "open the promising
+  # ones" is a guess about exactly the thing that is uncertain.
+  defp expand(_entry, [], _hints), do: {[], []}
+
+  defp expand(entry, works, hints) do
+    if :editions_bulk in entry.capabilities,
+      do: expand_bulk(entry, works, hints),
+      else: expand_one_by_one(entry, works, hints)
+  end
+
+  defp expand_bulk(entry, works, hints) do
     case Providers.editions_bulk(entry.id, Enum.map(works, & &1.id)) do
       {:ok, by_work} ->
         titles = Map.new(works, &{&1.id, &1.title})
@@ -161,52 +156,62 @@ defmodule Ambry.Wanted.Search do
           Enum.flat_map(works, fn work ->
             by_work
             |> Map.get(work.id, [])
-            |> Enum.map(&candidate(entry.id, &1, titles[work.id]))
+            |> Enum.map(&candidate(entry, &1, titles[work.id], hints))
           end)
 
-        {candidates, []}
+        {candidates, opened_outcome(entry, candidates, [])}
 
       other ->
         Logger.warning(fn -> "Wanted search: #{entry.id} bulk editions: #{inspect(other)}" end)
 
-        {[], [could_not_open_note(entry)]}
+        {[], opened_outcome(entry, [], [reason(other)])}
     end
   end
 
-  defp expand_one_by_one(entry, works) do
-    candidates =
-      Enum.flat_map(works, fn work ->
+  defp expand_one_by_one(entry, works, hints) do
+    {candidates, failures} =
+      Enum.reduce(works, {[], []}, fn work, {candidates, failures} ->
         case Providers.editions(entry.id, work.id) do
           {:ok, editions} ->
-            Enum.map(editions, &candidate(entry.id, &1, work.title))
+            {candidates ++ Enum.map(editions, &candidate(entry, &1, work.title, hints)), failures}
 
           other ->
             Logger.warning(fn ->
               "Wanted search: #{entry.id} editions for #{work.id}: #{inspect(other)}"
             end)
 
-            []
+            {candidates, failures ++ [reason(other)]}
         end
       end)
 
-    {candidates, []}
+    {candidates, opened_outcome(entry, candidates, failures)}
   end
 
-  defp no_editions_note(entry) do
-    "#{entry.display_name} can find books but not their audio editions, so it offered nothing here."
-  end
+  # One chip for however many calls it took to open the works, and a failure
+  # outranks an answer: a provider rate-limited on one work of five otherwise
+  # reports a clean count, and the recordings it never got are never
+  # mentioned. The same rule every other post-search call in the app follows.
+  defp opened_outcome(entry, candidates, []),
+    do: List.wrap(Outcome.ok(entry, length(candidates), :editions))
 
-  defp could_not_open_note(entry) do
-    "#{entry.display_name} found books but could not be asked what recordings they have."
-  end
+  defp opened_outcome(entry, _candidates, [reason | _rest]),
+    do: List.wrap(Outcome.from_error(entry, reason, :editions))
 
-  defp candidate(provider_id, book, work_title) do
+  defp reason({:error, reason}), do: reason
+  defp reason(other), do: other
+
+  # Scored through matching's own scorer rather than a second one written
+  # here, or the same evidence is ranked two ways on two pages.
+  defp candidate(entry, book, work_title, hints) do
+    %{"score" => score} = book |> List.wrap() |> Inbox.score_records(entry, hints) |> hd()
+
     %Candidate{
-      provider: provider_id,
+      provider: entry.id,
       provider_id: book.id,
       edition: Edition.from_provider_book(book),
       published: published_date(book),
-      work_title: work_title
+      work_title: work_title,
+      score: score
     }
   end
 

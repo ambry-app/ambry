@@ -22,15 +22,9 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   def render(assigns) do
     ~H"""
     <.layout title={@page_title} user={@current_user} socket={@socket}>
-      <div class="max-w-4xl space-y-8">
-        <p class="text-zinc-400">
-          Priority sets the order providers appear in on import forms. Changes apply
-          immediately.
-        </p>
-
-        <section :for={{level, title, blurb} <- levels()}>
-          <h2 class="mb-1 text-lg font-bold">{title}</h2>
-          <p class="mb-4 text-sm text-zinc-400">{blurb}</p>
+      <div class="max-w-4xl space-y-14">
+        <.form_section :for={{level, title, blurb} <- levels()} title={title}>
+          <:blurb>{blurb}</:blurb>
 
           <div class="space-y-4">
             <div
@@ -38,12 +32,11 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
               class="rounded-lg bg-zinc-900 p-4"
             >
               <div class="flex items-center gap-3">
-                <span class={["inline-block h-2.5 w-2.5 rounded-full", (entry.enabled && "bg-lime-500") || "bg-zinc-600"]} />
-                <h3 class="grow font-semibold">{entry.display_name}</h3>
+                <.status_dot on={entry.enabled} />
+                <p class="grow text-sm font-semibold text-zinc-200">{entry.display_name}</p>
 
                 <%!-- The same stacked-chevron reorder control the form rows
-                    wear (§6: one costume per job) — it was two square
-                    buttons here, a second answer to "move this in a list". --%>
+                    wear: one costume per job (§6). --%>
                 <div
                   :if={length(providers_for_level(@providers, level)) > 1}
                   class="flex h-10 flex-none flex-col justify-center"
@@ -108,8 +101,10 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                 </p>
               </div>
 
+              <%!-- Every provider caches, so Clear cache is always here; the
+                  Save beside it belongs to the fields above it, and a
+                  provider with no fields has none. --%>
               <form
-                :if={entry.module.config_fields() != []}
                 id={"provider-config-#{entry.id}"}
                 phx-submit="save-config"
                 class="mt-4 space-y-4"
@@ -128,7 +123,7 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   </p>
                 </div>
                 <div class="flex gap-2">
-                  <.button type="submit">Save</.button>
+                  <.button :if={entry.module.config_fields() != []} type="submit">Save</.button>
                   <.button
                     type="button"
                     color={:zinc}
@@ -140,21 +135,9 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
                   </.button>
                 </div>
               </form>
-
-              <div :if={entry.module.config_fields() == []} class="mt-4">
-                <.button
-                  type="button"
-                  color={:zinc}
-                  phx-click="clear-cache"
-                  phx-value-id={entry.id}
-                  data-confirm={"Clear all cached #{entry.display_name} responses?"}
-                >
-                  Clear cache
-                </.button>
-              </div>
             </div>
           </div>
-        </section>
+        </.form_section>
       </div>
     </.layout>
     """
@@ -224,11 +207,9 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
 
   defp levels do
     [
-      {:work, "Book-level providers", "Books, authors, and series."},
-      {:recording, "Audiobook-level providers",
-       "Narrators, square covers, and chapters, keyed by ASIN."},
-      {:person, "Person-level providers",
-       "Bios and photos for the real people behind authors and narrators."}
+      {:work, "Book-level providers", "Books, authors and series."},
+      {:recording, "Audiobook-level providers", "Narrators, covers and chapters."},
+      {:person, "Person-level providers", "Bios and photos for real people."}
     ]
   end
 
@@ -243,14 +224,9 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   defp notice_icon(:error), do: "fa-circle-exclamation"
 
   # A capability means something different at each level, and the level is
-  # what says which — a recording-level `:book_search` searches *audiobooks*,
-  # a work-level one searches works. Labelling both "book search" threw that
-  # away and made the provider list look like it couldn't tell them apart.
-  #
-  # Kept as display rather than split into `:work_search`/`:recording_search`
-  # atoms deliberately: the level already carries it, and separate atoms would
-  # let a provider claim recording-search at the work level — an illegal state
-  # the current pairing simply can't represent.
+  # what says which: a recording-level `:book_search` searches audiobooks.
+  # Display only, never separate atoms, which would let a provider claim
+  # recording-search at the work level.
   defp capability_label(:book_search, :recording), do: "audiobook search"
   defp capability_label(:book_details, :recording), do: "audiobook details"
   defp capability_label(:book_search, _level), do: "book search"
@@ -262,8 +238,8 @@ defmodule AmbryWeb.Admin.MetadataLive.Providers do
   defp capability_label(:chapters, _level), do: "chapters"
   defp capability_label(:editions, _level), do: "editions"
 
-  # A capability with no label must not take the settings page down with it —
-  # adding one to the behaviour shouldn't be able to break an unrelated screen.
+  # Adding a capability to the behaviour must not be able to break this
+  # screen.
   defp capability_label(other, _level), do: other |> to_string() |> String.replace("_", " ")
 
   defp display_value(value, %{default: default}) when value == default, do: nil

@@ -73,7 +73,7 @@ defmodule AmbryWeb.Admin.UniverseLive.IndexTest do
 
       refute has_element?(view, "[data-role='universe-name']", universe.name)
       assert has_element?(view, "[data-role='empty-message']", "No universes yet.")
-      assert render(view) =~ "Universe deleted successfully"
+      assert render(view) =~ "Deleted #{universe.name}."
     end
   end
 

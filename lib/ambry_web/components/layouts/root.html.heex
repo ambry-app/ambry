@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<%!-- Ambry is dark-only, everywhere, by decision (2026-08-09): one theme,
-      half the styling overhead. There is no theme machinery left — every
-      class is an absolute color; color-scheme keeps native controls dark. --%>
+<%!-- Ambry is dark-only, everywhere: one theme, half the styling
+      overhead. There is no theme machinery — every class is an absolute
+      color, and color-scheme keeps native controls dark. --%>
 <html lang="en" style="scrollbar-gutter: stable; color-scheme: dark;">
   <head>
     <meta charset="utf-8" />
@@ -26,11 +26,11 @@
     </script>
   </head>
   <body class="bg-black text-zinc-200 selection:bg-brand-dark selection:text-black">
-    <%!-- Both branches are now just the content: the document is the scroller
-          everywhere. The signed-in branch used to be an `h-screen` shell whose
-          child was `overflow-hidden`, which made `#main-content` the scrollport
-          — and LiveView only ever restores `window.scrollY`, so back from a
-          book's page always landed at the top of the library. --%>
+    <%!-- Both branches are just the content: the document is the scroller
+          everywhere. An `h-screen` shell whose child is `overflow-hidden`
+          makes `#main-content` the scrollport instead, and LiveView only ever
+          restores `window.scrollY`, so back from a book's page would land at
+          the top of the library. --%>
     {@inner_content}
   </body>
 </html>

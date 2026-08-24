@@ -24,23 +24,16 @@ defmodule Ambry.Media.Media do
 
   @statuses [:pending, :processing, :error, :ready]
 
-  # Where this recording's chapter *markers* came from. One value for the
-  # whole list, because markers arrive as a timeline from a single extractor
-  # — you don't mix mp4 atoms with file boundaries. Titles are the opposite
-  # and carry a source per row; see `Ambry.Media.Media.Chapter`.
+  # One value for the whole list, because markers arrive as a timeline from
+  # a single extractor. Titles carry a source per row.
   #
-  # There is deliberately no `:provider` here. Provider chapter times
-  # describe their own retail edition and drift by minutes against a rip, so
-  # they are a title source only (roadmap 1h). `nil` means nobody recorded
-  # it — every chapter list that predates this field.
+  # No `:provider`, deliberately: provider chapter times describe their own
+  # retail edition and drift by minutes against a rip.
   @marker_sources [:embedded, :file_boundaries, :manual]
 
-  # provider-fillable scalar fields tracked by field-level provenance
-  #
-  # `:title` is the recording's *override*, and it belongs here for the same
-  # reason the other five do: a record can fill it, so where it came from is
-  # worth knowing. The importer has always passed a source for it
-  # (`Ambry.Inbox.Importer`) and this list is what was quietly dropping it.
+  # Provider-fillable scalar fields tracked by field-level provenance.
+  # `:title` is the recording's override, which a record can fill like the
+  # rest.
   @provenance_fields [
     :title,
     :published,
@@ -70,11 +63,10 @@ defmodule Ambry.Media.Media do
     field :full_cast, :boolean, default: false
     field :status, Ecto.Enum, values: @statuses, default: :pending
 
-    # When this recording's files stopped being readable. Deliberately not a
-    # `status` value: status is about processing and is what publishing keys
-    # on, while missing is orthogonal and — crucially — reversible. Set by
-    # the reconciliation sweep and cleared when the files come back, so an
-    # unplugged disk doesn't destroy what each recording's status used to be.
+    # When this recording's files stopped being readable. Not a `status`
+    # value: status is about processing and is what publishing keys on, while
+    # missing is orthogonal and reversible, so an unplugged disk cannot
+    # destroy every recording's status.
     field :missing_since, :utc_datetime
 
     field :abridged, :boolean, default: false
@@ -94,20 +86,18 @@ defmodule Ambry.Media.Media do
     # also where the transcoded-output columns below point.
     belongs_to :library_root, Root
 
-    # **Transcode source bookkeeping**, and nothing else: the folder and the
-    # files a transcode consumed to produce the mp4/mpd/hls trio below.
-    # Never served and never played — resolve them through `source_path/2`
-    # and `files/2`, and never join them against anything directly.
+    # **Transcode source bookkeeping**, and nothing else: the folder and files
+    # a transcode consumed to produce the mp4/mpd/hls trio below. Never served
+    # and never played; resolve through `source_path/2` and `files/2`.
     #
-    # Only a transcoded recording has them. An imported one leaves both
-    # empty: its files are `media_tracks`, which is what it is served from,
-    # organized by and deleted with.
+    # Only a transcoded recording has them. An imported one leaves both empty:
+    # its files are `media_tracks`.
     field :source_path, :string
     field :source_files, {:array, :string}, default: []
 
-    # Absolute paths a pre-refactor recording was transcoded from, pointing
-    # into a downloads folder that is a source, not a root. Provenance for
-    # Phase 4's relink, never served and never deleted.
+    # Absolute paths an older recording was transcoded from, pointing into a
+    # downloads folder that is a source rather than a root. Provenance only:
+    # never served and never deleted.
     field :legacy_source_files, {:array, :string}
 
     field :mpd_path, :string
@@ -192,12 +182,9 @@ defmodule Ambry.Media.Media do
     |> track_chapters_provenance(opts[:provenance] || %{})
   end
 
-  # Chapters join provenance only when a save carries a source for them (an
-  # applied titles merge). They can't ride the tracked list above: an embed
-  # with no primary key registers as changed on every cast, so blanket
-  # tracking would stamp "manual, locked" onto the list every time the form
-  # saves — and the rows already carry their own finer provenance in
-  # `title_source`.
+  # Chapters join provenance only when a save carries a source for them: a
+  # keyless embed registers as changed on every cast, so blanket tracking
+  # would stamp "manual, locked" onto the list every save.
   defp track_chapters_provenance(changeset, sources) do
     case Map.get(sources, "chapters") do
       nil -> changeset
@@ -205,13 +192,9 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # A recording with a real placement has no business carrying the absolute
-  # downloads paths it was once transcoded from — that is
-  # `media_legacy_source_files_quarantined`, and a CHECK cannot wait for the
-  # commit, so the two changes have to travel in one statement. Replacing a
-  # legacy recording's files is the one thing that moves a row across that
-  # line, and it is the kind of invariant to make true by construction rather
-  # than to remember at the one call site that needs it.
+  # A recording with a real placement may not carry the absolute downloads
+  # paths a transcode consumed, and a CHECK cannot wait for the commit, so
+  # the two changes travel in one statement.
   defp clear_legacy_provenance(changeset) do
     if get_change(changeset, :library_root_id) && get_field(changeset, :legacy_source_files) do
       put_change(changeset, :legacy_source_files, nil)
@@ -230,9 +213,8 @@ defmodule Ambry.Media.Media do
     |> check_constraint(:part_number, name: "media_part_number_requires_group")
   end
 
-  # A group belongs to a book the way its members do — attaching a media to
-  # another book's set is nonsense the tile renderer couldn't even display.
-  # The total also becomes checkable here once the group is fetched.
+  # A group belongs to a book the way its members do. The total also becomes
+  # checkable here once the group is fetched.
   defp validate_group_book(changeset) do
     group_id = get_field(changeset, :recording_group_id)
 
@@ -294,14 +276,10 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # A recording may name a set its book doesn't have yet, the way a book may
-  # name an author the library doesn't (`Ambry.Ecto.EntityRef`) — a set is
-  # the one entity on this form that had to be made somewhere else first.
-  #
-  # The book is not asked for: a set belongs to a book the way its members
-  # do, and `validate_group_book/1` enforces exactly that for a set being
-  # joined. Putting it on the data rather than in the params keeps it out of
-  # reach of a posted `book_id` that would disagree with the recording's own.
+  # A recording may name a set its book does not have yet, the way a book may
+  # name an author the library does not (`Ambry.Ecto.EntityRef`). The book is
+  # put on the data rather than in the params, out of reach of a posted
+  # `book_id` that would disagree with the recording's own.
   defp cast_new_group(changeset) do
     book_id = get_field(changeset, :book_id)
 
@@ -310,10 +288,9 @@ defmodule Ambry.Media.Media do
     )
   end
 
-  # The total lives on the group, so this check can only run where the total
-  # is visible — the already-loaded linked group. Linking a different group
-  # by id is covered only by the DB CHECKs; the group form validates its
-  # members against the total itself.
+  # The total lives on the group, so this check only runs against an
+  # already-loaded one. Linking a different group by id is covered by the DB
+  # CHECKs.
   defp validate_part_number_within_total(changeset) do
     part_number = get_field(changeset, :part_number)
     parts_total = visible_parts_total(changeset)
@@ -335,21 +312,18 @@ defmodule Ambry.Media.Media do
   @doc """
   The short identifier this recording's files carry in the library.
 
-  A book folder is shared by every part of a set and by every recording of the
-  same work, so two readings published the same year used to render to one
-  identical path and placement refused. This is what makes a recording's name
-  unique by construction instead — see `Ambry.Library.NamingTemplate.filenames/3`
-  for why it's unconditional rather than only added on collision.
+  A book folder is shared by every part of a set and by every recording of
+  the same work, so two readings published in the same year would otherwise
+  render to one path. See `Ambry.Library.NamingTemplate.filenames/3` for why
+  it is unconditional.
 
-  It's the same `Ambry.Hashids` coder the track URLs use, on purpose: a token
-  in a filename is then greppable back to the record it names, years later,
-  by anyone holding the file.
+  The same `Ambry.Hashids` coder the track URLs use, so a token in a filename
+  is greppable back to the record it names.
 
-  **That coder is `Hashids.new([])` — no salt, library defaults — so this is
-  stable forever and identical in every environment. Giving it a salt or a
-  `min_length` for some URL-side reason would silently rename every file in
-  every library; `Ambry.HashidsTest` is the tripwire that stops it happening
-  by accident.**
+  **That coder is `Hashids.new([])`, no salt, so this is stable forever and
+  identical in every environment. Giving it a salt or a `min_length` would
+  silently rename every file in every library; `Ambry.HashidsTest` is the
+  tripwire.**
   """
   def filename_token(%Media{id: id}) when is_integer(id), do: Hashids.encode(id)
   def filename_token(%Media{}), do: nil
@@ -369,11 +343,10 @@ defmodule Ambry.Media.Media do
   end
 
   @doc """
-  A human label for a media's position in its part set ("Part 2 of 3",
-  "Episode 4" per the group's wording), or nil for single-release
-  recordings. Works on anything with the part fields (Media structs and
-  MediaFlat rows alike); the wording comes from the loaded recording group,
-  a flat row's part_word column, or an explicitly passed group.
+  A human label for a media's position in its part set ("Part 2 of 3"), or
+  nil for single-release recordings. Works on anything with the part fields;
+  the wording comes from the loaded recording group, a flat row's part_word
+  column, or an explicitly passed group.
   """
   def part_label(media_ish, group \\ nil)
   def part_label(%{part_number: nil}, _group), do: nil
@@ -397,8 +370,8 @@ defmodule Ambry.Media.Media do
   defp resolve_part_word(_media_ish, nil), do: "part"
 
   # The total is the group's fact: an explicitly passed group, the loaded
-  # group, or a flat row's parts_total column (sourced from the group in the
-  # view). A Media with its group unloaded renders without the "of M".
+  # group, or a flat row's parts_total column. A Media with its group unloaded
+  # renders without the "of M".
   defp resolve_parts_total(_media_ish, %RecordingGroup{parts_total: total}), do: total
 
   defp resolve_parts_total(%Media{recording_group: %RecordingGroup{parts_total: total}}, nil),
@@ -428,15 +401,12 @@ defmodule Ambry.Media.Media do
       else: validate_required(changeset, [:source_path])
   end
 
-  # A ready media needs *some* playable representation. Direct-play media have
-  # tracks; legacy media have the packaged artifacts, which is why the trio is
-  # nullable rather than gone — already-imported media keep playing untouched
-  # until the back-catalog reclaim retires them.
+  # A ready recording needs some playable representation: direct-play has
+  # tracks, transcoded has the packaged artifacts.
   #
   # Publishing a tracks-only recording is additionally gated on the operator
-  # switch, because the app has to understand tracks before the server ever
-  # hands it one. Callers pass `direct_play_publishing?` in; the context reads
-  # the setting so this stays a pure function of its inputs.
+  # switch, since clients have to understand tracks first. Callers pass
+  # `direct_play_publishing?` in, so this stays a pure function.
   defp maybe_validate_paths(changeset, opts) do
     cond do
       get_field(changeset, :status) != :ready ->
@@ -582,15 +552,12 @@ defmodule Ambry.Media.Media do
   defp resolve!(%Media{library_root: %Root{} = root}, path), do: Library.resolve!(root, path)
   defp resolve!(%Media{library_root_id: root_id}, path), do: Library.resolve!(root_id, path)
 
-  # if the image_path changes, clear the thumbnails embed
-  # Moving a marker makes the timeline the operator's, wherever it started
-  # out. Titles are not markers, so pouring a provider's titles onto a
-  # file-derived timeline leaves the source saying `:embedded` — which is the
-  # whole point of tracking the two halves apart.
+  # Moving a marker makes the timeline the operator's. Titles are not markers,
+  # so pouring a provider's titles onto a file-derived timeline leaves the
+  # marker source alone, which is the point of tracking the two halves apart.
   #
-  # Done here rather than at the call sites because every path that can edit
-  # a time goes through this changeset, and four hand-rolled versions of one
-  # invariant is how the last one got forgotten somewhere new.
+  # Here rather than at the call sites, because every path that can edit a
+  # time goes through this changeset.
   defp track_marker_source(changeset) do
     cond do
       get_change(changeset, :chapter_marker_source) -> changeset

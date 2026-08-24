@@ -2,9 +2,8 @@ defmodule Ambry.Media.Chapters.Merge do
   @moduledoc """
   Pouring a list of titles onto a list of markers.
 
-  This is the operation 1h is built around. Markers come from the files and
-  are trusted; titles come from wherever the best ones are, most often
-  Audnexus by ASIN. The two lists describe the same book but not the same
+  Markers come from the files and are trusted; titles come from wherever the
+  best ones are. The two lists describe the same book but not the same
   artifact, so they rarely line up one-for-one:
 
     * a retail edition carries "Opening Credits" and "End Credits" that a rip
@@ -15,42 +14,35 @@ defmodule Ambry.Media.Chapters.Merge do
 
   ## Why durations and not times
 
-  The last point is what rules out the obvious approach. Matching by absolute
-  position fails precisely where it matters — the further into the book, the
-  worse the drift, so the chapters most likely to be mispaired are the ones a
-  reader reaches last.
+  Matching by absolute position fails precisely where it matters: the further
+  into the book, the worse the drift.
 
-  Durations are **local**. However far the two timelines have wandered apart
-  overall, a chapter that runs 18m22s in the retail edition runs about
-  18m22s in the rip, because it's the same narration. So the merge aligns the
-  two *sequences of durations* and is immune to accumulated offset by
-  construction. Aligning sequences rather than pairing them elementwise is
-  also what absorbs the extra credits entry: an unmatched title is a gap in
-  the alignment, not a shift of everything after it.
+  Durations are local. However far the two timelines have wandered apart, a
+  chapter that runs 18m22s in the retail edition runs about 18m22s in the rip,
+  because it's the same narration. So the merge aligns the two *sequences of
+  durations* and is immune to accumulated offset by construction. Aligning
+  sequences rather than pairing them elementwise is also what absorbs the
+  extra credits entry: an unmatched title is a gap, not a shift of everything
+  after it.
 
-  When the two lists are the same length, none of that is needed and the
-  merge is index-wise — the roadmap's rule, and the overwhelmingly common
-  case. A title list with no timestamps at all is index-wise too, since
-  there's nothing to align on.
-
-  ## What it never does
+  When the two lists are the same length, none of that is needed and the merge
+  is index-wise, which is the common case. A title list with no timestamps is
+  index-wise too.
 
   It never moves a marker. An incoming list's times are read only to compute
-  its durations, and are then thrown away. That is the whole principle: a
-  provider that is minutes wrong about *where* chapter 30 starts is still
-  right about what it's called.
+  its durations and are then thrown away: a provider that is minutes wrong
+  about where chapter 30 starts is still right about what it's called.
   """
 
   alias Ambry.Media.Media.Chapter
 
-  # A pair this dissimilar is no better than leaving both unmatched, so the
-  # gap penalty sits at half of the worst possible match: two gaps cost 1.0,
+  # The gap penalty sits at half the worst possible match: two gaps cost 1.0,
   # a hopeless match costs 1.0, and ties go to matching.
   @gap 0.5
 
   # The final entry of each list has no following duration to compare, so the
-  # ends are matched on faith rather than evidence — cheap enough to prefer
-  # over a gap, dear enough not to force a bad pairing.
+  # ends are matched on faith: cheap enough to prefer over a gap, dear enough
+  # not to force a bad pairing.
   @unknown_cost 0.15
 
   @doc """
@@ -60,8 +52,8 @@ defmodule Ambry.Media.Chapters.Merge do
   `%{title: String.t(), time: Decimal.t() | nil}` proposals. The result has
   exactly as many chapters as there were markers, at exactly the same times.
 
-  `source` is recorded on every title this actually replaces, so the editor
-  can say where each name came from and a later merge knows what is safe to
+  `source` is recorded on every title this replaces, so the editor can say
+  where each name came from and a later merge knows what is safe to
   overwrite.
   """
   def titles(markers, incoming, source \\ :provider) do
@@ -86,9 +78,8 @@ defmodule Ambry.Media.Chapters.Merge do
   How the two lists pair up, as `{marker_index, incoming_index}` tuples.
 
   Either side may be `nil`: a marker with no title offered to it, or a title
-  with no marker to land on (the retail edition's "End Credits"). The list is
-  in timeline order, which is what makes it renderable as a side-by-side
-  preview.
+  with no marker to land on. In timeline order, so it renders as a
+  side-by-side preview.
   """
   def align(markers, incoming)
 
@@ -140,9 +131,8 @@ defmodule Ambry.Media.Chapters.Merge do
     traceback(backpointers(marker_durations, incoming_durations))
   end
 
-  # The gap to the next entry. The last one has no next, and says so rather
-  # than guessing at the media's total length — a marker list and a title
-  # list can legitimately disagree about where the book ends.
+  # The gap to the next entry. The last one has no next and says so, since
+  # the two lists can legitimately disagree about where the book ends.
   defp durations(times) do
     times
     |> Enum.map(&Decimal.to_float/1)
@@ -155,8 +145,7 @@ defmodule Ambry.Media.Chapters.Merge do
   end
 
   # Needleman-Wunsch: every cell is the cheapest way to have consumed i
-  # markers and j titles, and the direction it came from. Kept to the
-  # backpointers, since the costs themselves are of no interest afterwards.
+  # markers and j titles, and the direction it came from.
   defp backpointers(markers, incoming) do
     n = tuple_size(markers)
     m = tuple_size(incoming)
@@ -223,9 +212,8 @@ defmodule Ambry.Media.Chapters.Merge do
   @doc """
   Re-numbers every generated title, after rows were added or removed.
 
-  A generated title is a position, so "Chapter 7" has to stop being Chapter 7
-  the moment something is inserted above it. Titles anybody actually chose
-  are left exactly as they are.
+  A generated title is a position, so "Chapter 7" stops being Chapter 7 the
+  moment something is inserted above it. Chosen titles are left alone.
   """
   def renumber(chapters) do
     chapters

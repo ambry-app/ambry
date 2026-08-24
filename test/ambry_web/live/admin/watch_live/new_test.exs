@@ -77,10 +77,12 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       assert html =~ "The Velvet Knife"
       assert html =~ "Emily Ellet"
       assert html =~ "Sep 29, 2099"
-      assert has_element?(view, "[data-role='candidate-runtime']", "10h")
+      assert has_element?(view, "[data-role='candidate-facts']", "10h")
     end
 
-    test "groups a provider's recordings under the book each is of", %{conn: conn} do
+    # A work-level provider names the book a recording is of, and that is a
+    # fact on the row now that nothing is grouped under it.
+    test "a recording says which book a work-level provider says it is of", %{conn: conn} do
       offering([])
 
       patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _q, _c ->
@@ -102,50 +104,50 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
       {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
       view |> form("#watch-search-form", search: %{title: "Neuromancer"}) |> render_submit()
 
-      assert has_element?(view, "[data-role='work-heading']", "Neuromancer")
-      assert has_element?(view, "[data-role='work-heading']", "Neuromancer: The Graphic Novel")
+      assert has_element?(view, "[data-role='candidate-facts']", "Neuromancer")
+
+      assert has_element?(
+               view,
+               "[data-role='candidate-facts']",
+               "Neuromancer: The Graphic Novel"
+             )
     end
 
-    # A lone heading repeats the row beneath it.
-    test "one book gets no heading", %{conn: conn} do
-      offering([])
+    # Which database answered is a fact about the record, not a heading over a
+    # group of them: one list, ranked once, each row saying where it came from.
+    test "every result says which provider found it", %{conn: conn} do
+      offering([velvet_knife()])
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
+
+      view |> form("#watch-search-form", search: %{title: "The Velvet Knife"}) |> render_submit()
+
+      assert has_element?(view, "[data-role='record-source']", "Audible")
+      assert has_element?(view, "[data-role='watch-candidate']")
+    end
+
+    test "results from two providers are one ranked list, best first", %{conn: conn} do
+      offering([velvet_knife()])
 
       patch(Ambry.Metadata.Providers.Hardcover, :search_books, fn _q, _c ->
-        {:ok, [%Provider.Book{provider: "hardcover", id: "w1", title: "Blightfall"}]}
+        {:ok, [%Provider.Book{provider: "hardcover", id: "w1", title: "Something Else Entirely"}]}
       end)
 
       patch(Ambry.Metadata.Providers.Hardcover, :editions_bulk, fn _ids, _c ->
-        {:ok, %{"w1" => [future_edition("Blightfall")]}}
+        {:ok, %{"w1" => [future_edition("Something Else Entirely")]}}
       end)
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
-      view |> form("#watch-search-form", search: %{title: "Blightfall"}) |> render_submit()
-
-      assert has_element?(view, "[data-role='watch-candidate']")
-      refute has_element?(view, "[data-role='work-heading']")
-    end
-
-    # A recording-level provider names no work, so inventing a heading for its
-    # results would be inventing a fact.
-    test "recordings that belong to no named book get no heading", %{conn: conn} do
-      offering([velvet_knife()])
-
-      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
       view |> form("#watch-search-form", search: %{title: "The Velvet Knife"}) |> render_submit()
 
-      assert has_element?(view, "[data-role='watch-candidate']")
-      refute has_element?(view, "[data-role='work-heading']")
-    end
+      titles =
+        view
+        |> render()
+        |> Floki.parse_document!()
+        |> Floki.find("[data-role='watch-candidate']")
+        |> Enum.map(&(&1 |> Floki.find("span.truncate") |> Floki.text() |> String.trim()))
 
-    test "groups results under the provider that gave them", %{conn: conn} do
-      offering([velvet_knife()])
-
-      {:ok, view, _html} = live(conn, ~p"/admin/watches/new")
-
-      view |> form("#watch-search-form", search: %{title: "The Velvet Knife"}) |> render_submit()
-
-      assert has_element?(view, "*", "Audible")
-      assert has_element?(view, "[data-role='watch-candidate']")
+      assert ["The Velvet Knife" | _rest] = titles
     end
 
     test "says who answered, so nothing found and nobody asked look different",
@@ -156,8 +158,8 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
 
       view |> form("#watch-search-form", search: %{title: "Nothing"}) |> render_submit()
 
-      assert has_element?(view, "*", "Who answered")
-      assert has_element?(view, "*", "Nothing still to come.")
+      assert has_element?(view, "[data-role='provider-outcomes']", "Audible: 0")
+      assert has_element?(view, "*", "Nothing upcoming found.")
     end
 
     test "a recording that is already out is not offered as a watch", %{conn: conn} do
@@ -183,8 +185,8 @@ defmodule AmbryWeb.Admin.WatchLive.NewTest do
 
       view |> form("#watch-search-form", search: %{title: "Old"}) |> render_submit()
 
-      assert has_element?(view, "*", "1 already published")
-      assert has_element?(view, "*", "Nothing still to come.")
+      assert has_element?(view, "*", "1 already released not shown.")
+      assert has_element?(view, "*", "Nothing upcoming found.")
     end
 
     test "watching a result keeps the provider's record", %{conn: conn} do

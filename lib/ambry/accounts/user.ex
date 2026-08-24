@@ -21,24 +21,12 @@ defmodule Ambry.Accounts.User do
   @doc """
   A user changeset for registration.
 
-  It is important to validate the length of both email and password.
-  Otherwise databases may truncate the email without warnings, which
-  could lead to unpredictable or insecure behaviour. Long passwords may
-  also be very expensive to hash for certain algorithms.
+  Both lengths are validated: a database may truncate an over-long email
+  without warning, and a long password is expensive to hash.
 
-  ## Options
-
-    * `:hash_password` - Hashes the password so it can be stored securely
-      in the database and ensures the password field is cleared to prevent
-      leaks in the logs. If password hashing is not needed and clearing the
-      password field is not desired (like when using this changeset for
-      validations on a LiveView form), this option can be set to `false`.
-      Defaults to `true`.
-
-    * `:validate_email` - Validates the uniqueness of the email, in case
-      you don't want to validate the uniqueness of the email (like when
-      using this changeset for validations on a LiveView form before
-      submitting the form), this option can be set to `false`.
+    * `:hash_password` — hash it and clear the plaintext field. Set `false`
+      for a LiveView form doing validation only. Defaults to `true`.
+    * `:validate_email` — check uniqueness. Set `false` for the same reason.
       Defaults to `true`.
   """
   def registration_changeset(user, attrs, opts \\ []) do
@@ -51,17 +39,11 @@ defmodule Ambry.Accounts.User do
   @doc """
   A user changeset for invitation.
 
-  It is important to validate the length of the email.
-  Otherwise databases may truncate the email without warnings, which
-  could lead to unpredictable or insecure behaviour.
+  The email's length is validated: a database may truncate an over-long one
+  without warning.
 
-  ## Options
-
-    * `:validate_email` - Validates the uniqueness of the email, in case
-      you don't want to validate the uniqueness of the email (like when
-      using this changeset for validations on a LiveView form before
-      submitting the form), this option can be set to `false`.
-      Defaults to `true`.
+    * `:validate_email` — check uniqueness. Set `false` for a LiveView form
+      doing validation only. Defaults to `true`.
   """
   def invitation_changeset(user, attrs, opts \\ []) do
     user
@@ -130,14 +112,8 @@ defmodule Ambry.Accounts.User do
   @doc """
   A user changeset for changing the password.
 
-  ## Options
-
-    * `:hash_password` - Hashes the password so it can be stored securely
-      in the database and ensures the password field is cleared to prevent
-      leaks in the logs. If password hashing is not needed and clearing the
-      password field is not desired (like when using this changeset for
-      validations on a LiveView form), this option can be set to `false`.
-      Defaults to `true`.
+    * `:hash_password` — hash it and clear the plaintext field. Set `false`
+      for a LiveView form doing validation only. Defaults to `true`.
   """
   def password_changeset(user, attrs, opts \\ []) do
     user

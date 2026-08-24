@@ -23,6 +23,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
@@ -44,14 +45,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     "image" => :image
   }
 
-  # Credits, which are people: accepting one of these stages a row naming the
-  # human, and the save makes them (`Ambry.Ecto.EntityRef`).
-  # What the set drop-down's "New set" row posts. A sentinel rather than "",
-  # for the reason the import form gives where it does the same:
-  # `EntityOption.selected?/2` reads a blank value as nothing held, so an
-  # option with a blank id can never draw as chosen — picking it left the
-  # trigger empty. `naming_a_set/2` translates it back to the absence of an id
-  # that the cast wants.
+  # Credits are people: accepting one stages a row naming the human, and the
+  # save makes them (`Ambry.Ecto.EntityRef`).
+  #
+  # The set drop-down's "New set" row posts a sentinel rather than "", since
+  # `EntityOption.selected?/2` reads a blank value as nothing held.
+  # `naming_a_set/2` translates it back.
   @new_set "new"
 
   @entity_kinds %{"narrators" => :narrators}
@@ -127,11 +126,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # The search the recording itself suggests: its book's title and author, and
   # its first narrator — the field that tells two recordings of one work apart.
   #
-  # The author is not optional. Without it the recording search is a bare
-  # title, and a bare title is how "The Martian" comes back as study guides
-  # and conversation starters: Audible's catalog takes `author` as a real
-  # parameter, and the scorer needs it to tell a content farm's companion work
-  # from the book.
+  # The author is not optional: a bare title comes back as study guides and
+  # conversation starters. A storefront takes `author` as a real parameter,
+  # and the scorer needs it to tell a companion work from the book.
   defp seed_fields(media) do
     book = Books.book_option(media.book_id)
 
@@ -183,6 +180,22 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(
+           Media.delete_media(socket.assigns.media),
+           Media.Media.display_title(socket.assigns.media)
+         ) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/audiobooks", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"media" => media_params}, socket) do
     socket =
       if media_params["image_type"] == "upload" do
@@ -263,9 +276,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   # ── chapters ───────────────────────────────────────────────────────────
   #
-  # The title import, inline where a modal used to be: the fetched titles
-  # render into the rows as a proposed column, and nothing lands until
-  # Take — Save is still the only thing that persists.
+  # The title import, inline rather than in a modal: the fetched titles
+  # render into the rows as a proposed column, and nothing lands until Take.
+  # Save is still the only thing that persists.
 
   def handle_event("fetch-chapter-titles", %{"asin" => asin}, socket) do
     chip =
@@ -314,15 +327,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     {:noreply, assign(socket, chapter_import: nil)}
   end
 
-  # The way back to the files, which the inbox has had all along and this
-  # form did not: markers are file-derived facts, and a recording whose rows
-  # are wrong had no way to say "read them again".
+  # The way back to the files: markers are file-derived facts, so a recording
+  # whose rows are wrong needs a way to say "read them again".
   #
-  # It applies on arrival rather than previewing into the proposed column,
-  # for the same reason the inbox's chip does: the column pairs one incoming
-  # title to one existing marker, and re-reading the files is the one
-  # proposal that can legitimately change how many markers there are. Nothing
-  # is saved either way until Save.
+  # Applies on arrival rather than previewing into the proposed column, which
+  # pairs one incoming title to one existing marker: re-reading the files is
+  # the one proposal that can change how many markers there are.
   def handle_event("take-file-chapters", _params, socket) do
     media = socket.assigns.media
 
@@ -356,18 +366,16 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  # The files on their own. Reading a header is milliseconds and always has
-  # something to say; a provider fan-out is seconds and often has nothing, and
-  # pairing them made "would the embedded cover be an improvement?" cost the
-  # second to get the first.
+  # The files on their own: reading a header is milliseconds and always has
+  # something to say, where a provider fan-out is seconds and often has
+  # nothing.
   #
   # Always re-reads, unlike the once-only read a search does on the way past:
-  # a control the operator pressed on purpose that quietly did nothing the
-  # second time would be worse than the round trip it saves.
+  # a control pressed on purpose that quietly does nothing the second time is
+  # worse than the round trip it saves.
   #
-  # No scrim. `running?` is the panel's, and it means "the databases are being
-  # asked" — a header read is not that, and blanking the form for it would
-  # cost more than it takes.
+  # No scrim: `running?` means "the databases are being asked", and blanking
+  # the form for a header read costs more than it takes.
   def handle_event("scan-files", _params, socket) do
     media = socket.assigns.media
 
@@ -441,13 +449,12 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  # A narrator a ticked record names, credited in one click.
-  #
-  # Two readings of one book differ by nothing but their narrators, so this is
-  # the field a record most needs to be able to fill — and it was the only one
-  # the form could not. It was here once and was removed (`17aa2234`) because
-  # clicking a chip the recording already had credited them again; that is
-  # `proposal_chip/1`'s business now, and `already_credited?/4` is the belt.
+  # A narrator a ticked record names, credited in one click. Two readings of
+  # one book differ by nothing but their narrators, so this is the field a
+  # record most needs to fill. Clicking a chip the recording already has
+  # credits nobody twice: `proposal_chip/1` renders it inert and
+  # `already_credited?/4` is the belt.
+
   # ── the people this form is about to create ────────────────────────────
   #
   # The card owns its own evidence and its own state; the form owns the
@@ -464,28 +471,17 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     end
   end
 
-  # The recording level asks two ways, like the import form: Audible's catalog
-  # directly, and the editions the work-level databases keep — the route to a
-  # recording no storefront will admit exists.
+  # The recording level asks two ways, like the import form: recording-level
+  # providers directly, and the editions the work-level databases keep.
   #
-  # **Only recordings are listed.** Mixing the work records in gave the
-  # operator a description to choose, and cost more than it bought: a work
-  # record renders "The Martian — Andy Weir · 2011 · Hardcover", which is also
-  # what four of its editions render, so the list stopped being a list of
-  # readings. The editions carry the book's description themselves now (see
-  # `Hardcover.editions/2`), which is the same text by a shorter road.
+  # **Only recordings are listed.** A work record renders the same line as
+  # several of its own editions, so mixing them in stops the list being a list
+  # of readings. The editions carry the book's description themselves.
   #
   # The work search still runs, because its records are the ids the editions
-  # are fetched by. Only its **failures** are reported: a chip saying
-  # "Hardcover: 9" would describe a search whose records aren't shown, but a
-  # work provider that was down took its editions with it, and that has to be
-  # visible or the recordings list is short for no stated reason.
-  # "Part of a set" with nothing chosen is the operator saying they mean a set
-  # this book does not have yet, and the empty nested group is what makes the
-  # name box render — the same idiom `Ambry.People.AuthorPerson` uses to open
-  # a box for a pen name nobody has typed into. Only the form can say this: a
-  # recording pointing at no group and holding no part number is simply not in
-  # a set, and the schema cannot tell the two apart.
+  # are fetched by, but only its **failures** are reported: a work provider
+  # that was down took its editions with it, and that has to be visible or the
+  # recordings list is short for no stated reason.
   defp naming_a_set(params, %{assigns: %{group_row_visible: true}}) do
     if params["recording_group_id"] in [nil, "", @new_set] do
       params
@@ -522,14 +518,11 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
 
   defp retry_fan_out(_entry, _kind, _query, _hints), do: {[], []}
 
-  # The recording's own file is evidence too, and searching is when the
-  # operator asked what else this recording could say about itself — so it is
-  # when the file gets read, alongside the providers, rather than on every
-  # page load. Reading it is an ffprobe against a NAS, and a form nobody came
-  # to curate should not pay for one.
+  # The file is evidence too, read when the operator searches rather than on
+  # every page load: it is an ffprobe across a network share, and a form
+  # nobody came to curate should not pay for one.
   #
-  # Once only: the file does not change while the form is open, and a second
-  # search must not cost a second probe.
+  # Once only: the file does not change while the form is open.
   defp read_file_tags(%{assigns: %{evidence: %{tags: nil}, media: media}} = socket) do
     start_async(socket, :file_tags, fn -> Media.Scanner.tags(media) end)
   end
@@ -549,9 +542,9 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
     work_records =
       Enum.flat_map(work_found, fn {entry, books} -> Inbox.score_records(books, entry, hints) end)
 
-    # Only the top group gets asked for editions. Every work record used to,
-    # which on The Martian meant nine editions calls and nine "Hardcover
-    # editions" chips, seven of them reporting zero.
+    # Only the top group gets asked for editions. Asking every work record
+    # means one editions call and one chip per record, most of them reporting
+    # zero.
     {edition_records, edition_outcomes} =
       work_records |> Inbox.top_group() |> Inbox.editions_of(hints)
 
@@ -663,7 +656,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
   # The narrator identity a proposed credit names — an existing narrator of
   # that name, the identity added to an existing person, or a new person.
   # A chip stages the name; the person is made when the form is saved, in the
-  # transaction that saves it. See the book form for why they used to differ.
+  # transaction that saves it.
   defp accept_entity(socket, :narrators, proposal) do
     name = proposal.params["name"]
 
@@ -736,9 +729,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
           # From the params, not the changeset: `image_type`,
           # `image_import_url` and the cleared `image_path` are form state
           # rather than schema fields, so `get_field/2` answers nil for all
-          # three and no cover proposal ever came back chosen. The chip went
-          # grey the moment it was clicked, which is the one moment it should
-          # not have.
+          # three and no cover proposal ever reads as chosen.
           image:
             evidence
             |> Evidence.proposals(:image)

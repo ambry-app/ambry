@@ -24,7 +24,6 @@ defmodule AmbryWeb.Endpoint do
     gzip: true,
     only_matching: AmbryWeb.static_matching()
 
-  # Serve static user uploaded images
   plug Plug.Static,
     at: "/uploads",
     from: {Ambry.Paths, :uploads_folder_disk_path, []},

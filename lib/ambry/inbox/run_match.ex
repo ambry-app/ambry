@@ -14,19 +14,18 @@ defmodule Ambry.Inbox.RunMatch do
 
   ## Retries
 
-  A rate-limited provider used to cost an item its records permanently — one
-  attempt, and the failure survived only as a discarded job that the Oban
-  pruner deletes within a day. Now it backs off and tries again, and the
-  operator can retry a single provider from the form besides.
+  A rate-limited provider must not cost an item its records permanently. The
+  job backs off and tries again, and the operator can retry a single provider
+  from the form besides.
 
   **The job is not finished until every provider it meant to ask has
   answered.** Retrying only covered a job that *crashed*, and a match where
   one provider was rate-limited does not crash: records get written, a draft
   gets staged, and the job reports success having quietly got less than it set
-  out to get. Measured on a real batch, Hardcover failed on 5 of 14 items and
-  one of them ended up with no work candidates at all. So a provider that
-  couldn't be reached now fails the job, which is what puts it back on the
-  queue — and because provider errors are never cached while answers are, each
+  out to get. On a cold batch a provider can fail on a third of the items and
+  leave one of them with no work candidates at all. So a provider that
+  couldn't be reached fails the job, which is what puts it back on the
+  queue, and because provider errors are never cached while answers are, each
   attempt keeps what it got and re-asks only what it missed.
   """
 
@@ -58,11 +57,10 @@ defmodule Ambry.Inbox.RunMatch do
   end
 
   # **A match that reached three of four databases has not finished.** The job
-  # itself succeeded — records were written, a draft was staged — so it used to
-  # report success and never went back, and a provider rate-limited during a
-  # cold start cost that item its records until somebody noticed the chip and
-  # retried by hand. Measured on a real batch: Hardcover failed on 5 of 14
-  # items, and one of them ended up with no work candidates at all.
+  # itself succeeded (records were written, a draft was staged), so reporting
+  # success would mean never going back, and a provider rate-limited during a
+  # cold start would cost that item its records until somebody noticed the
+  # chip and retried by hand.
   #
   # Failing the job here is what puts it back on the queue. The partial result
   # is already stored and stays stored, so each attempt keeps whatever it got

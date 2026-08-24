@@ -7,17 +7,6 @@ defmodule AmbryWeb.Gravatar do
 
   @doc """
   Generates a gravatar url for the given email address.
-
-  ## Examples
-
-      iex> gravatar_url("jdoe@example.com", secure: false)
-      "http://gravatar.com/avatar/694ea0904ceaf766c6738166ed89bafb"
-
-      iex> gravatar_url("jdoe@example.com", s: 256)
-      "https://secure.gravatar.com/avatar/694ea0904ceaf766c6738166ed89bafb?s=256"
-
-      iex> gravatar_url("jdoe@example.com")
-      "https://secure.gravatar.com/avatar/694ea0904ceaf766c6738166ed89bafb"
   """
   def gravatar_url(email, opts \\ []) do
     {secure, opts} = Keyword.pop(opts, :secure, true)

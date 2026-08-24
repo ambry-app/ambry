@@ -138,10 +138,10 @@ defmodule AmbryScraping.Audible.Products do
       |> filter_language(language)
 
     # **A catalog that could not be reached is not a catalog with nothing in
-    # it.** This used to answer `{:ok, …}` whenever *any* marketplace came
-    # back, so a rate-limited or geo-blocked region was indistinguishable
-    # from a region where the book genuinely doesn't exist — which is the
-    # one distinction the whole setting exists to make. The results are
+    # it.** Answering `{:ok, …}` whenever *any* marketplace comes back makes a
+    # rate-limited or geo-blocked region indistinguishable from a region where
+    # the book genuinely doesn't exist, which is the one distinction the whole
+    # setting exists to make. The results are
     # usable and they are incomplete, and the caller is told both.
     case errors do
       [] -> {:ok, parsed}

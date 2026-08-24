@@ -1,119 +1,70 @@
 <.layout title={@page_title} user={@current_user} socket={@socket}>
-  <div class="max-w-4xl space-y-7">
-    <div class="rounded-lg bg-zinc-900 p-4">
-      <h3 class="pl-3 text-sm font-semibold text-zinc-200">What are you waiting for?</h3>
-      <div class="pt-3">
-        <.simple_form id="watch-search-form" for={@search_form} as={:search} phx-submit="search">
-          <:actions>
-            <div class="grid w-full gap-4 md:grid-cols-3">
-              <.input field={@search_form[:title]} label="Title" placeholder="The Velvet Knife" />
-              <.input field={@search_form[:author]} label="Author" placeholder="Maureen Johnson" />
-              <.input field={@search_form[:narrator]} label="Narrator" />
-            </div>
-          </:actions>
-          <:actions>
-            <.button type="submit" disabled={@searching}>
-              {(@searching && "Searching…") || "Search"}
-            </.button>
-            <.brand_link navigate={~p"/admin/watches"}>Back to what you're watching</.brand_link>
-          </:actions>
-        </.simple_form>
-      </div>
-    </div>
+  <div class="max-w-4xl">
+    <div class="space-y-2 rounded-lg bg-zinc-900 p-4">
+      <.simple_form
+        id="watch-search-form"
+        for={@search_form}
+        as={:search}
+        phx-submit="search"
+        container_class="space-y-2"
+      >
+        <div class="flex flex-wrap items-end gap-2">
+          <.input field={@search_form[:title]} label="Title" container_class="w-48" />
+          <.input field={@search_form[:author]} label="Author" container_class="w-48" />
+          <.input field={@search_form[:narrator]} label="Narrator" container_class="w-48" />
 
-    <%!-- Who was asked, and what came of it. A provider that was unreachable
-          and a provider that genuinely has nothing look the same in a list of
-          results and mean opposite things, so the outcomes are stated even
-          when everything worked. --%>
-    <div :if={@searched} class="rounded-lg bg-zinc-900 p-4">
-      <h3 class="pl-3 text-sm font-semibold text-zinc-200">Who answered</h3>
-      <div class="space-y-1 pt-3 pl-3">
-        <p :for={outcome <- @outcomes} class="text-sm text-zinc-400">
-          <span class="text-zinc-300">{outcome["name"]}</span>
-          <span :if={outcome["status"] == "ok"}>
-            — {outcome["count"]} {(outcome["count"] == 1 && "result") || "results"}
-          </span>
-          <span :if={outcome["status"] != "ok"} class="text-amber-300">
-            — {outcome["status"]}{if outcome["reason"], do: ": #{outcome["reason"]}"}
-          </span>
-        </p>
-        <p :for={note <- @notes} class="text-sm text-zinc-400">{note}</p>
-      </div>
-    </div>
-
-    <div :if={@searched and @candidates == []} class="rounded-lg bg-zinc-900 p-4">
-      <p class="pl-3 text-sm text-zinc-400">
-        Nothing still to come. Recordings that are already published are not
-        shown — a watch is for something you're waiting for — so check the line
-        above for whether any were found and set aside.
-      </p>
-    </div>
-
-    <%!-- Grouped by provider and unranked across them: for something that
-          isn't out yet the providers are differently blind, not better and
-          worse, so neither gets to be the default. Within a provider, by the
-          book each recording is of. --%>
-    <div
-      :for={{provider, work_groups} <- by_provider_and_work(@candidates)}
-      class="rounded-lg bg-zinc-900 p-4"
-    >
-      <div class="flex items-baseline justify-between gap-4 pl-3">
-        <h3 class="text-sm font-semibold text-zinc-200">{provider_words(provider)}</h3>
-        <span class="text-sm text-zinc-500">
-          {recordings_words(Enum.flat_map(work_groups, &elem(&1, 1)))}
-        </span>
-      </div>
-
-      <div class="space-y-4 pt-3">
-        <div :for={{work_title, candidates} <- work_groups} class="space-y-2">
-          <%!-- Only when this provider found more than one book: a lone
-                heading repeats the row beneath it. --%>
-          <div
-            :if={work_title && show_work_headings?(work_groups)}
-            class="flex items-baseline justify-between gap-4 pl-3"
-            data-role="work-heading"
-          >
-            <p class="text-sm font-semibold text-zinc-300">{work_title}</p>
-            <span class="text-xs text-zinc-500">{recordings_words(candidates)}</span>
-          </div>
-
-          <div
-            :for={candidate <- candidates}
-            class="bg-zinc-800/60 flex items-start gap-4 rounded-md p-3"
-            data-role="watch-candidate"
-          >
-            <img
-              :if={candidate.edition.cover_url}
-              src={candidate.edition.cover_url}
-              alt=""
-              class="h-16 w-16 shrink-0 rounded object-cover"
-            />
-            <div class="min-w-0 grow">
-              <p class="font-semibold text-zinc-100">{candidate.edition.title}</p>
-              <.credit_lines
-                authors={credited(candidate.edition.authors)}
-                narrators={credited(candidate.edition.narrators)}
-              />
-              <p class="pt-1 text-sm text-zinc-400">
-                <span data-role="candidate-date">{date_words(candidate.published)}</span>
-                <%!-- The runtime is what tells two recordings of one book apart
-                      when the title and even the narrator agree. --%>
-                <span :if={runtime(candidate.edition)} data-role="candidate-runtime">
-                  · {runtime(candidate.edition)}
-                </span>
-                <span :if={candidate.edition.publisher}>· {candidate.edition.publisher}</span>
-              </p>
-            </div>
-            <.button
-              phx-click="watch"
-              phx-value-provider={candidate.provider}
-              phx-value-provider-id={candidate.provider_id}
-              data-role="watch-this"
-            >
-              Watch
-            </.button>
-          </div>
+          <.button color={:zinc} type="submit" disabled={@searching}>
+            {(@searching && "Searching…") || "Search"}
+          </.button>
         </div>
+      </.simple_form>
+
+      <.provider_outcomes_row outcomes={@outcomes} retryable={false} />
+
+      <p :for={note <- @notes} class="pl-3 text-sm text-zinc-400">{note}</p>
+
+      <p :if={@searched and @candidates == []} class="pl-3 text-sm text-zinc-400">
+        Nothing upcoming found.
+      </p>
+
+      <div
+        :for={candidate <- @candidates}
+        class="bg-zinc-800/60 flex items-start gap-4 rounded-md p-3"
+        data-role="watch-candidate"
+      >
+        <.row_cover src={candidate.edition.cover_url} />
+
+        <div class="min-w-0 grow">
+          <div class="flex items-baseline gap-2">
+            <span class="min-w-0 truncate font-semibold text-zinc-100">
+              {candidate.edition.title}
+            </span>
+
+            <.badge color={:gray} class="flex-none text-xs font-normal" data-role="record-source">
+              {provider_words(candidate.provider)}
+            </.badge>
+          </div>
+
+          <.credit_lines
+            authors={credited(candidate.edition.authors)}
+            narrators={credited(candidate.edition.narrators)}
+          />
+
+          <p class="truncate pt-1 text-sm text-zinc-400" data-role="candidate-facts">
+            {candidate_facts(candidate)}
+          </p>
+        </div>
+
+        <.button
+          color={:zinc}
+          size={:sm}
+          phx-click="watch"
+          phx-value-provider={candidate.provider}
+          phx-value-provider-id={candidate.provider_id}
+          data-role="watch-this"
+        >
+          Watch
+        </.button>
       </div>
     </div>
   </div>

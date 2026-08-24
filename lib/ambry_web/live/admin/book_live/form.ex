@@ -22,6 +22,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   alias Ambry.Metadata.Registry
   alias Ambry.Metadata.Search, as: MetadataSearch
   alias Ambry.People
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.Evidence
   alias AmbryWeb.Admin.NewPerson
   alias AmbryWeb.Admin.ProvenanceHints
@@ -80,7 +81,7 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   # The search the record itself suggests: its title, and its first author.
   # Read off the loaded credit rather than looked up in a list of every author
-  # in the library, which is what it used to need.
+  # in the library.
   defp seed_fields(book) do
     %{"title" => book.title, "author" => first_author(book)}
   end
@@ -92,6 +93,19 @@ defmodule AmbryWeb.Admin.BookLive.Form do
   def handle_params(_params, _url, socket), do: {:noreply, socket}
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(Books.delete_book(socket.assigns.book), socket.assigns.book.title) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/books", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"book" => book_params}, socket) do
     changeset =
       socket.assigns.book
@@ -257,10 +271,10 @@ defmodule AmbryWeb.Admin.BookLive.Form do
 
   # **A chip stages a name; it creates nothing.**
   #
-  # It used to create: clicking a proposed author wrote a `Person` row on the
-  # spot, so a book you never saved left a person behind, and the picker
-  # beside it — which stages — disagreed with it about when a thing becomes
-  # real. Both put the name in the row now, and the context resolves it inside
+  # A chip that wrote a `Person` row on the spot would leave a person behind
+  # on every book you opened and abandoned, and would disagree with the picker
+  # beside it about when a thing becomes real. Both put the name in the row,
+  # and the context resolves it inside
   # the transaction that saves the book (`Ambry.Ecto.EntityRef`). An edit form
   # does nothing until Save, without exception.
   defp accept_entity(socket, :authors, proposal) do

@@ -2,35 +2,20 @@ defmodule Ambry.Playback.PlaybackEvent do
   @moduledoc """
   Immutable record of something that happened during playback.
 
-  Events are the source of truth for playback state. The current position,
-  playback rate, and listening statistics are all derived from the event stream.
+  Events are the source of truth: the current position, playback rate and
+  listening statistics are all derived from the stream.
 
-  ## Event Types
+  **Playback events** carry a position and a rate: `play`, `pause`, `seek`
+  (`from_position` to `to_position`), `rate_change`.
 
-  ### Playback Events (have position and playback_rate)
-  - `play`: User started/resumed playback
-  - `pause`: User paused
-  - `seek`: User jumped from `from_position` to `to_position`
-  - `rate_change`: User changed speed from `previous_rate` to `playback_rate`
+  **Lifecycle events** carry neither and are semantic markers about the
+  playthrough: `start`, `finish`, `abandon`, `resume`. A listener can finish a
+  book at any position, and a resumed playthrough can finish again, so
+  multiple finish events are normal.
 
-  ### Lifecycle Events (no position/rate - semantic markers only)
-  - `start`: Playthrough started
-  - `finish`: Playthrough marked as finished (auto-detected or manual)
-  - `abandon`: User explicitly abandoned the playthrough
-  - `resume`: User resumed a previously finished or abandoned playthrough
-
-  Lifecycle events are semantic markers about the playthrough status, not playback
-  state changes. A user might "finish" a book while at any position (e.g., after
-  re-listening to highlights). Multiple finish events can occur if a user resumes
-  a finished playthrough and finishes again.
-
-  ## Derived State
-
-  From playback events (not lifecycle events), we can compute:
-  - Current position: position from most recent playback event
-  - Current rate: playback_rate from most recent playback event
-  - Total listening time: sum of (pause.position - play.position) / playback_rate
-  - Session count: grouping events with 30 min gaps
+  From the playback events alone: current position and rate from the most
+  recent one, total listening time as the sum of play/pause spans over the
+  rate, and sessions by grouping across 30-minute gaps.
   """
 
   use Ecto.Schema
@@ -89,12 +74,10 @@ defmodule Ambry.Playback.PlaybackEvent do
   def lifecycle_event_types, do: @lifecycle_event_types
 
   @doc """
-  Creates a changeset for a new playback event.
+  Creates a changeset for a new playback event, from a client-generated UUID.
 
-  Requires a client-generated UUID as the id.
-
-  Playback events (play, pause, seek, rate_change) require position and playback_rate.
-  Lifecycle events (start, finish, abandon) do not use position/rate fields.
+  Playback events require position and playback_rate; lifecycle events do not
+  use either.
   """
   def changeset(event, attrs) do
     event

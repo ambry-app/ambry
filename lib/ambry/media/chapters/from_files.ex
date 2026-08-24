@@ -21,8 +21,8 @@ defmodule Ambry.Media.Chapters.FromFiles do
   ## Titles, and why most of them end up generated
 
   A chapter-per-file release names its files, and those names are the obvious
-  title source — except that most of them are shelf labels rather than
-  chapter names. Measured on the operator's own library:
+  title source, except that most of them are shelf labels rather than chapter
+  names:
 
       001 -  01-28 This Is How You Lose the Time War.mp3
       002 -  02-28 This Is How You Lose the Time War.mp3

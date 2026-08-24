@@ -23,18 +23,8 @@
 
     <:row :let={person}>
       <.index_row record_id={person.id} navigate={~p"/admin/people/#{person}/edit?#{return_query(assigns)}"}>
-        <%!-- A face is round where a cover is square, but it is the same 64px
-              box: people rows used to be 48px, so they were visibly shorter
-              than every other list's. --%>
         <:cover>
-          <div class={["h-16 w-16", if(!person.thumbnail, do: "rounded-full bg-zinc-800")]}>
-            <img
-              :if={person.thumbnail}
-              src={person.thumbnail}
-              alt=""
-              class="h-full w-full rounded-full object-cover object-top"
-            />
-          </div>
+          <.row_cover src={person.thumbnail} shape={:face} />
         </:cover>
 
         <:headline>

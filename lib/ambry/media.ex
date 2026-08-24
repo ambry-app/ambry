@@ -80,16 +80,9 @@ defmodule Ambry.Media do
   @doc """
   Publishes every direct-play recording that's only waiting on the switch.
 
-  The switch holds recordings back until the fleet can play them, so turning
-  it on has to release the ones that piled up behind it — otherwise the
-  operator would have to open and re-save every recording the inbox ever
-  approved.
-
-  Deliberately narrow. A recording qualifies only if it is `pending`, has
-  tracks, has **no** legacy transcoded paths, and isn't currently missing.
-  That last pair matters: a legacy recording sitting in `pending` has no
-  tracks to publish and this switch is not what it is waiting on, and
-  publishing a recording whose files have vanished would hand clients
+  Narrow on purpose: `pending`, has tracks, has **no** legacy transcoded
+  paths, and is not missing. A legacy recording in `pending` is not waiting on
+  this switch, and publishing one whose files have vanished hands clients
   something unplayable.
   """
   def publish_pending_direct_play do
@@ -121,12 +114,6 @@ defmodule Ambry.Media do
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`
   to change this. Also can optionally filter by the given `filter` string.
-
-  ## Examples
-
-      iex> list_media()
-      {[%MediaFlat{}, ...], true}
-
   """
   def list_media(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :book]) do
     over_limit = limit + 1
@@ -146,20 +133,12 @@ defmodule Ambry.Media do
   @doc """
   Recordings matching what somebody typed into a picker, as rich options.
 
-  Reaches any audiobook in the library by title, book, author, narrator,
-  series or universe — the same search the index offers, without its
-  pagination. With nothing typed, the first page by book.
+  Reaches any audiobook by title, book, author, narrator, series or universe.
+  With nothing typed, the first page by book.
 
-  Ranked, which it has to be spelled out to be. This asked `Query.ids/3`
-  once, and that function drops the `ORDER BY` deliberately — it is the admin
-  list filter's, where the operator has already chosen a sort. A picker has
-  not chosen one: ranking *is* the answer. Sorting the candidates
-  alphabetically and then taking ten meant "mars" showed the ten
-  alphabetically-first of 69 candidate books, and Red Mars, ranked first, was
-  not among them.
-
-  The recordings of one book stay together and in part order, since which
-  book it is decides the match and the parts are a menu within it.
+  Ranked explicitly, unlike `Query.ids/3`: a picker has chosen no sort, so
+  ranking *is* the answer. The recordings of one book stay together and in
+  part order.
   """
   def search_media(phrase, limit) do
     case String.trim(phrase || "") do
@@ -189,10 +168,8 @@ defmodule Ambry.Media do
   @doc """
   Every audiobook of one book, as picker options.
 
-  What a set may hold. A set belongs to a book the way its members do, so its
-  member picker offers that book's audiobooks and nothing else — and there
-  are two or three of them, which is a menu rather than a search. No phrase
-  and no limit: the caller is a drop-down and wants the lot.
+  What a set may hold: a set belongs to a book the way its members do. No
+  phrase and no limit, since the caller is a drop-down.
   """
   def book_media_options(nil), do: []
 
@@ -207,12 +184,8 @@ defmodule Ambry.Media do
   @doc """
   One recording as a picker option, or nil.
 
-  What lets a picker name the recording it is already holding — the preloaded
-  list this replaced was answering that silently, since the id was in it.
-
-  Built off the flat view rather than the record so that every surface
-  describes a recording the same way: its display title, its cover, and what
-  actually tells two recordings of one book apart.
+  What lets a picker name the recording it is already holding. Built off the
+  flat view, so every surface describes a recording the same way.
   """
   def media_option(blank) when blank in [nil, ""], do: nil
 
@@ -220,15 +193,11 @@ defmodule Ambry.Media do
     %{
       id: media.id,
       label: media_option_label(media),
-      # Where it sits, muted, on the label's own line: the detail line below
-      # is already carrying five facts, and the series is the one that tells
-      # two same-titled records apart at a glance.
+      # On the label's own line: the detail line already carries five facts,
+      # and the series is what tells two same-titled records apart.
       trailer: series_credit(media.series),
       # What it is *found* by, which its label isn't: the label composes a
-      # part suffix onto the title, and no column holds "A Court of Thorns
-      # and Roses (Part 1 of 2)". A picker reopened on a set member searched
-      # for exactly that and reported "No matches" about the recording it was
-      # already holding.
+      # part suffix onto the title, and no column holds that string.
       query: media.title || media.book,
       image: media.thumbnail,
       detail: media_option_detail(media)
@@ -237,9 +206,7 @@ defmodule Ambry.Media do
 
   def media_option(id), do: MediaFlat |> Repo.get(id) |> media_option()
 
-  # The book's title unless this recording overrides it, plus its place in a
-  # set — the composition `Media.display_title/1` makes, off the view's own
-  # columns.
+  # The composition `Media.display_title/1` makes, off the view's columns.
   defp media_option_label(%MediaFlat{} = media) do
     title = media.title || media.book
 
@@ -250,14 +217,8 @@ defmodule Ambry.Media do
   end
 
   # The credit stack on one line, in the joins the vocabulary uses, then the
-  # facts that separate two readings of one book. "Streaming only" is in here
-  # because which recordings still cost double the disk is the whole reason
-  # somebody is looking at this list.
-  #
-  # The authors lead it, bare, the way every other credit stack in the app
-  # reads (§8) — this line listed a recording's narrators and never said who
-  # wrote the thing, which is the one credit a picker of audiobooks can be
-  # asked to disambiguate by.
+  # facts that separate two readings of one book. Authors lead it, bare, the
+  # way every other credit stack in the app reads (§8).
   defp media_option_detail(%MediaFlat{} = media) do
     [
       names(media.authors),
@@ -285,23 +246,13 @@ defmodule Ambry.Media do
   @doc """
   The recording these files were imported into, if any.
 
-  Three kinds of recording answer this three ways, and the library holds
-  all three at once: an **imported** one answers with the tracks it is
-  served from; a **web-upload-era** one with the `source_files` its
-  transcode consumed, which are copies the upload form made; a
-  **server-import-era** one with `legacy_source_files`, the absolute
-  downloads paths its transcode consumed, quarantined there because they
-  point outside every root.
+  Three kinds of recording answer three ways: an imported one by the tracks
+  it is served from, and the two transcoded kinds by the `source_files` or
+  `legacy_source_files` their transcode consumed — what a recording was made
+  from is what a file turning up again would replace.
 
-  The last two are transcode bookkeeping, which is exactly why they answer
-  this question: what a recording was made from is what a file turning up
-  again would be replacing.
-
-  Compared as absolute disk paths on both sides, so which stored form a
-  recording happens to use (root-relative, `/uploads/...`, or absolute) never
-  has to be reasoned about at the comparison. The query that gathers
-  candidates is deliberately loose — it may over-match across roots — and the
-  overlap below is what decides.
+  Compared as absolute disk paths on both sides. The candidate query is
+  deliberately loose and the overlap decides.
 
   Returns `{:ok, media}` for the recording with the most files in common, or
   `:none`.
@@ -324,10 +275,9 @@ defmodule Ambry.Media do
     end
   end
 
-  # Anything whose stored provenance *could* name one of these paths. Only
-  # a file that falls inside a library root can be named by a relative
-  # column, so a downloads folder — which is every ordinary source — costs
-  # one query on the legacy column and nothing else.
+  # Anything whose stored provenance could name one of these paths. Only a
+  # file inside a library root can be named by a relative column, so an
+  # ordinary downloads folder costs one query on the legacy column.
   defp candidate_media(paths) do
     relatives = root_relative_forms(paths)
 
@@ -375,14 +325,7 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns the number of recordings, under the same filters `list_media/4`
-  lists with — so a list can say what page it is of.
-
-  ## Examples
-
-      iex> count_media()
-      1
-
+  The number of recordings, under the same filters `list_media/4` lists with.
   """
   @spec count_media(map()) :: integer()
   def count_media(filters \\ %{}) do
@@ -398,19 +341,14 @@ defmodule Ambry.Media do
       are being offered something that isn't there.
     * `errored` — a transcode gave up on it, and nothing will pick it back
       up: the way out is to import the files again.
-    * `streaming_only` — no tracks, so the only way to play it is the legacy
-      transcoding pipeline. It works, and it costs double the disk; clearing
-      one means relinking it to its source (Phase 4). This is deliberately
-      not phrased as progress toward a cutover — the cutover ends, and a
-      widget that has to be retired the week after it lands was never
-      describing the library, only the calendar.
+    * `streaming_only` — no tracks, so the only way to play it is the
+      transcoding pipeline. It works and costs double the disk; clearing one
+      means relinking it to its source.
     * `awaiting_switch` — direct-play recordings held back by the operator
-      switch. The same predicate `publish_pending_direct_play/0` uses, so the
-      number is exactly what turning it on would release.
+      switch, using the same predicate `publish_pending_direct_play/0` does.
 
-  Zero is the answer that means "nothing to do", so every key is always
-  present: an absent key and a zero read alike in a template, and only one of
-  them is a measurement.
+  Every key is always present, because an absent key and a zero read alike in
+  a template and only one of them is a measurement.
   """
   def problem_counts do
     tracked = from(t in MediaTrack, select: t.media_id, distinct: true)
@@ -435,15 +373,6 @@ defmodule Ambry.Media do
   Gets a single media.
 
   Raises `Ecto.NoResultsError` if the Media does not exist.
-
-  ## Examples
-
-      iex> get_media!(123)
-      %Media{}
-
-      iex> get_media!(456)
-      ** (Ecto.NoResultsError)
-
   """
   def get_media!(id),
     do:
@@ -451,9 +380,8 @@ defmodule Ambry.Media do
       |> preload([:book, :media_narrators, :recording_group, media_tracks: :library_root])
       |> Repo.get!(id)
 
-  # Tracks carry the root their paths are relative to, and the form says
-  # which one that is, so the root comes along rather than being fetched
-  # per track by whoever renders them.
+  # Tracks carry the root their paths are relative to, so it comes along
+  # rather than being fetched per track.
   @doc """
   Gets a media and the book with all its details.
   """
@@ -500,20 +428,9 @@ defmodule Ambry.Media do
   Fetches a single media.
 
   Returns `{:ok, media}` on success or `{:error, :not_found}`.
-
-  ## Examples
-
-      iex> fetch_media(123)
-      {:ok, %Media{}}
-
-      iex> fetch_media(456)
-      {:error, :not_found}
-
   """
-  # With its tracks: an imported recording keeps its files there, so a media
-  # fetched without them is one you cannot ask what it is made of — and
-  # `Ambry.Media.Scanner.audio_files/1` used to answer that question from the
-  # empty transcode columns rather than refusing it.
+  # With its tracks: `Ambry.Media.Scanner.audio_files/1` without them answers
+  # from the empty transcode columns rather than refusing.
   def fetch_media(id), do: Media |> preload(:media_tracks) |> Repo.fetch(id)
 
   @doc """
@@ -525,14 +442,6 @@ defmodule Ambry.Media do
 
   @doc """
   Creates a media.
-
-  ## Examples
-
-      iex> create_media(%{field: value})
-      {:ok, %Media{}}
-
-      iex> create_media(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
 
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
@@ -566,14 +475,6 @@ defmodule Ambry.Media do
 
   @doc """
   Updates a media.
-
-  ## Examples
-
-      iex> update_media(media, %{field: new_value})
-      {:ok, %Media{}}
-
-      iex> update_media(media, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
 
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
@@ -616,10 +517,9 @@ defmodule Ambry.Media do
     ]
   end
 
-  # A narrator row may *name* the person it credits instead of pointing at
-  # them — see `Ambry.Ecto.EntityRef`. The name becomes a person here, inside
-  # the transaction the recording is saved in, so a save that fails leaves
-  # nobody behind.
+  # A narrator row may name the person it credits instead of pointing at
+  # them (`Ambry.Ecto.EntityRef`); the name becomes a person inside the same
+  # transaction, so a failed save leaves nobody behind.
   #
   defp broadcast_media_updated(%Media{} = media) do
     media
@@ -629,21 +529,10 @@ defmodule Ambry.Media do
 
   @doc """
   Deletes a media.
-
-  ## Examples
-
-      iex> delete_media(media)
-      :ok
-
-      iex> delete_media(media)
-      {:error, %Ecto.Changeset{}}
-
   """
   def delete_media(%Media{} = media) do
-    # Worked out *before* the delete: `media_tracks` cascades on
-    # `on_delete: :delete_all`, so by the time the row is gone the record of
-    # what this recording owned on disk is gone with it — and deletion would
-    # silently fall through to whatever `source_path` happens to say.
+    # Worked out *before* the delete: `media_tracks` cascades, so afterwards
+    # the record of what this recording owned on disk is gone with it.
     deletions = source_deletions(media)
 
     Repo.transact(fn ->
@@ -670,15 +559,12 @@ defmodule Ambry.Media do
   The files a replacement retires: what this recording is served from now,
   plus the packaged artifacts it was streamed from.
 
-  Read **before** the replacement writes anything, for the same reason
-  `delete_media/1` reads it before the delete: `media_tracks` is the record
-  of what a recording owns on disk, and once new tracks are written the old
-  ones are gone. Same deletion semantics as `delete_media/1` — see
-  `source_deletions/1` — because they are the same question.
+  Read **before** the replacement writes anything: writing new tracks
+  overwrites the record of what the recording owns. Same deletion semantics
+  as `delete_media/1`.
 
-  The cover and its thumbnails are deliberately absent. A replacement changes
-  a recording's files, not the recording: its artwork, credits and chapters
-  belong to the same audiobook and stay.
+  The cover and its thumbnails are deliberately absent: a replacement changes
+  a recording's files, not the recording.
   """
   def retired_files(%Media{} = media) do
     deletions = source_deletions(media)
@@ -699,15 +585,12 @@ defmodule Ambry.Media do
   Whether this recording's files are the only name their bytes have.
 
   What the replace decision's warning asks. A hardlinked library copy shares
-  its inode with the source it was placed from, so the bytes have another
-  name and removing this one destroys nothing — there is nothing to warn
-  about. The link count is what says that *now*, which is the honest test: a
-  recording hardlinked from a torrent that has since been removed has a link
-  count of 1, and its files really are the last copy.
+  its inode with its source, so removing this name destroys nothing, and the
+  link count says so as of now.
 
-  True for a recording with nothing to ask about, and true for any file that
-  can't be stat'd. A warning that hides when it shouldn't is worse than one
-  that always shows.
+  True for a recording with nothing to ask about, and for any file that cannot
+  be stat'd: a warning that hides when it shouldn't is worse than one that
+  always shows.
   """
   def only_copy?(media_id) when is_integer(media_id) do
     case Repo.get(Media, media_id) do
@@ -742,45 +625,28 @@ defmodule Ambry.Media do
     Library.registered_paths()
   end
 
-  # Deletion semantics (roadmap 3a, custody collapsed by the paths refactor).
+  # Deletion semantics.
   #
-  # Every recording's files are Ambry's own name for the bytes — a file
-  # placed into a library root, or the legacy transcoded workspace — and
-  # removing the recording removes that name. The original a placement was
-  # made from is untouched by construction: a hardlink is a separate name
-  # for the same inode, a symlink is unlinked without being followed, a
-  # copy never knew its original, and a move's original is already gone.
+  # A recording's files are Ambry's own name for the bytes, and removing the
+  # recording removes that name. The original a placement was made from is
+  # untouched by construction: a hardlink is a separate name for the same
+  # inode, a symlink is unlinked without being followed, a copy never knew
+  # its original, and a move's original is already gone. Transcoded outputs,
+  # images and thumbnails are Ambry's own under the uploads path, so they go
+  # too.
   #
-  # Transcoded outputs, images and thumbnails are always Ambry's own, under
-  # the uploads path, so they're removed too.
+  # **A recording with tracks deletes files, never folders.** `media_tracks`
+  # names every file it is served from, so those are exactly what is removed,
+  # one `File.rm/1` each. A book folder is shared by every recording of that
+  # book, so removing only the files you own makes "is this folder shared"
+  # and "does another part of the set live here" stop being questions. The
+  # empty folders left behind are a tidiness problem, and pruning walks up
+  # from where the files were, stopping at a registered root.
   #
-  # ## A recording with tracks deletes files, never folders
-  #
-  # `media_tracks` names every file the recording is served from, so those
-  # are exactly what deletion removes — one `File.rm/1` each, and nothing
-  # else. No folder is handed to `rm_rf` at all.
-  #
-  # The point is not that a folder might hold something foreign — a root is
-  # Ambry's, and nothing else writes there. It is that a folder deletion has
-  # to be *right*, and a file deletion cannot be wrong. A book folder really
-  # is shared: every recording of that book sits in it, and a single-file
-  # recording sits in it directly. Removing only the files you own makes "is
-  # this folder shared", "does another part of the set live here" and "is
-  # this somehow the library root itself" stop being questions. An earlier
-  # draft of this answered all three, and getting them right was harder than
-  # not asking.
-  #
-  # What it leaves behind is empty folders, which is a tidiness problem
-  # rather than a correctness one, and pruning already solves it: after the
-  # files go, walk up from where they were removing folders that are now
-  # empty, stopping at a registered root.
-  #
-  # `source_path` is the fallback, and only for a recording with no tracks.
-  # There it still means what it first meant — the upload workspace Ambry
-  # created, which holds more than the audio (progress files, the `_out`
-  # folder) and genuinely is Ambry's to remove wholesale. That clause, and
-  # the last `rm_rf` with it, retires when the reclaim leaves nothing
-  # without tracks.
+  # `source_path` is the fallback, and only for a recording with no tracks:
+  # the upload workspace Ambry created, which holds progress files and an
+  # `_out` folder besides the audio and genuinely is Ambry's to remove
+  # wholesale.
   defp source_deletions(%Media{} = media) do
     case owned_tracks(media) do
       [] -> legacy_source_deletions(media)
@@ -789,10 +655,8 @@ defmodule Ambry.Media do
   end
 
   # Asked of the database rather than a preload, and *before* the row is
-  # deleted: `media_tracks` cascades on `on_delete: :delete_all`, so asking
-  # afterwards returns an empty list and falls silently through to the legacy
-  # clause. An unloaded assoc reads the same way. One cheap query is the
-  # right price for an operation that removes files.
+  # deleted: `media_tracks` cascades, and an empty list falls silently
+  # through to the legacy clause. An unloaded assoc reads the same way.
   defp owned_tracks(%Media{id: id}) do
     Repo.all(from t in MediaTrack, where: t.media_id == ^id)
   end
@@ -809,11 +673,9 @@ defmodule Ambry.Media do
     end
   end
 
-  # A folder shared with a sibling is not this media's to remove: a
-  # multi-part recording places every part in one book folder, so deleting
-  # part 1 with an rm_rf of the folder would take part 2's file with it.
-  # A shared folder yields only the media's own files; the folder itself
-  # goes with its last part.
+  # A folder shared with a sibling is not this media's to remove: deleting
+  # part 1 by folder would take part 2's file with it. A shared folder yields
+  # only the media's own files, and goes with its last part.
   defp legacy_source_deletions(%Media{source_path: path} = media) when is_binary(path) do
     if shared_source_path?(media),
       do: %{folders: [], files: Media.source_file_paths(media), prune_from: []},
@@ -860,9 +722,8 @@ defmodule Ambry.Media do
     |> Enum.map(&Paths.web_to_disk/1)
   end
 
-  # The packaged outputs a legacy recording streams and downloads from,
-  # always Ambry's own under the uploads path. Named apart from the artwork
-  # because a replacement retires these and keeps that.
+  # The packaged outputs a legacy recording streams from, always under the
+  # uploads path. Apart from the artwork, which a replacement keeps.
   defp artifact_paths(%Media{} = media) do
     media
     |> artifact_web_paths()
@@ -878,14 +739,6 @@ defmodule Ambry.Media do
   @doc """
   Schedules an Oban job to generate thumbnails for a media asynchronously.
   Only schedules the job if the media has an image path but no thumbnails.
-
-  ## Examples
-
-      iex> generate_thumbnails_async(media)
-      {:ok, %Oban.Job{}}
-
-      iex> generate_thumbnails_async(media_with_thumbnails)
-      {:ok, :noop}
   """
   def generate_thumbnails_async(%Media{image_path: image_path, thumbnails: nil} = media)
       when is_binary(image_path) do
@@ -905,12 +758,6 @@ defmodule Ambry.Media do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking media changes.
-
-  ## Examples
-
-      iex> change_media(media)
-      %Ecto.Changeset{data: %Media{}}
-
   """
   def change_media(%Media{} = media, attrs \\ %{}) do
     Media.changeset(media, attrs)
@@ -981,9 +828,8 @@ defmodule Ambry.Media do
   @doc """
   Creates a recording group.
 
-  A group with no members is allowed — groups are first-class entities an
-  operator may set up ahead of its parts. (Groups that *lose* their last
-  member through a media save are still swept as orphans.)
+  A group with no members is allowed: an operator may set one up ahead of
+  its parts. A group that *loses* its last member is still swept.
   """
   def create_recording_group(attrs) do
     Repo.transact(fn ->
@@ -1025,9 +871,8 @@ defmodule Ambry.Media do
   @doc """
   Deletes a recording group, detaching its members.
 
-  The FK nils members' `recording_group_id`; their `part_number` must go
-  with it (a part number without a group violates the data model — and the
-  DB CHECK the FK's nilify would otherwise trip).
+  The FK nils members' `recording_group_id`, and `part_number` must go with
+  it or the DB CHECK trips.
   """
   def delete_recording_group(%RecordingGroup{} = group) do
     Repo.transact(fn ->
@@ -1076,9 +921,9 @@ defmodule Ambry.Media do
   @doc """
   Updates a group from the admin form, diffing its member list.
 
-  A removed row detaches the media (clearing its part number — a position in
-  a set it left isn't a fact to keep); rows write membership through
-  `update_media/3` so search, sync, PubSub and the orphan sweep all fire.
+  A removed row detaches the media and clears its part number. Rows write
+  membership through `update_media/3`, so search, sync, PubSub and the orphan
+  sweep all fire.
   """
   def update_recording_group_from_form(%RecordingGroup{} = group, attrs) do
     save_recording_group_form(group, attrs, fn params ->
@@ -1191,9 +1036,8 @@ defmodule Ambry.Media do
   end
 
   @doc """
-  Returns the full recording groups belonging to the given book, in id
-  order. This is what the inbox consults to propose "another part of the
-  same set?" when a later part of an already-imported work arrives.
+  The full recording groups belonging to a book, in id order. What the inbox
+  consults to propose "another part of the same set?".
   """
   def recording_groups_for_book(nil), do: []
 
@@ -1201,10 +1045,9 @@ defmodule Ambry.Media do
     Repo.all(from g in RecordingGroup, where: g.book_id == ^book_id, order_by: g.id)
   end
 
-  # A group whose last member just left it is swept (the delete trigger
-  # records it for sync; subscribers hear about it too). Scoped to the group
-  # the saved media *came from* — never a global sweep, so an admin-created
-  # empty group survives unrelated media saves while it awaits its parts.
+  # A group whose last member just left it is swept. Scoped to the group the
+  # saved media came from, so an admin-created empty group awaiting its parts
+  # survives unrelated media saves.
   defp delete_orphaned_recording_group(nil), do: :ok
 
   defp delete_orphaned_recording_group(group_id) do

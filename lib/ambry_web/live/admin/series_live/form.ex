@@ -3,6 +3,7 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   use AmbryWeb, :admin_live_view
 
   alias Ambry.Books
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.ReturnTo
   alias Ecto.Changeset
 
@@ -43,6 +44,19 @@ defmodule AmbryWeb.Admin.SeriesLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(Books.delete_series(socket.assigns.series), socket.assigns.series.name) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/series", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"series" => series_params}, socket) do
     changeset =
       socket.assigns.series

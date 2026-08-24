@@ -56,7 +56,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
     {:ok, _view, html} = live(conn, ~p"/admin/settings")
 
     assert html =~ "Publish direct-play audiobooks"
-    assert html =~ "can&#39;t be marked ready"
+    assert html =~ "stay unpublished"
     assert html =~ "Turn on"
   end
 
@@ -67,7 +67,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
 
     assert Settings.direct_play_publishing?()
     assert html =~ "Turn off"
-    assert html =~ "can be made visible to clients"
+    assert html =~ "can be published"
 
     html = view |> element("button[phx-click='toggle-direct-play-publishing']") |> render_click()
 
@@ -145,7 +145,7 @@ defmodule AmbryWeb.Admin.SettingsLive.IndexTest do
   defp index_heading(html) do
     html
     |> Floki.parse_document!()
-    |> Floki.find("h3")
+    |> Floki.find("[data-role='index-records']")
     |> Enum.map(&(&1 |> Floki.text() |> String.split() |> Enum.join(" ")))
     |> Enum.find(&(&1 =~ "record"))
   end

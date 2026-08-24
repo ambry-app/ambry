@@ -2,43 +2,18 @@ defmodule Ambry.Inbox.AutoMatch do
   @moduledoc """
   Proposes what an inbox item is, so confirming it can be one click.
 
-  ## Three matches, not one
+  Three matches, run in order because each answer is the next question: the
+  **work** (which Book), the **recording** (which Media), and the **people**
+  credited by both. They use different keys and fail independently, so each
+  gets its own candidates and its own failure mode.
 
-  An item needs a **work** match (which Book — title, authors, series), a
-  **recording** match (which Media — narrators, cover, chapters, release date)
-  and a **people** match (who the credited humans are — face, biography).
-  They use different keys and fail independently: an ASIN identifies a
-  recording outright, title-and-author identifies a work fuzzily, a name
-  identifies a person and nothing else does — and you can land the right work
-  with the wrong recording (a dramatized adaptation instead of the standard
-  narration) or the right recording under the wrong work. So each gets its own
-  candidates and its own failure mode.
+  Nothing is applied: this writes proposals onto the item, and import is what
+  creates records.
 
-  The three run in that order because each one's answer is the next one's
-  question. The work's editions are the most direct route to its recordings;
-  the work names its authors and the recording names its readers, and until a
-  record has been found there is no cast to ask about at all.
-
-  Nothing is applied. This writes proposals onto the inbox item; the operator
-  imports, and import is what creates records.
-
-  ## Why the whole ranked list is kept
-
-  Storing only the winner would make "what else did it find?" a fresh round
-  of provider calls every time the operator looked. The full list, with each
-  candidate's score and the query that produced it, makes reviewing
-  alternatives instant — and leaves re-searching for the case it's actually
-  for, where the right answer isn't in the list at all.
-
-  ## Provider records are evidence, local Books are an outcome
-
-  A record from Hardcover and a record from rreading-glasses for one book are
-  two databases describing the same thing, not two rival identities — they are
-  kept as separate records and both may feed the import. A Book already in the
-  library is categorically different: linking to it creates nothing, inherits
-  its curation, and is what stops a second recording splitting the library. So
-  local hits live in their own list (`"local"`), never ranked among the
-  provider records.
+  The whole ranked list is stored, so reviewing alternatives costs no provider
+  calls. Two providers' records of one book are two descriptions, not rival
+  identities, and both may feed the import; a Book already in the library is
+  categorically different and lives in its own `"local"` list.
   """
 
   alias Ambry.Books
@@ -56,31 +31,19 @@ defmodule Ambry.Inbox.AutoMatch do
 
   @candidate_limit 8
 
-  # How similar a Book has to be before it is worth *showing* as "you may
-  # already have this". Keyword matching recalls far more than the old
-  # substring search did, so without a floor the question came with plausible
-  # nonsense attached — Anne of Green Gables offered as a candidate for
-  # Leviathan Wakes, on the strength of one shared word.
-  #
-  # Tuned for precision rather than recall on purpose: the form now has a
-  # library search the operator can drive by hand, so a miss costs a search
-  # and a false offer costs trust in the whole list. It deliberately does NOT
-  # reach far enough to connect a file tagged "Philosopher's Stone" to a Book
-  # called "Sorcerer's Stone" — that is a real case, and the operator's call.
+  # How similar a Book has to be before it is worth showing as "you may
+  # already have this". Tuned for precision: a miss costs a hand search, and
+  # a false offer costs trust in the whole list.
   @offer_local 0.5
 
-  # How many records about the *same* thing are worth a follow-up call each
-  # (details, editions). Two databases holding a record of one book is normal;
-  # eight of them saying it is not, and past a few the extra requests buy
-  # nothing.
+  # How many records about the same thing are worth a follow-up call each.
   @group_limit 4
 
   # Corroboration bonus when two providers independently return the same work.
   @agreement_bonus 0.05
 
   # What a companion-work marker ("study guide", "graphic novel") costs. Harsh
-  # on purpose: these are reliably NOT the book being imported, and leaving
-  # them near the top of the list is what made the candidate list untrustworthy.
+  # on purpose: these are reliably not the book being imported.
   @companion_factor 0.25
 
   # Per-word cost for content the query didn't ask for, and the floor it
@@ -92,8 +55,7 @@ defmodule Ambry.Inbox.AutoMatch do
   @narrator_match 0.85
   @narrator_mismatch 0.5
 
-  # What it costs to be by somebody else. Decisive rather than blended, for
-  # exactly the reason the narrator is — see `author_agreement/2`.
+  # Decisive rather than blended, for the reason in `author_agreement/2`.
   @author_mismatch 0.5
 
   # What it costs to sit at a different number in the series the label named.
@@ -102,8 +64,8 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Builds work and recording proposals for an item.
 
-  Returns the attrs to store; never raises, and degrades to whatever it could
-  find — a provider being down means fewer candidates, not a failed item.
+  Never raises: a provider being down means fewer candidates, not a failed
+  item.
   """
   def match(%InboxItem{} = item, opts \\ []) do
     hints = hints(item)
@@ -113,34 +75,18 @@ defmodule Ambry.Inbox.AutoMatch do
       matches: %{
         "work" => work,
         "recording" => recording,
-        # People are the third level, and they come last because they are the
-        # one thing neither of the others could ask about first: a file's tags
-        # name a narrator, but the *cast* only exists once a record has been
-        # found. The work names its authors, the recording names its readers.
+        # Last, because the cast only exists once a record has been found.
         "people" => match_people(work, recording, item.tags || %{}, opts),
         "hints" => stringify_hints(hints)
       }
     }
   end
 
-  # **Matching is a loop, not a pipeline: evidence changes the question.**
-  # A round's records can hold a better query than the one they were found
-  # with — the file's label was never the book's title — and re-asking with
-  # it is what settles the shelf-label releases nothing else rescues.
-  #
-  # The refinement gate is the loop's whole safety argument, and it is
-  # **corroboration, not similarity**: gating on the score is circular,
-  # because scoring low is exactly what a shelf-label title causes. Measured
-  # on the operator's Wayfarers file: round 1's "winner" is a single-source
-  # series omnibus at 0.594, while Hardcover's work record and Audible's
-  # recording record — independent databases, independently queried — both
-  # answer "The Long Way to a Small, Angry Planet", at 0.245 and 0.123. Two
-  # search engines doing semantic work and landing on one answer is evidence
-  # the scorer cannot see; one provider's top hit is not. Refined, the round
-  # 2 query returns the work at 1.0 (measured: confidence 0.368 → 1.0).
-  #
-  # Rounds only ever add evidence, questions are deduped against `seen`, and
-  # `@max_rounds` is the backstop — in practice one refinement settles it.
+  # Matching is a loop, not a pipeline: a round's records can hold a better
+  # query than the one that found them. The gate is corroboration, not
+  # similarity — gating on the score is circular, since scoring low is what a
+  # shelf label causes. Two providers landing on one answer is evidence the
+  # scorer cannot see; one provider's top hit is not.
   @max_rounds 3
 
   # Refinement only runs for a work still under Seed's adoption bar: a
@@ -150,10 +96,8 @@ defmodule Ambry.Inbox.AutoMatch do
   defp settle_levels(hints, opts) do
     work = match_work(hints, opts)
 
-    # The recording level is given the matched work, because a work's own
-    # edition list is a third key alongside searching: once we know which
-    # book this is, its editions are the most direct route to the recordings
-    # that exist — including ones no storefront will return.
+    # A work's own edition list is a third key alongside searching, and the
+    # most direct route to recordings no storefront will return.
     recording = match_recording(hints, work, opts)
 
     refine({work, recording}, hints, MapSet.new([consensus_key(hints.title)]), 1, opts)
@@ -174,10 +118,8 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # The better query, when the evidence in hand agrees on one. Grouped
-  # across BOTH levels and narrator-blind on purpose: two different
-  # recordings of one work — Jim Dale's and the full cast's — corroborate
-  # the WORK, and requiring their narrators to agree hid exactly that.
+  # Grouped across both levels and narrator-blind: two different recordings
+  # of one work still corroborate the work.
   defp consensus_hints(work, recording, hints) do
     current = consensus_key(hints.title)
 
@@ -199,13 +141,8 @@ defmodule Ambry.Inbox.AutoMatch do
       [] ->
         nil
 
-      # The STRONGEST corroborated answer decides, and only a disagreeing
-      # one refines. Excluding the current-query group before ranking meant
-      # that when the databases confirmed the question — "Kushiel's Chosen"
-      # corroborated at 1.0 — the loop refined anyway, from the next-best
-      # agreement down the list: a boxed-set omnibus both providers carry,
-      # whose title then swallowed the whole trilogy's words and offered
-      # book 1 as a local match. Agreement WITH the question ends the loop.
+      # The strongest corroborated answer decides, and only a disagreeing
+      # one refines: agreement with the question ends the loop.
       [{[held | _rest] = group, _sources} | _rest_groups] ->
         if consensus_key(held["title"]) != current do
           best = Enum.min_by(group, &String.length(&1["title"] || ""))
@@ -234,11 +171,8 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp best_score(group), do: group |> Enum.map(&(&1["score"] || 0.0)) |> Enum.max()
 
-  # Rounds add evidence, never remove it: records and local hits merge
-  # add-only under their stable refs, so nothing a human may have ticked can
-  # vanish. The level's *description* — query, confidence, provider outcomes
-  # — follows the latest round, which is also what the form's evidence
-  # header shows via `follow_query/3`.
+  # Rounds add evidence, never remove it: records merge add-only under their
+  # stable refs. The level's description follows the latest round.
   defp merge_level(old, new, hints) do
     candidates = add_records(old["candidates"] || [], new["candidates"] || [])
 
@@ -249,11 +183,8 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Map.put("confidence", confidence(candidates, hints.author))
   end
 
-  # Identity is the ref; the payload may be refreshed by a later round, and
-  # the score is *derived* — a record re-found by a better query keeps the
-  # better score, not the one its worse query earned it. Keeping the round-1
-  # payload wholesale left the refined winner sitting at its shelf-label
-  # score, and the refinement changed nothing.
+  # Identity is the ref, but the score is derived: a record re-found by a
+  # better query keeps the better score, or the refinement changes nothing.
   defp add_records(existing, found) do
     found
     |> Enum.reduce(existing, fn record, acc ->
@@ -280,33 +211,14 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Everything known about each human this import will credit.
 
-  Keyed by `person_key/1`, one entry per distinct human — the same set the
-  draft's `people` decisions cover, derived here from the records rather than
-  from the draft, so an import arrives with a face and a biography already
-  proposed instead of sending the operator to the person form afterwards.
+  Keyed by `person_key/1`, one entry per distinct human.
 
-  ## Local first, which is why there is no cap
+  A person already in the library is never searched, which is what makes this
+  affordable across a recurring full-cast series. The check is an exact name
+  match, because skipping the search produces a silence rather than a
+  candidate the operator can reject.
 
-  A person already in the library is never searched. That is not an
-  optimisation bolted on afterwards, it is what makes searching people during
-  matching affordable at all: the operator's full-cast Harry Potter credits
-  fifteen actors who recur across all seven books, so without it every import
-  would re-ask every provider about the same fifteen humans. With it, a
-  repeating cast costs one lookup on the first book and nothing on the rest.
-
-  The check is an exact name match, deliberately. "Do we already have them"
-  has to be *certain* before it is allowed to skip asking, because being wrong
-  here doesn't produce a bad candidate the operator can see and reject — it
-  produces a silence, and a silence is indistinguishable from a provider
-  having nobody.
-
-  ## The same shape as the other two levels
-
-  Records are evidence, never decisions: every plausible person from every
-  provider is kept with all their photos and biographies, and which one is
-  right stays a judgement. `Ambry.Metadata.PersonSearch` already gathers them
-  for the form's picker — this runs the same fan-out ahead of time, in the
-  background job, where nobody is waiting.
+  Records are evidence, never decisions.
   """
   def match_people(work, recording, tags, opts \\ []) do
     work
@@ -317,23 +229,14 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   How a human is referred to across the matches and the draft.
 
-  Punctuation-insensitive: the databases disagree about the dots and spaces
-  in "James S.A. Corey" and none of those spellings is a different human —
-  measured on the operator's Caliban's War, two providers' spellings of the
-  one pen name made two author credits, two person decisions, and a
-  duplicate library author waiting at approval. `Draft.PersonDecision` keys
-  are these strings, so the key IS the sameness rule for humans; anything
-  asking whether two spellings mean one person must go through it. (The
-  title normaliser is a different job — it also strips edition words.)
+  Punctuation-insensitive: the databases disagree about dots and spaces, and
+  none of those spellings is a different human.
+
+  `Draft.PersonDecision` keys are these strings, so the key IS the sameness
+  rule for humans.
   """
-  # Condensed to letters and digits alone: punctuation-insensitivity by
-  # itself still left "TJ Klune" and "T.J. Klune" apart ("tj klune" vs
-  # "t j klune"), and initials are exactly where providers disagree. With
-  # spacing gone too, "J.K.", "J. K." and "JK" Rowling are one key — and the
-  # SQL twin stays a single regexp_replace. Accents fold as well (NFD, marks
-  # stripped; `unaccent()` on the SQL side): the library's "Patricia
-  # Rodríguez" and a file's "Patricia Rodriguez" are one narrator, and the
-  # accent was one approval away from a second person of the same name.
+  # Letters and digits alone: spacing has to go too, or "TJ Klune" and
+  # "T.J. Klune" stay apart. Accents fold as well.
   def person_key(name) when is_binary(name) do
     name
     |> String.normalize(:nfd)
@@ -345,10 +248,7 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   `person_key/1` as an Ecto fragment, for asking the question in SQL.
 
-  Lives beside its Elixir twin because the two have to agree: `unaccent`
-  (enabled by migration) mirrors the NFD fold, and the character class
-  mirrors the strip. Two copies of this in two modules is exactly the drift
-  that puts a second "Patricia Rodriguez" in the library.
+  Beside its Elixir twin because the two have to agree.
 
       where([a], person_key_sql(a.name) == ^AutoMatch.person_key(name))
   """
@@ -365,10 +265,8 @@ defmodule Ambry.Inbox.AutoMatch do
   Whether two spellings name one series.
 
   Filler words (Trilogy, Saga, Series), punctuation, accents and articles
-  fold; a subtitle head counts the same way it does for titles, so
-  "Kushiel's Legacy: Phedre Trilogy" is "Kushiel's Legacy". The rule lives
-  here with `person_key/1` and `title_key/1` because sameness is one
-  question with one answer per kind of record, wherever it is asked from.
+  fold, and a subtitle head counts the way it does for titles: "Kushiel's
+  Legacy: Phedre Trilogy" is "Kushiel's Legacy".
   """
   def same_series?(one, other) when is_binary(one) and is_binary(other) do
     a = series_key(one)
@@ -395,31 +293,16 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   The photo and biography to propose for one credited human.
 
-  Everything the providers returned is kept as evidence; this is the
-  *proposal* laid on top of it, so an import arrives with a face already
-  chosen instead of a grid to work through. The operator overrides it in the
-  picker, which is why it is allowed to choose at all.
-
-  Two rules, both of them about not proposing confident nonsense:
+  The proposal laid on top of the evidence, under two rules:
 
     * **Only a candidate whose name is actually the credited name.** Provider
-      person-search is recall-first — `PersonSearch.plausible?/2` admits
-      anything sharing a name token, which is right for a grid a human is
-      reading and wrong for an automatic choice. Measured on the operator's
-      own files: Audnexus answers "Rachel Dulude" with *Rachel Aukes* first,
-      and "Jefferson Mays" with Jefferson Morley, Jefferson Bethke and Thomas
-      Jefferson before Wikidata's actual actor. Taking the top hit would have
-      put a stranger's face on three of seven people.
-    * **First provider that has something usable wins, in the operator's own
-      priority order** — which is what `Registry.enabled/1` returns, so this
-      inherits their preference rather than inventing one. Photo and biography
-      are chosen independently, because the provider with the best portrait is
-      routinely not the one with the best prose.
+      person-search is recall-first, which is right for a grid a human reads
+      and wrong for an automatic choice.
+    * **First provider with something usable wins**, in the operator's
+      priority order. Photo and biography are chosen independently.
 
-  An exact name is still not an identity — Wikidata knows three Jim Dales, a
-  film producer, a meteorologist and a marketing adviser, none of them the
-  actor who read Harry Potter. That is why this proposes rather than settles,
-  and why every candidate stays on the record.
+  An exact name is still not an identity, which is why this proposes rather
+  than settles.
   """
   def person_proposal(nil), do: %{}
 
@@ -438,9 +321,8 @@ defmodule Ambry.Inbox.AutoMatch do
     )
   end
 
-  # The first candidate that has one, carrying which provider it came from —
-  # 1d provenance is written from this, so the value and its source have to
-  # travel together or the person is recorded as hand-typed and locked.
+  # The first candidate that has one, carrying its provider: provenance is
+  # written from this, so the value and its source have to travel together.
   defp pick(candidates, take) do
     Enum.find_value(candidates, fn candidate ->
       case take.(candidate) do
@@ -455,16 +337,13 @@ defmodule Ambry.Inbox.AutoMatch do
   defp put_proposal(map, value_key, source_key, {value, source}),
     do: map |> Map.put(value_key, value) |> Map.put(source_key, source)
 
-  # `person_key/1` is the sameness rule for humans, and this is that rule
-  # applied to two names in hand.
   defp same_human?(one, other) when is_binary(one) and is_binary(other),
     do: person_key(one) == person_key(other)
 
   defp same_human?(_one, _other), do: false
 
-  # rreading-glasses returns the literal string "N/A" where it has no
-  # biography, and storing that as somebody's life story is worse than leaving
-  # it blank — blank is visibly unfinished, "N/A" looks decided.
+  # Providers return these where they have no biography. Storing one as
+  # somebody's life story is worse than blank: blank is visibly unfinished.
   @nonsense_bios ["n/a", "na", "none", "unknown", "no description", "-", "."]
 
   defp usable_bio(text) when is_binary(text) do
@@ -476,8 +355,7 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp person_result(name, roles, opts) do
     case People.people_named(name) do
-      # Already ours. Nothing is searched, and nothing needs to be: the
-      # library's own photo and biography are what an existing person is for.
+      # Already ours, so nothing is searched.
       [_first | _rest] = people ->
         %{
           "name" => name,
@@ -503,13 +381,8 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   The people the library already has by this name.
 
-  Kept away from the provider candidates for the same reason a local book is:
-  it answers a different question. A provider record is evidence about a
-  human; one of these *is* a human, and choosing them creates nobody.
-
-  Shared with `Ambry.Inbox.Lookup`, which asks again when the operator
-  re-searches — the held answer is about the name that was asked before, and a
-  rename is exactly when that stops being true.
+  Kept away from the provider candidates: a provider record is evidence about
+  a human, while one of these is a human.
   """
   def local_people(name), do: name |> People.people_named() |> Enum.map(&local_person/1)
 
@@ -518,8 +391,6 @@ defmodule Ambry.Inbox.AutoMatch do
       "source" => "local",
       "id" => person.id,
       "name" => person.name,
-      # what the form needs to say "you already have them, and they already
-      # have a face" without loading the person itself
       "has_image" => is_binary(person.image_path),
       "has_description" => not is_nil(presence(person.description))
     }
@@ -540,9 +411,7 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   One provider's answer about a human, scored against the name we asked for.
 
-  Shared with `Ambry.Inbox.Lookup`, which builds the same records when the
-  operator searches a person again — it had its own copy, which is how the
-  two drifted into one being scored and the other not.
+  Shared with `Ambry.Inbox.Lookup`, so a re-search builds the same records.
   """
   def person_candidate(%PersonSearch.Match{} = match, asked_for) do
     %{
@@ -551,8 +420,7 @@ defmodule Ambry.Inbox.AutoMatch do
       "id" => to_string(match.id),
       "name" => match.name,
       "description" => presence(match.description),
-      # what tells two same-named humans apart in a grid — TMDB's known-for
-      # credits, mostly
+      # what tells two same-named humans apart in a grid
       "note" => presence(match.note),
       "images" => match.images,
       "score" => person_score(match.name, asked_for)
@@ -562,11 +430,10 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   How well a returned name answers the name we asked about.
 
-  **Not a string distance.** Jaro cannot separate a legitimate variant from a
-  different human — measured, "Ty Franck" against "Tyler Corey Franck" scores
-  *lower* than "Ty Franck" against a Corey mismatch — so the ordering is by
-  what the names structurally share, which is the same reasoning
-  `author_agreement/2` already follows:
+  **Not a string distance.** Jaro scores "Ty Franck" against "Tyler Corey
+  Franck" lower than against an unrelated name sharing letters, so the
+  ordering is by what the names structurally share, as in
+  `author_agreement/2`:
 
     * `1.0` — the same name once accents and punctuation are folded away
       (`person_key/1`), so "Émile Zola" and "Emile Zola" are one person
@@ -576,10 +443,8 @@ defmodule Ambry.Inbox.AutoMatch do
       filters at
     * `0.0` — nothing shared, which a filtered search shouldn't return
 
-  Ties are common and are broken by usefulness rather than by nothing: a
-  candidate carrying a photo and a biography is both more useful to the
-  operator and more likely to be the documented human, and a stable sort
-  leaves the operator's provider priority deciding the rest.
+  Ties break on usefulness: a candidate carrying a photo and a biography is
+  more likely to be the documented human.
   """
   def person_score(name, asked_for) do
     wanted = name_tokens(asked_for)
@@ -598,30 +463,17 @@ defmodule Ambry.Inbox.AutoMatch do
   defp covered?(words, others),
     do: Enum.all?(words, fn word -> Enum.any?(others, &same_word?(&1, word)) end)
 
-  # A shortening is the same word: "Ty" is how Tyler Corey Franck is credited,
-  # and "Dan" is Daniel. Exact-token comparison missed exactly the case this
-  # scoring exists for, which is the one `Ambry.Metadata.PersonSearch`'s
-  # moduledoc names. Words under two characters were already dropped, so this
-  # can't collapse initials onto everything.
+  # A shortening is the same word: "Ty" for Tyler. Words under two characters
+  # are dropped already, so initials cannot collapse onto everything.
   defp same_word?(word, other),
     do: String.starts_with?(word, other) or String.starts_with?(other, word)
 
   @doc """
   People, best answer first.
 
-  The work and recording levels have ranked their candidates since they
-  existed; the person level never did, so the list was whatever order the
-  providers happened to be asked in — and the operator saw plainly wrong
-  humans above the right one.
-
-  **Every candidate is scored against the name being asked about now**, not
-  only the ones arriving without a score. A score is the answer to "how well
-  does this record answer the name we are asking about", and a re-search is
-  the operator changing the question: looking up "David Wong" and then Jason
-  Pargin left the David Wong records wearing the 100% they earned under the
-  old question, sitting above the humans actually searched for. Nothing is
-  dropped — a record that no longer answers the question sinks, which is what
-  the fold below `record_list`'s threshold is for.
+  Every candidate is re-scored against the name being asked about now, not
+  only the new arrivals: a re-search changes the question. Nothing is dropped;
+  a record that stops answering sinks.
   """
   def rank_people(candidates, asked_for) do
     candidates
@@ -636,24 +488,10 @@ defmodule Ambry.Inbox.AutoMatch do
     has_image + has_bio
   end
 
-  # **Everyone any plausible reading of the evidence would credit**, which is
-  # the union of what the records name and what the file's tags name — not
-  # the records-else-tags fallback `Seed` applies when it builds the credits.
-  #
-  # The two differ exactly when a level is doubted, and that is the case this
-  # has to get right. `Seed` ticks no record it doesn't believe, so a doubted
-  # recording credits the *tags'* narrator: measured on the operator's Becky
-  # Chambers file, the recording match is 12% and the credit created is
-  # "Patricia Rodriguez" from the tags, while the top record reads "Rachel
-  # Dulude". Deriving from records alone searched the wrong human and left the
-  # one actually being created with no photo and no biography — the exact
-  # failure this level exists to fix.
-  #
-  # Taking the union rather than reproducing the trust rule keeps the
-  # thresholds in one place: they are `Seed`'s to own, and a second copy here
-  # is the diffusion that made one invariant keep getting forgotten somewhere
-  # new. Over-searching costs one cached provider call for somebody who ends
-  # up uncredited; under-searching costs the import its faces.
+  # The union of what the records name and what the tags name, never `Seed`'s
+  # records-else-tags fallback: a doubted recording credits the tags' narrator
+  # while the top record names somebody else. Over-searching costs one cached
+  # call; under-searching costs the import its faces.
   defp credited_people(work, recording, tags) do
     authors = names(work, "authors") ++ tag_names(tags, "authors")
 
@@ -698,19 +536,14 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   The records that look like they're about the same thing as the best one.
 
-  Used for three things, none of which is merging: scoring (corroboration is
-  not a rival), deciding what to pre-tick, and deciding which records are
-  worth a details or editions call. The records themselves stay separate rows
-  — two databases holding a record of one book is the normal case.
+  Used for scoring, for deciding what to pre-tick, and for deciding which
+  records earn a details call. Never for merging.
   """
   def top_group([]), do: []
 
   def top_group(candidates) do
-    # `Enum.max_by`, not `hd/1`. Reading the head as "the best" is only true
-    # of an already-ranked list, and that assumption is invisible at the call
-    # site: the media form handed over a provider-ordered list whose first
-    # element was a 0.13 study guide, so the editions of a *study guide* were
-    # fetched and the book's were not.
+    # `Enum.max_by`, not `hd/1`: the head is only the best of an already-ranked
+    # list, and callers hand over provider-ordered ones.
     best = Enum.max_by(candidates, &(&1["score"] || 0.0))
 
     candidates
@@ -722,19 +555,13 @@ defmodule Ambry.Inbox.AutoMatch do
   The records worth *pre-ticking* — narrower than `top_group/1` once the file
   has said who read it.
 
-  Ticking a record says "this describes my file", and a record naming no
-  narrator cannot support that claim at the recording level. It stays in the
-  group for every other purpose — it may well be the operator's edition, and
-  `apply_narrator_evidence/2` deliberately never penalises it — but adopting
-  its fields is a guess.
+  Ticking a record says "this describes my file", which a record naming no
+  narrator cannot support. It stays in the group for every other purpose, but
+  a silent record is unpenalised, so it would otherwise stay at 1.000, get
+  ticked, and hand the recording somebody else's date.
 
-  Measured: The Martian's `B082BHWQCJ` is Wil Wheaton's edition with the role
-  string missing upstream. Silent, so unpenalised, so still at 1.000, so
-  ticked — and it handed the operator's 2013 R.C. Bray recording Wheaton's
-  2020 release date as a conflict.
-
-  Only bites when some record IS corroborated. With nothing to go on — the
-  ordinary case across most of a library — this is `top_group/1` exactly.
+  Only bites when some record IS corroborated; otherwise this is
+  `top_group/1`.
   """
   def settled_group(records) do
     group = top_group(records)
@@ -748,18 +575,11 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Whether a narrator value names nobody in particular.
 
-  "Full Cast" is not a person and not a rival to one — it is a *label for* the
-  cast a full-cast production credits. Taken literally it manufactured a
-  narrator conflict on every dramatized edition: measured on the operator's
-  Harry Potter and the Philosopher's Stone, the file's tag says `Full Cast`,
-  Hardcover lists all fifteen actors, and the form reported "The file says
-  Full Cast reads this; the closest catalogue entry is read by Hugh Laurie,
-  Matthew Macfadyen, … Those are different recordings of the same book."
-  They are the same recording, described two ways.
+  "Full Cast" is a label for a cast, not a person, and taken literally it
+  manufactures a narrator conflict on every dramatized edition.
 
-  Same principle as `agrees?/2`: **a placeholder is "didn't say", not "said
-  something different"** — so it stops arguing with the catalogue instead of
-  being scored against it, and it never becomes a Person either.
+  A placeholder is "didn't say", not "said something different", so it neither
+  argues with the catalogue nor becomes a Person.
   """
   def placeholder_narrator?(name) when is_binary(name) do
     normalize(name) in [
@@ -789,9 +609,9 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   What we think the item is, from its tags first and its release name second.
 
-  Tags win because they're vastly more reliable — measured across a real
-  library, 96% of releases carry a title and author in tags, against 55%
-  whose *name* yields an author.
+  Tags win because they are far more reliable: roughly 96% of ordinary
+  releases carry a title and author in tags, against 55% whose name yields an
+  author.
   """
   def hints(%InboxItem{} = item) do
     tags = item.tags || %{}
@@ -800,21 +620,16 @@ defmodule Ambry.Inbox.AutoMatch do
     part = part_hint(parsed, tag_parsed)
 
     %{
-      # The tag title is stripped of release junk before it becomes a query:
-      # "Children of Time (Unabridged)" searches measurably worse than the
-      # bare title, and because it still returns *something*, the zero-result
-      # plainer-title retry never rescues it. The verbatim tag stays on offer
-      # as a chip — this cleans the question, not the evidence.
+      # Stripped of release junk before it becomes a query: "(Unabridged)"
+      # searches worse and still returns something, so the zero-result retry
+      # never rescues it.
       title: ReleaseName.strip_noise(tags["book_title"]) || parsed.title,
       author: first(tags["authors"]) || parsed.author,
       narrator: stated_narrator(tags["narrators"]) || parsed.narrator,
       series: presence(tags["series"]) || parsed.series,
-      # The number beside the label, wherever it was written: the tags'
-      # series_number field, the tag title's own tail ("Wayfarers, Book 4"),
-      # or the folder name. A label naming a series and a number is an
-      # *identity* — see `series_identity/2` — and it is also the only thing
-      # that stops a label-tagged later volume matching the series' famous
-      # first book.
+      # A series and a number together are an identity
+      # (`series_identity/2`), and the only thing stopping a label-tagged
+      # later volume matching book one.
       series_number:
         suppress_part_polluted_series_number(
           presence_number(tags["series_number"]) ||
@@ -823,32 +638,22 @@ defmodule Ambry.Inbox.AutoMatch do
           part,
           presence(tags["series"]) || parsed.series
         ),
-      # The release's place in a part set ("Part 1 of 2"), from the file
-      # name first — GraphicAudio names releases precisely, tag titles are
-      # messier — and the tag title's tail second.
+      # "Part 1 of 2", from the file name first (release names are precise
+      # about this where tag titles are messy) and the tag title's tail second.
       part_number: part && elem(part, 0),
       parts_total: part && elem(part, 1),
       asin: presence(tags["asin"]) || parsed.asin,
-      # Kept **beside** `title` rather than folded into it. The tags win the
-      # hint because they are the more reliable field, but the name is a real
-      # second opinion and the form has to be able to offer it — measured on
-      # the operator's library, the two disagree on 105 of 198 releases, and
-      # neither is reliably the better one. `title` is what gets searched and
-      # scored; this is what gets proposed.
+      # Beside `title` rather than folded into it: the two disagree on more
+      # than half of an ordinary library's releases and neither reliably wins.
       release_title: parsed.title,
-      # Everything the item says about itself, **unparsed**. The fields above
-      # are what gets searched; this is what a candidate gets checked back
-      # against, and it exists because parsing is precisely what fails in the
-      # cases that matter. `Weir Andy - The Martian (R.C. Bray) - 2013` names
-      # its narrator in a shape no field captures — `extract_narrator/1` only
-      # knows "(read by X)" — so `narrator` comes out nil, the narrator scorer
-      # no-ops, and Wil Wheaton's edition takes the item at 1.0.
+      # Everything the item says about itself, unparsed, for checking a
+      # candidate back against: a name stating its narrator in a shape no
+      # field captures leaves `narrator` nil and the scorer a no-op.
       raw: raw_text(item)
     }
   end
 
-  # Basenames only: the parent directories are the source root, which is the
-  # operator's filesystem layout and says nothing about this release.
+  # Basenames only: parent directories are filesystem layout, not evidence.
   defp raw_text(%InboxItem{} = item) do
     [Path.basename(item.path || "")]
     |> Enum.concat(Enum.map(InboxItem.included(item), &Path.basename/1))
@@ -862,12 +667,8 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp tag_text(_tags), do: []
 
-  # Local Books are kept in their own list, not ranked among the provider
-  # records. Reusing a Book you already have and importing one you don't are
-  # different *outcomes* — one creates nothing, inherits the book's curation
-  # and adds an alternate edition — while a provider record is *evidence*
-  # about a book. Ranking them together made the form ask one question that
-  # was really two.
+  # Local Books go in their own list: reusing a Book you have is an outcome,
+  # and a provider record is evidence.
   defp match_work(hints, opts) do
     {query, candidates, outcomes} = search_ladder(:work, work_queries(hints), hints, opts)
 
@@ -885,17 +686,8 @@ defmodule Ambry.Inbox.AutoMatch do
     [tagged, release_title_query(hints, tagged)] |> Enum.reject(&is_nil/1)
   end
 
-  # A search hit is a summary, not the record. Measured against
-  # rreading-glasses, `search_books` returns a work carrying **one** edition
-  # while `book_details` returns the same work with **seventeen** — along with
-  # the fuller description and a cover the search result may lack. Seeding the
-  # draft from the summary meant importing a thinner book than the provider
-  # actually knew about.
-  #
-  # Every record about the top work is hydrated, not just the single best one:
-  # they all feed the field candidates, so a thin one means the operator can't
-  # take rreading-glasses' description after all. Records about *other* works
-  # stay thin until ticked — nobody has said they're relevant yet.
+  # Every record about the top work, since they all feed the field
+  # candidates. Records about other works stay thin until ticked.
   defp hydrate_top(%{"candidates" => candidates} = result, opts) do
     wanted = candidates |> top_group() |> MapSet.new(&ref/1)
 
@@ -913,8 +705,7 @@ defmodule Ambry.Inbox.AutoMatch do
 
     result
     |> Map.put("candidates", hydrated)
-    # One chip per provider however many of its records were hydrated: asking
-    # Hardcover about four of its own works is four calls but one answer.
+    # One chip per provider however many of its records were hydrated.
     |> Map.put("providers", merge_outcomes(result["providers"] || [], tally(failures)))
   end
 
@@ -927,19 +718,14 @@ defmodule Ambry.Inbox.AutoMatch do
   Marks a record as having had its full details fetched.
 
   Records about the top work are hydrated while matching; the rest stay thin
-  until the operator ticks one, since nothing has suggested they're relevant
-  and their description and cover aren't wanted until they are.
+  until the operator ticks one.
   """
   def hydrated(record), do: Map.put(record, "hydrated", true)
 
   @doc """
   Everything a provider knows about one record, for filling in a thin search
-  hit.
-
-  A search result is a summary: measured against rreading-glasses, `search`
-  returns a work carrying **one** edition while `book_details` returns the same
-  work with **seventeen**, plus the fuller description and a cover the summary
-  may lack.
+  hit: a search result is a summary, often missing the edition list, the full
+  description and the cover.
   """
   def details(record, opts \\ []) do
     {record, _outcome} = details_with_outcome(record, opts)
@@ -949,35 +735,26 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   The same fetch, plus a failed outcome when the provider couldn't be reached.
 
-  **A thin record and an unfetched record are not the same thing**, and this
-  is the difference. Leaving the summary in place is still the right
-  behaviour — it is a usable candidate, and one enrichment call failing must
-  not fail an item that otherwise matched — but doing it *quietly* meant a
-  rate-limited details call cost the record its description, its cover, its
-  publisher and its edition list with nothing anywhere saying so. Measured on
-  a cold scan of 353 releases, the shared rreading-glasses instance 429'd
-  about 6% of requests, none of which surfaced.
+  A thin record and an unfetched record are not the same thing. Keeping the
+  summary is right, but doing it quietly costs the record its description,
+  cover and edition list with nothing saying so.
 
-  The outcome is what makes it visible and what makes it come back:
-  `RunMatch` fails a job with any unreached provider, and provider errors are
-  never cached, so the retry re-asks exactly this call.
+  The outcome is what makes it visible and what makes it come back: `RunMatch`
+  fails a job with any unreached provider, and provider errors are never
+  cached.
   """
   def details_with_outcome(record, opts \\ []) do
     case details_for(record, opts) do
-      # Not a provider record, or a provider the registry doesn't know: there
-      # is nothing to report and nothing a retry could do.
+      # Nothing to report and nothing a retry could do.
       :no_provider ->
         {record, nil}
 
       {:ok, entry, fuller} ->
-        # Success is reported too, and it has to be: outcomes replace each
-        # other by id, so a details call that only ever spoke up when it
-        # failed would leave "couldn't be reached" on the chip forever, even
-        # after the retry that fixed it.
+        # Success is reported too: outcomes replace each other by id, so
+        # "couldn't be reached" would outlive the retry that fixed it.
         {record |> Map.merge(fuller) |> hydrated(), Outcome.ok(entry, 1, :details)}
 
-      # nil when the provider was never asked — it implements no details call,
-      # or it is switched off. `retry/4` and the hydrate path both drop it.
+      # nil when the provider was never asked. Callers drop it.
       {:error, entry, reason} ->
         {record, Outcome.from_error(entry, reason, :details)}
     end
@@ -996,9 +773,8 @@ defmodule Ambry.Inbox.AutoMatch do
   defp details_from(entry, id, opts) do
     case Providers.book_details(entry.id, id, opts) do
       {:ok, book} ->
-        # Only fields the summary can be *missing*. The title, authors and
-        # score stay as matched — re-deriving them here would silently move
-        # what the operator already saw ranked.
+        # Only fields the summary can be missing: re-deriving the title,
+        # authors or score would move what the operator already saw ranked.
         fuller =
           %{
             "description" => presence(book.description),
@@ -1041,15 +817,8 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Marks the candidates the operator is already waiting for.
 
-  A watch says *this recording is one I want*, which is a real prior on what
-  a new file turns out to be — the operator went looking for it on purpose.
-
-  **It does not move the score.** The scores answer "how well does this record
-  match this file", and a watch is evidence about the operator's intent, not
-  about the file: wanting a recording cannot make the bytes on disk more
-  likely to be it. Inflating a score with it would be the same dishonesty
-  `order_candidates/1` refuses when it declines to invent a gap between two
-  equals. So it orders equals and it labels, and the operator decides.
+  It does not move the score: a watch is evidence about intent, not about the
+  file. It orders equals and labels them.
   """
   def mark_wanted(candidates), do: mark_wanted(candidates, Wanted.open_refs())
 
@@ -1068,21 +837,11 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # An ASIN is a recording-level key, so when there is one it leads: a hit on
-  # it is definitive in a way no title match ever is.
-  #
-  # It no longer *replaces* the title search, though. An ASIN that doesn't
-  # resolve — regional, delisted, or simply wrong — used to end the level at
-  # zero candidates with the title question never asked, which made having an
-  # ASIN strictly worse than not having one. Measured on the operator's queue:
-  # two items whose work level matched at confidence 1.0 had recording levels
-  # that found nothing, both because a tagged ASIN returned no rows.
+  # An ASIN leads when there is one, but never replaces the title search: one
+  # that doesn't resolve would end the level at zero candidates.
   defp recording_queries(hints) do
-    # Structured, not concatenated. Audible's catalog matches `title` against
-    # the title alone, so the old `"#{title} #{author}"` string searched for a
-    # book literally called that and returned nothing — the recording level
-    # came up empty on every single item. The narrator goes in too: it is the
-    # field that tells two recordings of one work apart.
+    # Structured, not concatenated: a storefront matches `title` against the
+    # title alone. The narrator tells two recordings of one work apart.
     tagged = %Provider.Query{title: hints.title, author: hints.author, narrator: hints.narrator}
 
     [
@@ -1094,24 +853,13 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   # The release name as a second question, asked only when the tag title's
-  # question came back empty.
-  #
-  # Not a *better* source — the two disagree on 105 of 198 releases and
-  # neither wins reliably, which is why the tags still lead and this is a
-  # fallback rather than a merge. It is a genuinely *different* question,
-  # which is the point: "DW35-Wintersmith" in the tags is "Discworld 35
-  # Wintersmith" on disk, and no amount of cleaning turns the first into the
-  # second. Asking costs nothing on the items that already matched, and
-  # whatever comes back is ranked against the file's own raw text, so a bad
-  # question returning bad answers is ranked out rather than adopted.
+  # came back empty: a genuinely different source, not a better one. Whatever
+  # comes back is ranked against the file's raw text, so bad answers rank out.
   defp release_title_query(%{release_title: release} = hints, template) when is_binary(release) do
     cond do
       same_question?(release, hints.title) -> nil
       # A name that parsed to nothing but the author is not a second opinion
-      # about the title. "Wild - Cheryl Strayed" splits with the author on
-      # both sides, and searching an author's name for a title finds their
-      # other books — the one shape of junk worth refusing up front rather
-      # than leaving to the ranker.
+      # about the title: searching an author's name finds their other books.
       same_question?(release, hints.author) -> nil
       true -> %{template | title: release, keywords: nil}
     end
@@ -1119,8 +867,7 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp release_title_query(_hints, _template), do: nil
 
-  # Same question, allowing for punctuation and case — the two sources
-  # writing one title differently is not a second opinion worth a round trip.
+  # Two sources spelling one title differently is not a second opinion.
   defp same_question?(one, two) when is_binary(one) and is_binary(two),
     do: comparable(one) == comparable(two)
 
@@ -1128,23 +875,11 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp comparable(text), do: text |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}]+/u, "")
 
-  # Asks each query in turn, stopping at the first that finds anything.
+  # Asks each query in turn, stopping at the first that finds anything: a
+  # level that finds nothing is usually a polluted question.
   #
-  # A level that finds nothing is nearly always the *question* being wrong
-  # rather than the book being absent: of the seven levels on the operator's
-  # 343-item queue that came up empty, five had a perfectly findable book
-  # behind a polluted title and two were genuinely uncatalogued. So the
-  # ladder widens the question rather than giving up, which is what a
-  # provider does internally when its own search misses.
-  #
-  # Every attempt's outcomes are kept and tallied, not just the winner's: a
-  # provider that was rate-limited on the first question and never asked the
-  # second must still say so, or the level looks like it was answered when
-  # it was only partly asked.
-  #
-  # The query reported back is the one that found something, or the last one
-  # tried — "we went this far and still found nothing" is the useful thing to
-  # say on a level that failed, and it is what the form prints.
+  # Every attempt's outcomes are tallied, not just the winner's, or a provider
+  # rate-limited on the first question looks like it answered.
   defp search_ladder(level, queries, hints, opts, outcomes \\ [])
 
   defp search_ladder(_level, [], _hints, _opts, outcomes), do: {nil, [], tally(outcomes)}
@@ -1163,33 +898,19 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Collapses records **one provider** returned more than once.
 
-  Not the same thing as fusing two providers' records, which this module
-  refuses to do and should keep refusing: those are two databases describing
-  one book, each knowing something the other doesn't. This is one database
-  holding the same edition four times. Measured on The Martian, Hardcover
-  returns R.C. Bray's recording on four rows and Wil Wheaton's on four more,
-  differing only in which fields are filled — and with `@candidate_limit` at
-  #{@candidate_limit}, those eight rows crowd genuine alternatives (the German
-  and Swedish recordings) off the list entirely.
+  Never two *different* providers' records, which are two descriptions of one
+  book and stay separate rows. This is one database returning the same edition
+  several times, crowding alternatives off a list capped at
+  #{@candidate_limit}.
 
-  Two rules keep it from doing harm:
+    * **Merge, don't drop**: the duplicates are not identical, so the survivor
+      takes the union.
+    * **First occurrence keeps the identity**, since the draft points at
+      records by `{source, id}`. Anything the operator ticked is pinned.
 
-    * **Merge, don't drop.** The duplicates are not identical — of Wheaton's
-      four rows only one carries an ASIN — so the survivor takes the union,
-      filling its blanks from the rows it absorbs. Picking a winner and
-      discarding the rest threw away the ASIN roughly three times in four.
-    * **First occurrence keeps the identity.** A record is referred to by
-      `{source, id}`, and the draft points at records by that ref. Records
-      already on the item come before newly-found ones, so the ref a re-search
-      might have collapsed is the one that survives — and anything the
-      operator has actually ticked is pinned outright.
-
-  Deliberately strict about what counts as the same record: same provider,
-  same normalized title, the *same* set of narrators, and no disagreement on
-  ASIN or publisher (one side being blank is not a disagreement). Two Audible
-  ASINs for one Wheaton recording are a US and a UK edition, not a duplicate,
-  and an edition crediting nobody is not evidence that it is some other
-  edition's recording.
+  Strict about what counts as the same record: same provider, same normalized
+  title, the same narrators, and no disagreement on ASIN or publisher. Two
+  ASINs for one recording are regional editions, not duplicates.
   """
   def dedupe_records(records, pinned \\ MapSet.new()) do
     Enum.reduce(records, [], fn record, kept ->
@@ -1222,10 +943,8 @@ defmodule Ambry.Inbox.AutoMatch do
   defp agreeable?(_value, nil), do: true
   defp agreeable?(value, other), do: value == other
 
-  # The survivor keeps everything it had and gains everything it lacked. The
-  # count rides along because a provider holding four rows for one recording
-  # is a fact about the provider worth being able to see, and silently tidying
-  # it away is how a data-quality problem becomes invisible.
+  # The survivor keeps what it had and gains what it lacked. The count rides
+  # along so a provider's duplication stays visible rather than tidied away.
   defp absorb(kept, record) do
     record
     |> Map.merge(kept, fn _key, incoming, held ->
@@ -1238,34 +957,23 @@ defmodule Ambry.Inbox.AutoMatch do
   Re-scores recordings by what the file *says*, not by what the parser could
   get out of it.
 
-  Everything else here runs forwards: read the item, build a query, score what
-  comes back. This runs **backwards** — take each candidate's narrators and go
-  looking for them in the item's own raw text. It exists because the forward
-  path has a silent hole: `hints.narrator` is nil whenever the parser couldn't
-  find a credit, and `apply_narrator/3` then does nothing at all, so a
-  recording by the wrong reader keeps a perfect title-and-author score.
-  Measured on The Martian — tags carrying no narrator, "(R.C. Bray)" sitting in
-  the filename — the item proposed **Wil Wheaton at 1.0**, unopposed.
+  Everything else here runs forwards: read the item, build a query, score
+  what comes back. This runs **backwards**, looking for each candidate's
+  narrators in the item's raw text, because `hints.narrator` is nil whenever
+  the parser found no credit and a recording by the wrong reader then keeps a
+  perfect score.
 
-  Three-valued, like every "didn't say" in this module, and the middle value is
-  the one that matters:
+  Three-valued, and the middle value is the one that matters:
 
     * **supported** — a candidate's reader is named in the file. Corroboration.
-    * **unstated** — *no* candidate's reader is named anywhere. The file has
-      said nothing about who read it, which is the ordinary case, so nothing
-      is adjusted. Getting this wrong would penalise every correct match in
-      the library.
+    * **unstated** — *no* candidate's reader is named anywhere, which is the
+      ordinary case, so nothing is adjusted.
     * **contradicted** — this candidate's reader is absent *while a rival's is
       present*. Only then has the file spoken: it named a reader, just not
       through any field we parse, and it isn't this one.
 
-  Candidates carrying no narrator at all are never touched — a record that
-  doesn't say who read it isn't contradicted by one that does.
-
-  Only fires when `hints.narrator` is nil, so exactly one narrator mechanism is
-  ever active: the stated credit when there is one, this when there isn't.
-  Full-cast releases land here too — "Full Cast" is a placeholder, not a
-  person, so `stated_narrator/1` rejects it and the forward path has nothing.
+  Candidates carrying no narrator are never touched, and this only fires when
+  `hints.narrator` is nil, so exactly one narrator mechanism is ever active.
   """
   def apply_narrator_evidence(candidates, hints)
 
@@ -1288,10 +996,8 @@ defmodule Ambry.Inbox.AutoMatch do
     do: record
 
   defp verdict(record, supported?) do
-    # Re-derived from the untouched base every time rather than multiplied into
-    # the running score: re-searching an item runs this again over records that
-    # already carry a verdict, and a factor applied twice would sink a
-    # candidate a little further on every visit.
+    # From the untouched base, never multiplied into the running score: a
+    # re-search would otherwise sink a candidate further on every visit.
     base = record["base_score"] || record["score"] || 0.0
     factor = if supported?, do: 1.05, else: @narrator_mismatch
 
@@ -1309,10 +1015,8 @@ defmodule Ambry.Inbox.AutoMatch do
       |> MapSet.to_list()
       |> Enum.filter(&(String.length(&1) >= 3))
       |> case do
-        # Initials and mononyms carry too little to search for: "R.C." against
-        # a filename would match anything with an "r" in it. "Bray" is the
-        # part that identifies, and a name reduced to nothing identifies
-        # nobody — so it abstains rather than guessing.
+        # Initials and mononyms carry too little to search for, so a name
+        # reduced to nothing abstains rather than guessing.
         [] -> false
         parts -> Enum.all?(parts, &MapSet.member?(haystack, &1))
       end
@@ -1331,29 +1035,12 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   The recordings the given work records are known to have.
 
-  This is what finds an edition a storefront has erased: Audible's catalog API
-  is a storefront, not a bibliography — when rights lapse and a title is
-  pulled, it vanishes from search *and* from direct ASIN lookup, with no record
-  that it ever existed. Hardcover is a database of editions rather than a shop,
-  so it still has it. Measured for Neuromancer: Audible 1 audio edition,
-  Hardcover 7 — including a narrator Audible doesn't list at all. Measured for
-  The Martian: Audible has only Wil Wheaton's re-recording, Hardcover still has
-  R.C. Bray's Podium original with its ASIN.
+  This is what finds an edition a storefront has erased: when rights lapse a
+  title vanishes from search and ASIN lookup alike, while a database of
+  editions keeps it.
 
-  **Not rreading-glasses**, whatever older notes here said: its edition list
-  never carries a narrator, because the Goodreads query it issues omits
-  secondary contributors. At this level that makes it silent on the only
-  question being asked.
-
-  **Every capable record is asked**, not the first one. This used to be an
-  `Enum.find_value` that stopped at the first editions-capable provider even
-  when it returned nothing or errored, which is precisely backwards: the whole
-  value here is coverage across databases.
-
-  Run during matching over the records about the top work, and again from the
-  form whenever the operator ticks a work record that hasn't been asked yet.
-  The `metadata` queue is serial and retries, so a thorough match is allowed
-  to take as long as it takes.
+  Every capable record is asked, never only the first. A provider whose
+  edition list carries no narrator is silent at this level.
   """
   def editions_for(records, hints, opts \\ []) do
     {candidates, outcomes} =
@@ -1371,22 +1058,12 @@ defmodule Ambry.Inbox.AutoMatch do
     {candidates, tally(outcomes)}
   end
 
-  # One chip per provider, not one per record asked. Asking a provider about
-  # four of its own work records is four calls but one answer, and reporting
-  # them separately read as nonsense: "Hardcover editions: 0 · Hardcover
-  # editions: 0 · Hardcover editions: 13 · Hardcover editions: 0 …" across a
-  # row. It also hid a real number — the inbox de-duplicates outcomes by id and
-  # keeps the last, so a provider that found thirteen editions for one work and
-  # none for the next reported **none**.
-  #
-  # **A failure outranks an answer.** Collapsing four calls to one chip used to
-  # let any success speak for the group, so a provider that answered about
-  # three works and was rate-limited on the fourth reported a clean `ok` and
-  # the fourth work's editions were never seen again — the same silent miss in
-  # miniature. Now the chip says "couldn't be reached" while still carrying
-  # what did come back, and `RunMatch` sends the item round again for the rest.
   @doc """
   Collapses many calls to one provider into the one chip the operator reads.
+
+  Outcomes de-duplicate by id downstream and the last wins, so a failure
+  outranks an answer: otherwise a provider rate-limited on one of four calls
+  reports a clean `ok`.
   """
   def tally_outcomes(outcomes), do: tally(outcomes)
 
@@ -1394,10 +1071,7 @@ defmodule Ambry.Inbox.AutoMatch do
     outcomes
     |> Enum.group_by(& &1["id"])
     |> Enum.map(fn {_id, [first | _rest] = group} ->
-      # Every outcome's own count, partial ones included: a failure that
-      # reached nothing carries a zero, so summing the group is the same
-      # answer for those and the right one for an answer that came back
-      # half-full.
+      # Summed, so a partial answer reports what did come back.
       count = Enum.sum_by(group, &(&1["count"] || 0))
 
       case Enum.find(group, &Outcome.failed?/1) do
@@ -1417,10 +1091,8 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp editions_capable?(_record), do: false
 
-  # A recording is a recording of exactly one work, so an edition that came
-  # out of a work's own list carries that work with it. Ticking such a
-  # recording settles the book too, instead of asking the operator the same
-  # question twice.
+  # An edition from a work's own list carries that work with it, so ticking
+  # the recording settles the book too.
   defp work_ref(%{"source" => source, "id" => id}), do: %{"source" => source, "id" => id}
 
   defp fetch_editions(provider_id, work_id, hints, of_work, opts) do
@@ -1439,8 +1111,7 @@ defmodule Ambry.Inbox.AutoMatch do
       {:error, reason} ->
         Logger.warning(fn -> "Auto-match: editions for #{provider_id}: #{inspect(reason)}" end)
 
-        # The registry is what names a provider on a chip, and an id it has
-        # never heard of can't be retried anyway.
+        # An id the registry has never heard of cannot be named or retried.
         case Registry.fetch(provider_id) do
           {:ok, entry} -> {[], List.wrap(Outcome.from_error(entry, reason, :editions))}
           {:error, _unknown} -> {[], []}
@@ -1455,15 +1126,12 @@ defmodule Ambry.Inbox.AutoMatch do
   defp level_result(query, candidates, outcomes, author) do
     %{
       "query" => query && to_string(query),
-      # The flattened string is what the cache keys on and what text-only
-      # providers see, but it isn't what was *asked* — the fields are, and
-      # they're what the operator needs to read when a match looks wrong.
+      # The flattened string is what the cache keys on; the fields are what
+      # was actually asked, and what the operator reads when a match is wrong.
       "query_fields" => query_fields(query),
       "candidates" => rank(candidates),
       "confidence" => confidence(candidates, author),
-      # which providers were asked, and what each said. A provider that fails
-      # used to vanish silently, leaving the operator to wonder why a source
-      # they had enabled contributed nothing.
+      # Without this a provider that fails vanishes silently.
       "providers" => outcomes
     }
   end
@@ -1471,11 +1139,9 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Orders records best-first and caps the list.
 
-  Records are **not** fused when two providers return the same thing. That is
-  the normal case, not a duplicate to clean up: they are two databases holding
-  a record of one book, and each knows things the other doesn't — one has the
-  better description, the other the better cover. Collapsing them deleted the
-  loser's payload and made the list look like a set of rival identities.
+  Records are not fused when two providers return the same thing: collapsing
+  them deletes the loser's payload and makes the list read as rival
+  identities.
   """
   def rank(candidates) do
     candidates |> order_candidates() |> Enum.take(@candidate_limit)
@@ -1484,21 +1150,14 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Best first: by score, and among equal scores by what the file corroborated.
 
-  The tie-break is not decoration. A supported candidate cannot out-*score* a
-  silent one that was already at 1.0 — the boost is capped there — so The
-  Martian ends with R.C. Bray's corroborated recording and an Audible edition
-  crediting nobody both sitting at exactly 1.000. Inventing a score gap to
-  separate them would be dishonest about how sure we are; ordering the
-  corroborated one first is simply saying which of two equals the file
-  actually spoke about.
+  The boost is capped at 1.0, so a corroborated recording and a silent one
+  can tie there; ordering decides which of two equals the file spoke about.
   """
   def order_candidates(candidates) do
     Enum.sort_by(candidates, &{&1["score"] || 0.0, wanted(&1), corroboration(&1)}, :desc)
   end
 
-  # Ahead of corroboration among equals: the file corroborating a narrator
-  # says this record fits what is on disk, and a watch says the operator went
-  # looking for this exact recording. Neither outranks a better score.
+  # Ahead of corroboration among equals; neither outranks a better score.
   defp wanted(%{"wanted" => true}), do: 1
   defp wanted(_record), do: 0
 
@@ -1519,37 +1178,19 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Map.new()
   end
 
-  # Recordings are keyed by what makes them *different recordings*. Title and
-  # author identify a work; two audiobooks of one work share both and are not
-  # the same thing — the 1984 Books on Tape and 2011 Penguin Audio editions of
-  # Neuromancer collapsed into one candidate until the narrator and ASIN went
-  # into the key.
   @doc """
   Whether two records describe the same thing.
 
   **Everything they both say has to agree; a field one of them doesn't carry
-  is not a disagreement.** That is the whole rule, and it has to be a binary
-  predicate rather than a key — the same shape `scalar/2`'s date equivalence
-  needed, and for the same reason: "didn't say" is compatible with every
-  answer, which no key function can express.
+  is not a disagreement.** A binary predicate rather than a key, because
+  "didn't say" is compatible with every answer and no key can express that.
 
-  Measured on Legends & Lattes, where the correct 84% Audible match was being
-  reported as 54% "unsure" and left un-ticked, taking the publisher, release
-  date and description down with it. Two separate reasons, both of them a
-  catalogue being scored as a rival of the very audiobook it describes:
+  The ASIN is not part of it: a storefront's and a database's record of one
+  reading routinely differ by a regional variant, so an ASIN may confirm a
+  match (`score/5`'s job) but never deny one.
 
-    * **A storefront id is not an identity.** Audible's record carries ASIN
-      `B0B3GB64T1` and Hardcover's record of the same reading carries
-      `B0B3G97QY1` — a regional variant. The ASIN used to be part of the key.
-      It still *confirms* a match when it agrees (that's `score/5`'s job); it
-      no longer denies one when it differs.
-    * **Two of Hardcover's edition records list no narrator at all.** Keyed,
-      they fell through to the work clause and could never corroborate a
-      recording — so the audiobook was its own runner-up.
-
-  Callers pass one level's candidates at a time, which is why there's no
-  work/recording tag: at the work level nobody carries narrators and the
-  authors decide, at the recording level the narrators do.
+  Callers pass one level's candidates at a time: at the work level the authors
+  decide, at the recording level the narrators do.
   """
   def agrees?(one, other) do
     same_stated_title?(one["title"] || "", other["title"] || "") and
@@ -1558,35 +1199,15 @@ defmodule Ambry.Inbox.AutoMatch do
       compatible?(one["authors"], other["authors"])
   end
 
-  # A study guide agrees with its subject on every other test, and that is not
-  # a near miss — it is the three tests lining up. Its title's *head* is the
-  # book's title exactly, because a companion work is named
-  # "<The Book>: <something>" by construction, and head containment was built
-  # for genuine subtitles. It credits no narrator and, very often, no author.
-  # So all three read "didn't say", and "The Martian: A Novel by Andy Weir |
-  # Unofficial Summary & Analysis" was pre-ticked onto the operator's Martian
-  # while showing a score of 0.25 — the scorer knew, and nothing asked it.
-  #
-  # The sharpest part: the two rival companion works, which name a *different*
-  # author, were correctly excluded. Only the one carrying no author data at
-  # all got through, so the record with the worst data earned the most trust.
+  # A companion work agrees with its subject on every other test, since it
+  # credits nobody and all three read "didn't say". Without this the record
+  # with the worst data earns the most trust.
   defp companion?(title), do: companion_penalty(title || "") != 1.0
 
   # A title and that same title carrying its subtitle are one answer written
-  # two ways: rreading-glasses says "Cast Under an Alien Sun" where Hardcover
-  # writes "Cast Under an Alien Sun: Destiny's Crucible, Book 1", and exact
-  # equality read the two records of one book as rivals — near-tied, so the
-  # doubt penalty fired on a doubly-corroborated match. Asymmetric
-  # containment, same as the seeder's `same_title?/2` and for the same
-  # reason: one title has to be the WHOLE of the other's head, or "The
-  # Expanse: Leviathan Wakes" agrees with "The Expanse: Caliban's War".
-  #
-  # Compared as `title_key/1`, not `normalize/1`: Audible says "Path of
-  # Daggers" where every other catalogue says "The Path of Daggers", and the
-  # bare-normalized compare read the article as a rival spelling — the
-  # corroborated recording split into two groups and the doubt penalty cut a
-  # five-record consensus to 0.437 while its sibling item, whose titles
-  # happened to match verbatim, sat at 0.951.
+  # two ways. Asymmetric containment, not a shared prefix: one title has to be
+  # the WHOLE of the other's head. Compared as `title_key/1`, so a leading
+  # article is not a rival spelling.
   defp same_stated_title?(one, other) do
     a = title_key(one)
     b = title_key(other)
@@ -1594,11 +1215,8 @@ defmodule Ambry.Inbox.AutoMatch do
     a == b or title_key(title_head(one)) == b or title_key(title_head(other)) == a
   end
 
-  # A record that names fewer of the same people is compatible with one that
-  # names more: rreading-glasses credits As You Wish to "Cary Elwes" and
-  # Hardcover to "Cary Elwes, Joe Layden", and reading that as a rival
-  # doubted a match both databases had confirmed. Disjoint or crossing sets
-  # stay incompatible — "said less" corroborates, "said different" does not.
+  # Naming fewer of the same people is compatible with naming more: "said
+  # less" corroborates, "said different" does not.
   defp compatible?(one, other) do
     case {name_set(one), name_set(other)} do
       {[], _unstated} -> true
@@ -1614,15 +1232,10 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # Confidence is about the *decision*, not just the top hit: a strong match
-  # with a genuinely different runner-up is exactly the case a human should
-  # look at, so a close second pulls it down.
-  #
-  # Corroboration is not a rival. Records are no longer fused, so two providers
-  # returning the same work are two rows — and scoring them as rivals would
-  # read the best-corroborated match in the library as the most doubtful one,
-  # which is the bug #1186 fixed by merging. Grouping for the score keeps that
-  # fix without the merge.
+  # Confidence is about the decision, not the top hit: a strong match with a
+  # genuinely different runner-up is what a human should look at. But
+  # corroboration is not a rival, or the best-corroborated match reads as the
+  # most doubtful one.
   defp confidence(candidates, author) do
     candidates
     |> group_agreeing()
@@ -1631,9 +1244,8 @@ defmodule Ambry.Inbox.AutoMatch do
     |> decide(author)
   end
 
-  # Folded rather than grouped by key, because agreement is a predicate and
-  # not an equivalence a key can capture — a record that names no narrator
-  # agrees with one that does, and with another that doesn't.
+  # Folded, not grouped by key: agreement is a predicate and not an
+  # equivalence, since a record naming no narrator agrees with both sides.
   defp group_agreeing(candidates) do
     Enum.reduce(candidates, [], fn candidate, groups ->
       case Enum.find_index(groups, fn [held | _rest] -> agrees?(held, candidate) end) do
@@ -1659,8 +1271,7 @@ defmodule Ambry.Inbox.AutoMatch do
   @settled_score 0.95
 
   # What remains of the runner-up penalty when the runner-up is a catalogue
-  # sibling rather than a rival. Not zero: a similarity match should still
-  # rank under an ASIN's flat 1.0.
+  # sibling. Not zero: a similarity match still ranks under an ASIN's 1.0.
   @sibling_discount 0.25
 
   # Word pairs at or above this could be one word misspelled, pluralized or
@@ -1670,33 +1281,13 @@ defmodule Ambry.Inbox.AutoMatch do
   defp decide([], _author), do: 0.0
   defp decide([{only, _held}], _author), do: only
 
-  # **A close second is doubt; a distant one is just the rest of the list.**
-  # The penalty used to be `0.5 * second / best`, which is a ratio and so
-  # charged *every* runner-up something — measured on Legends & Lattes, a
-  # doubly-corroborated 0.854 was cut to 0.576 by a different book in the same
-  # series by the same author scoring 0.556. That put it under the doubt bar,
-  # so nothing was adopted and the publication date fell back to the file's
-  # tags, discarding the real date rreading-glasses had just supplied.
+  # A close second is doubt; a distant one is just the rest of the list.
+  # Keyed on the gap between best and second, not their ratio, which would
+  # charge every runner-up something. The curve holds near full value while
+  # the gap is small and falls away as it approaches decisive.
   #
-  # Keyed on the *gap* instead, which is what "close" means and what the old
-  # comment already claimed this did.
-  # The curve matters as much as the switch to gaps. A near-tie has to stay
-  # firmly doubted — "The Silent Patient" against "The Silent Patients" by
-  # "Alexa Michaelides" is two different books and exactly the case for a
-  # human — so the penalty holds near its full value while the gap is small
-  # and falls away only as the gap approaches decisive. A straight ramp let a
-  # 0.12 gap through at 0.69, over the bar that adopts a match.
-  #
-  # But the gap alone cannot tell a rival from a catalogue sibling. Series
-  # books share most of their words by construction, so "Children of Strife"
-  # sat 0.133 behind an exact, doubly-corroborated "Children of Time" — all
-  # but the same gap as the Silent Patients near-tie — and dragged a certain
-  # match under the doubt bar. What distinguishes them is whether the
-  # operator could actually mistake one for the other (`rival?/3`): a
-  # confusable title keeps the full penalty, a plainly different one is
-  # discounted — *provided* the best decisively answered the query, because
-  # when nothing matched well the runner-up is genuine ambiguity whatever its
-  # title says.
+  # The gap alone cannot tell a rival from a catalogue sibling, since series
+  # books share most of their words by construction; `rival?/3` is that test.
   defp decide([{best, best_held}, {second, second_held} | _rest], author) do
     gap = best - second
 
@@ -1723,17 +1314,11 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   # Two same-titled books by plainly different authors are told apart by the
-  # query's author: the operator's Limitless (Alan Glynn) sat doubted at
-  # 0.583 under Jim Kwik's identically-titled self-help book. With no author
-  # in hand the tie is genuine ambiguity and stays doubted; and "Alex" vs
-  # "Alexa" Michaelides is NOT plainly different — that near-tie must stay
-  # doubted too, which is what the cross-similarity floor is for.
+  # query's author; two spellings of one surname are not plainly different.
   @distinct_author 0.7
 
-  # Guarded on `:match` rather than on a similarity crossing a threshold: with
-  # `author_similarity/2` returning nil for a record naming nobody, `nil >=
-  # 0.85` is *true* in Elixir's term order (atoms sort above numbers), so an
-  # authorless candidate silently adjudicated every tie it was in.
+  # Guarded on `:match`, never on a similarity threshold: nil compares as
+  # greater than any number in Elixir's term order.
   defp author_adjudicated?(best, second, author) do
     is_binary(author) and
       author_agreement(best["authors"] || [], author) == :match and
@@ -1747,14 +1332,10 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Enum.max(fn -> 1.0 end)
   end
 
-  # Whether two titles could be one title written two ways — a plural, a
-  # typo, a re-spelling — as opposed to two books that merely share most of
-  # their words. Jaro over the whole string cannot make this distinction:
-  # a shared prefix dominates it, so "children of time" vs "children of
-  # strife" scores 0.924 — HIGHER than plenty of true retitlings. Word by
-  # word the difference is stark: time/strife is 0.58 while
-  # patient/patients is 0.96. Articles are dropped first so "The Martian"
-  # and "Martian" still align.
+  # Whether two titles could be one title written two ways, rather than two
+  # books sharing most of their words. Word by word, not Jaro over the whole
+  # string, which a shared prefix dominates. Articles drop first so "The
+  # Martian" and "Martian" align.
   defp confusable?(one, other) when is_binary(one) and is_binary(other) do
     a = title_words(one)
     b = title_words(other)
@@ -1769,10 +1350,8 @@ defmodule Ambry.Inbox.AutoMatch do
 
   @doc """
   The exact-identity form of a title: case, punctuation, edition words and
-  leading articles do not make a different book — the operator's two
-  Princess Bride releases are titled "Princess Bride" and "The Princess
-  Bride". Deliberately EXACT beyond that ("Dune Messiah" and "Dune" differ
-  by it); for use where linking demands identity, not similarity.
+  leading articles do not make a different book. Deliberately exact beyond
+  that, for use where linking demands identity rather than similarity.
   """
   def title_key(title) when is_binary(title), do: title |> title_words() |> Enum.join(" ")
 
@@ -1783,36 +1362,18 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Enum.reject(&(&1 in ["the", "a", "an"]))
   end
 
-  # **Matching the library is a different question from searching it.** The
-  # substring search behind `list_books` asks whether one whole string appears
-  # inside one field, which is right for a person typing and wrong here: a tag
-  # title is rarely the library's title. Measured on the operator's own
-  # uploads, the file for Harry Potter and the Philosopher's Stone is tagged
-  # `HP1 - The Philosopher's Stone` — a shelf label — and no substring of it
-  # appears in the book's real title.
+  # Matching the library is a different question from searching it: a
+  # substring search asks whether one whole string appears inside one field,
+  # and a tag title is rarely the library's title. The failure is invisible,
+  # because an empty local list looks like "you don't have this book".
   #
-  # Worse, this used to search the flattened `title author` string, which is
-  # not a substring of any single field and so matched **nothing, on every
-  # item carrying an author in its tags** — 96% of them, per 1b. Exactly
-  # #1186's bug (a structured query flattened for something that wants one
-  # field), repeated here and invisible because an empty local list looks
-  # identical to "you don't have this book".
-  #
-  # Keywords fix both directions: a term that misses costs nothing, and the
-  # author's name goes from breaking the search to improving the ranking.
+  # Keyword matching makes a term that misses cost nothing, so asking under
+  # both titles is free recall; `@offer_local` decides what is worth showing.
   defp local_books(%{title: nil}), do: []
 
   defp local_books(hints) do
-    # The file's name goes in too. A term that misses costs nothing here —
-    # that is the whole reason this is keyword matching rather than a
-    # substring search — so asking under both titles is free recall, and it is
-    # the difference between finding and not finding a book whose tags call it
-    # "Wayfarers, Book 1". The `@offer_local` floor still decides what is
-    # worth *showing*.
-    #
-    # Handed over as one phrase, not as tokens: `plainto_tsquery` splits it,
-    # folds accents, stems and drops stop words, which is what `keywords/1`
-    # was approximating for the search that used to live here.
+    # One phrase, not tokens: `plainto_tsquery` splits, folds accents, stems
+    # and drops stop words.
     books =
       [hints.title, hints.release_title, hints.author, hints.series]
       |> Enum.reject(&is_nil/1)
@@ -1827,9 +1388,8 @@ defmodule Ambry.Inbox.AutoMatch do
         "authors" => Enum.map(book.authors || [], & &1.name),
         "series" => series_refs(book.series),
         "published" => book.published && Date.to_iso8601(book.published),
-        # No thumb on the scale any more: local Books are their own list, so
-        # the score is plain similarity and is used only to decide whether the
-        # match is strong enough to offer as "this is an edition of that".
+        # Plain similarity: local Books are their own list, and the score
+        # only decides whether the match is worth offering.
         "score" =>
           score(
             book.title,
@@ -1845,38 +1405,24 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Enum.sort_by(& &1["score"], :desc)
   end
 
-  # Two roads onto the form. A candidate over the similarity floor still
-  # needs its name substantially present in what the file calls itself —
-  # jaro noise plus a shared author put Neuromancer over the floor for
-  # Pattern Recognition. And a candidate found through a series *label* is
-  # offered regardless of its score, because there the score is noise in the
-  # other direction: "Wayfarers, Book 1" scores ~0.24 against "The Long Way
-  # to a Small, Angry Planet" while being exactly that book.
+  # Two roads onto the form. Over the similarity floor a candidate still
+  # needs its name substantially present in what the file calls itself, or
+  # jaro noise plus a shared author offers an unrelated book by the same
+  # writer. A candidate found through a series label is offered whatever its
+  # score, because a shelf label scores nothing against the real title while
+  # naming exactly that book.
   defp offer?(candidate, hints) do
     (candidate["score"] >= @offer_local and title_evidence?(candidate, hints)) or
       series_label_evidence?(candidate, hints)
   end
 
-  # Jaro gives ~0.5 to entirely unrelated titles, and a local book by the
-  # same author collects the author's quarter-share on top — so once the
-  # library held one William Gibson, Pattern Recognition offered Neuromancer
-  # as "a book you already have" at 0.68, and every further import by an
-  # author already on the shelf re-opened an identity question about a book
-  # it plainly isn't. Similarity is not evidence of identity here; the
-  # book's own name appearing in what the file calls itself is.
+  # Similarity is not evidence of identity: jaro gives ~0.5 to unrelated
+  # titles and a shared author adds its quarter share. What counts is the
+  # book's own name appearing substantially in what the file calls itself —
+  # every word of a short name, at least two of a long one.
   #
-  # And one word of it is not enough: "Elysium Fire" was offered for The
-  # Consuming Fire on the strength of "fire". The book's title (or one of
-  # its series names) must be *substantially* present — every word of a
-  # short name, at least two of a long one — which keeps Wool findable from
-  # "01 Wool" and the Wayfarers books findable through their series, and
-  # keeps a single shared noun from re-opening the identity question.
-  # Title evidence comes from what the file calls the BOOK — title and
-  # release name, never the series tag. A series named after its first book
-  # smuggled that book's whole title into this set: "Children of Memory"
-  # (series-tagged "Children of Time") offered the shelved Children of Time
-  # as "a book you already have". Series words belong to the series arm,
-  # which has its own label and volume guards.
+  # From the title and release name, never the series tag: a series named
+  # after its first book would smuggle that book's whole title in here.
   defp title_evidence?(candidate, hints) do
     wanted =
       [hints.title, hints.release_title]
@@ -1899,10 +1445,8 @@ defmodule Ambry.Inbox.AutoMatch do
     )
   end
 
-  # "Wayfarers, Book 4" is a label for the series' FOURTH book: the first
-  # book being on the shelf is not a reason to offer it, however famous it
-  # is. A label with no number, or a membership with no single number, stays
-  # neutral.
+  # A label naming volume four is not a reason to offer volume one, however
+  # famous it is. No number on either side stays neutral.
   defp wrong_volume?(entry, %{series_number: number}) when not is_nil(number) do
     case single_number(entry["number"]) do
       nil -> false
@@ -1915,14 +1459,11 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Splits a phrase into the words worth comparing on.
 
-  Not a search — `Ambry.Search.Query` does that, and Postgres does its own
-  tokenizing. This is for the set comparisons below, where a file's label and
-  a candidate's name are reduced to word sets and asked how much they share.
-  It lived on `Ambry.Books.BookFlat` while that view had a hand-rolled
-  keyword search to feed; the search is gone and the comparisons remain.
+  Not a search — `Ambry.Search.Query` does that. This is for the set
+  comparisons below, where a file's label and a candidate's name are reduced
+  to word sets and asked how much they share.
 
-  Punctuation goes (an apostrophe is typographic or straight depending on who
-  wrote the file) and so do the words every title contains, which would
+  Punctuation goes, and so do the words every title contains, which would
   otherwise count as agreement with everything in the library.
   """
   @stopwords ~w(a an and at by for from in of on or the to with)
@@ -1943,12 +1484,9 @@ defmodule Ambry.Inbox.AutoMatch do
     words != [] and shared >= min(2, length(words))
   end
 
-  # A series name is only evidence when the file's label IS the series —
-  # "Wayfarers, Book 1" carries no title of its own, so the series is the
-  # only road to the book. When the label has its own title words ("The
-  # Consuming Fire The Interdependency, Book 2"), the candidate has to match
-  # on those: same-series siblings share the series name by construction,
-  # and The Collapsing Empire was being offered for every later volume.
+  # A series name is only evidence when the file's label IS the series.
+  # Where the label has its own title words the candidate must match on
+  # those, or every same-series sibling matches by construction.
   @label_filler ~w(book books bk vol volume volumes part parts no saga series)
 
   defp series_label?(series_name, hints) do
@@ -1974,27 +1512,13 @@ defmodule Ambry.Inbox.AutoMatch do
     |> Registry.enabled()
     |> Enum.map(&search_provider(&1, query, hints, opts))
     |> Enum.reduce({[], []}, fn {candidates, outcome}, {all, outcomes} ->
-      # nil where the provider was never asked — switched off between the
-      # registry read and the call, or missing its credentials.
+      # nil where the provider was never asked.
       {all ++ candidates, outcomes ++ List.wrap(outcome)}
     end)
   end
 
-  # Providers are tried in the operator's priority order, and one being down,
-  # rate-limited or slow costs its results only — but the outcome is recorded
-  # either way, so "this provider found nothing" and "this provider was
-  # unreachable" don't look identical in the inbox.
-  # **A provider that finds nothing is asked again with a plainer title.**
-  # Tag titles carry things catalogue titles don't: measured on the operator's
-  # own library, `"Legends and Lattes: A Novel of High Fantasy and Low Stakes"`
-  # returns **nothing** from rreading-glasses while `"Legends and Lattes"`
-  # returns the book — with a real publication date of 2022-02-22, where the
-  # only provider that did answer knew nothing but the year. So the subtitle
-  # cost the import its date, not just a candidate.
-  #
-  # Tried second rather than first because a subtitle is sometimes the only
-  # thing telling two books apart; this widens a search that failed, which is
-  # the same thing providers do internally.
+  # One provider being down costs its results only, but the outcome is
+  # recorded either way.
   defp search_provider(entry, query, hints, opts) do
     case search_books(entry, query, opts) do
       {:ok, books} ->
@@ -2003,9 +1527,7 @@ defmodule Ambry.Inbox.AutoMatch do
 
         {candidates, Outcome.ok(entry, length(candidates))}
 
-      # What did answer is matched on; what didn't is what sends `RunMatch`
-      # round again. A region that was rate-limited during a scan of hundreds
-      # of items must not read as a region the book isn't sold in.
+      # What answered is matched on; what didn't sends `RunMatch` round again.
       {:partial, books, reason} ->
         candidates =
           books |> Enum.take(@candidate_limit) |> Enum.map(&provider_candidate(&1, entry, hints))
@@ -2025,6 +1547,10 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
+  # A provider that finds nothing is asked again with a plainer title, since
+  # a marketing subtitle can return nothing where the bare title returns the
+  # book. Second rather than first, because a subtitle is sometimes the only
+  # thing telling two books apart.
   defp search_books(entry, query, opts) do
     case Providers.search_books(entry.id, query, opts) do
       {:ok, []} -> retry_plainer(entry, query, opts)
@@ -2056,9 +1582,9 @@ defmodule Ambry.Inbox.AutoMatch do
   end
 
   @doc """
-  Hints from a library record's own fields — the edit forms' analog of
-  `hints/1`. Same scoring, ranking provider records against what the record
-  already knows instead of what the files claimed.
+  Hints from a library record's own fields: the edit forms' analog of
+  `hints/1`, ranking provider records against what the record already knows
+  rather than what the files claimed.
   """
   def form_hints(fields) when is_map(fields) do
     %{
@@ -2071,8 +1597,8 @@ defmodule Ambry.Inbox.AutoMatch do
       parts_total: nil,
       asin: nil,
       release_title: nil,
-      # No files behind a form: the operator typed these fields, and a typed
-      # narrator is a *stated* one, which the forward scorer already handles.
+      # No files behind a form, and a typed narrator is a stated one, which
+      # the forward scorer already handles.
       raw: nil
     }
   end
@@ -2100,10 +1626,8 @@ defmodule Ambry.Inbox.AutoMatch do
       "series" => series,
       "published" =>
         book.published && book.published.date && Date.to_iso8601(book.published.date),
-      # carried alongside the date because it is not derivable from it:
-      # year-only knowledge arrives as a literal Jan 1st, and rendering that
-      # as a real release day is the exact bug the v1.9.0 punch list fixed
-      # for the import forms
+      # Not derivable from the date: year-only knowledge arrives as a literal
+      # January 1st, which must not render as a real release day.
       "published_format" => book.published && to_string(book.published.display_format),
       "publisher" => book.publisher,
       "cover_url" => book.cover_url,
@@ -2112,12 +1636,8 @@ defmodule Ambry.Inbox.AutoMatch do
     }
   end
 
-  # A series membership is a name AND a position, and the position was being
-  # thrown away here — every provider we use reports it (Hardcover's
-  # `position`/`details`, rreading-glasses' `PositionInSeries`, Audible's
-  # `sequence`), and the inbox then asked the operator for a number nobody had
-  # to look up. Kept as maps rather than two parallel lists so a book that is
-  # #10.5 in one series and #3 in another survives the trip.
+  # A membership is a name AND a position. Maps rather than two parallel
+  # lists, so a book at #10.5 in one series and #3 in another survives.
   defp series_refs(series) do
     for entry <- List.wrap(series), is_binary(entry.name) do
       %{"name" => entry.name, "number" => number_string(entry.number)}
@@ -2135,16 +1655,13 @@ defmodule Ambry.Inbox.AutoMatch do
   defp score(title, authors, narrators, _asin, series, hints) do
     {title_similarity, penalty} =
       case series_identity(series, hints) do
-        # The label names a series and a number, and this candidate IS that
-        # series at that number: identity, not similarity — the label was
-        # never the title, so its title score is noise. Companion markers
-        # still subtract.
+        # Identity, not similarity: the label was never the title, so its
+        # title score is noise. Companion markers still subtract.
         :match ->
           {1.0, companion_penalty(title)}
 
-        # And a candidate at a DIFFERENT number is the wrong sibling no
-        # matter how the strings score: "Wayfarers, Book 4" must not match
-        # the series' famous first book.
+        # A candidate at a different number is the wrong sibling however the
+        # strings score.
         :conflict ->
           {sim, penalty} = title_parts(title, hints.title)
           {sim, penalty * @series_mismatch}
@@ -2160,34 +1677,20 @@ defmodule Ambry.Inbox.AutoMatch do
         :unstated -> title_similarity
       end
 
-    # The narrator only speaks when both sides have one. Recording-level hits
-    # carry narrators and work-level hits don't, so this quietly does nothing
-    # at the work level rather than needing a separate scorer — and at the
-    # recording level it's decisive, because it is the only thing that
-    # distinguishes two recordings of the same book.
+    # The narrator only speaks when both sides have one, so this does nothing
+    # at the work level and is decisive at the recording level.
     base
     |> apply_narrator(narrators, hints.narrator)
     |> Kernel.*(penalty)
     |> Float.round(3)
   end
 
-  # "As You Wish: Inconceivable Tales from the Making of The Princess Bride"
-  # against a file's bare "As You Wish": every subtitle word counted as
-  # content the query didn't ask for, and the length penalty scored the right
-  # book like a study guide (0.316, measured). A candidate whose *head* — the
-  # part before a subtitle separator — IS the queried title is that title
-  # written out in full, so it scores as an exact title with no length
-  # penalty. The same asymmetric-containment rule the seeder's
-  # `same_title?/2` applies, and asymmetric for the same reason: a shared
-  # PREFIX must not match, or "The Expanse: Caliban's War" answers a search
-  # for "The Expanse: Leviathan Wakes". Companion markers still subtract —
-  # "As You Wish: Summary & Analysis" has the right head and is still not
-  # the book.
-  # In both directions, same as the seeder's `same_title?/2`: the catalogue
-  # may write the subtitle out where the tags are bare (As You Wish), or the
-  # tags may carry it where the catalogue is bare — "House of Earth and
-  # Blood: The Crescent City, Book 1" is the dominant real-world tag shape,
-  # and the record titled exactly its head IS the book the file means.
+  # A candidate whose head is the queried title is that title written out in
+  # full, so it scores as exact with no length penalty; otherwise the length
+  # penalty scores the right book like a study guide.
+  #
+  # Both directions, since either side may carry the subtitle, and asymmetric
+  # containment rather than a shared prefix. Companion markers still subtract.
   defp title_parts(title, wanted) do
     if is_binary(wanted) and head_match?(title, wanted),
       do: {1.0, companion_penalty(title)},
@@ -2202,8 +1705,8 @@ defmodule Ambry.Inbox.AutoMatch do
       (wanted_head != wanted and normalize(wanted_head) == normalize(title))
   end
 
-  # Everything before the first subtitle separator — a colon, or a dash with
-  # space around it. A hyphen inside a word ("Wild-Built") is not a separator.
+  # Before the first subtitle separator: a colon, or a spaced dash. A hyphen
+  # inside a word ("Wild-Built") is not one.
   defp title_head(title) when is_binary(title) do
     title |> String.split(~r/\s*:\s|\s+[-–—]\s+/u, parts: 2) |> hd()
   end
@@ -2215,8 +1718,7 @@ defmodule Ambry.Inbox.AutoMatch do
   #
   #   :match     the label names a series and a number, and the candidate is
   #              at that number in a series whose name the label contains
-  #   :conflict  same series, single-number position, different number — the
-  #              wrong sibling, whatever the strings score
+  #   :conflict  same series, single-number position, different number
   #   :unstated  no label number, no matching series entry, or a position
   #              that isn't a single number ("1-4" box sets stay neutral)
   defp series_identity(series, %{series_number: number} = hints) when not is_nil(number) do
@@ -2266,8 +1768,8 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # filename first — GraphicAudio names releases precisely; tag titles are
-  # messier and only get a say when the name says nothing
+  # Filename first: release names are precise about parts where tag titles
+  # are messy.
   defp part_hint(%ReleaseName{parts_total: total} = parsed, _tag_parsed) when is_integer(total),
     do: {parsed.part_number, total}
 
@@ -2276,11 +1778,9 @@ defmodule Ambry.Inbox.AutoMatch do
 
   defp part_hint(_parsed, _tag_parsed), do: nil
 
-  # A GraphicAudio file tagged `part=1` feeds the tags' series_number field,
-  # so a part-set release would claim "book N" of whatever series gets
-  # proposed — for any part but the first, confidently wrong. When the
-  # number agrees with the detected part number and nothing actually names a
-  # series, the number is the part's, not a series position.
+  # A file tagged `part=1` feeds the tags' series_number field. When the
+  # number agrees with the detected part and nothing names a series, the
+  # number is the part's.
   defp suppress_part_polluted_series_number(nil, _part, _series), do: nil
   defp suppress_part_polluted_series_number(number, nil, _series), do: number
 
@@ -2293,12 +1793,9 @@ defmodule Ambry.Inbox.AutoMatch do
   defp apply_narrator(score, narrators, narrator) when narrators in [nil, []] or is_nil(narrator),
     do: score
 
-  # Treated as a near-binary fact rather than blended in, because jaro is
-  # useless here: two entirely unrelated names ("Robertson Dean" vs "Jeff
-  # Harding") still score 0.53, so averaging it in left the *wrong reader's*
-  # edition at 0.81 — comfortably "likely", for a recording that is simply not
-  # the one in hand. Agreement is a modest boost; disagreement is decisive,
-  # since at this level the narrator is what the two candidates differ by.
+  # Near-binary rather than blended, because jaro is useless on names: two
+  # unrelated ones still score around 0.5. Agreement is a modest boost;
+  # disagreement is decisive.
   defp apply_narrator(score, narrators, narrator) do
     match = narrators |> Enum.map(&similarity(&1, narrator)) |> Enum.max(fn -> 0.0 end)
 
@@ -2309,16 +1806,9 @@ defmodule Ambry.Inbox.AutoMatch do
     end
   end
 
-  # Titles that CONTAIN what we're looking for plus a pile of other words are
-  # the failure mode jaro distance cannot see: "A Study Guide for William
-  # Gibson's Neuromancer" and "William Gibson's Neuromancer, the Graphic
-  # Novel" both scored ~0.6–0.72 against "Neuromancer" purely on shared
-  # substrings, and sat in the candidate list looking plausible.
-  #
-  # Two penalties, because there are two different tells. A companion-work
-  # marker ("study guide", "graphic novel") is decisive on its own. Sheer
-  # extra length is softer evidence — subtitles and series names are
-  # legitimate — so it scales rather than disqualifies.
+  # Titles that contain what we asked for plus a pile of other words are the
+  # failure jaro cannot see. A companion marker is decisive; sheer extra
+  # length is softer evidence and scales.
   defp title_penalty(nil, _wanted), do: 1.0
   defp title_penalty(_title, nil), do: 1.0
 
@@ -2326,9 +1816,8 @@ defmodule Ambry.Inbox.AutoMatch do
     companion_penalty(title) * length_penalty(title, wanted)
   end
 
-  # Deliberately NOT added to `normalize/1`: stripping these words would make
-  # a study guide match its subject *better*, which is the opposite of what's
-  # needed. They have to subtract.
+  # Deliberately NOT stripped by `normalize/1`, which would make a study guide
+  # match its subject *better*. They have to subtract.
   @companion_markers [
     "study guide",
     "graphic novel",
@@ -2348,9 +1837,7 @@ defmodule Ambry.Inbox.AutoMatch do
     "unofficial"
   ]
 
-  # Matched with spaces removed on both sides: "Spark Notes Harry Potter…"
-  # spelled the marker as two words and evaded it, and sat at 0.698 as the
-  # only thing keeping the right work under the adoption bar.
+  # Spaces removed on both sides, or a marker spelled as two words evades it.
   defp companion_penalty(title) do
     condensed = title |> normalize() |> String.replace(" ", "")
 
@@ -2359,9 +1846,8 @@ defmodule Ambry.Inbox.AutoMatch do
       else: 1.0
   end
 
-  # Words in the candidate that aren't in what we asked for. A little is
-  # normal (subtitles, "A Novel"); a lot means it's a different book that
-  # merely mentions this one.
+  # Words in the candidate that aren't in what we asked for. A lot means a
+  # different book that merely mentions this one.
   defp length_penalty(title, wanted) do
     candidate_words = title |> normalize() |> String.split(" ", trim: true)
     wanted_words = wanted |> normalize() |> String.split(" ", trim: true) |> MapSet.new()
@@ -2379,23 +1865,14 @@ defmodule Ambry.Inbox.AutoMatch do
   @doc """
   Whether a candidate's authors and the file's answer each other.
 
-  Three-valued for the usual reason, and **by shared name token, not by jaro**.
-  Jaro cannot tell a name variant from a different human — measured on the
-  operator's own Martian import:
+  Three-valued, and **by shared name token, not by jaro**, which cannot tell a
+  name variant from a different human:
 
       "J.R.R. Tolkien" vs "John Ronald Reuel Tolkien"   0.573   same person
       "Daily  Books"   vs "Andy Weir"                   0.519   unrelated
 
-  Five hundredths apart. Blended in at a quarter share, that noise put "The
-  Martian: A Novel By Andy Weir | Conversation Starters" — a companion work by
-  a content farm — at **0.88** against the operator's file, because a
-  head-matched title scores 1.0 and even a completely wrong author adds 0.13
-  on top of 0.75 of it. Sharing a name token separates the two rows above
-  perfectly, and it is the same test `Ambry.Metadata.PersonSearch` already
-  applies for the same reason.
-
-  `:unstated` covers both sides being silent *and* a name that reduces to
-  nothing comparable ("J.R.R."), which abstains rather than guessing.
+  `:unstated` covers both sides being silent and a name that reduces to
+  nothing comparable.
   """
   def author_agreement(authors, author) do
     wanted = name_tokens(author)
@@ -2421,14 +1898,8 @@ defmodule Ambry.Inbox.AutoMatch do
     String.jaro_distance(normalize(string), normalize(other))
   end
 
-  # Titles differ in punctuation and subtitle noise far more often than in
-  # substance, and none of that should cost a match.
-  #
-  # Accents fold the same way `person_key/1` folds them, and for the same
-  # reason: "Les Miserables" and "Les Misérables" are one book, and the
-  # difference between them was one approval away from a second Book row.
-  # `title_key/1` is an identity comparison, so a fold it doesn't do is a
-  # twin it can't see.
+  # Accents fold as `person_key/1` folds them: this is an identity
+  # comparison, so a fold it does not do is a twin it cannot see.
   defp normalize(string) do
     string
     |> String.normalize(:nfd)

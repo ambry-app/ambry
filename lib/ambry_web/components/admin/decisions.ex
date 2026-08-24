@@ -3,20 +3,16 @@ defmodule AmbryWeb.Admin.Decisions do
   The building blocks of a staged import: one decision, and one entity
   resolution.
 
-  These are deliberately general rather than inbox-specific. Today's
-  book/media/person forms already do a cruder version of both — the
-  provider-import forms' checkbox-merge rows are `decision_row/1` in embryo,
-  and their all-or-nothing "use all authors" grouping is exactly the per-item
-  selection defect this fixes. The intent is that those surfaces converge here
-  whenever they're next touched, and that "a draft over an existing record,
-  with no file placement" ends up being the same form.
+  Deliberately general rather than inbox-specific: every curation surface
+  converges here, so "a draft over an existing record, with no file placement"
+  is the same form.
   """
 
   use Phoenix.Component
   use AmbryWeb, :verified_routes
 
   import AmbryWeb.Admin.Components,
-    only: [badge: 1, busy_overlay: 1, disclosure: 1, microlabel: 1]
+    only: [badge: 1, busy_overlay: 1, disclosure: 1, empty_value: 0, microlabel: 1]
 
   import AmbryWeb.CoreComponents
 
@@ -44,10 +40,8 @@ defmodule AmbryWeb.Admin.Decisions do
   What each provider said when asked — including the ones that couldn't
   answer.
 
-  Without this, a provider that errors is indistinguishable from one that
-  genuinely found nothing: both contribute zero candidates and say nothing
-  about why. That's how an enabled-but-rate-limited source looks like it was
-  never consulted.
+  Without this a provider that errors is indistinguishable from one that
+  found nothing: both contribute zero candidates and say nothing about why.
   """
   def provider_outcomes_row(assigns) do
     ~H"""
@@ -71,9 +65,9 @@ defmodule AmbryWeb.Admin.Decisions do
           {outcome["name"]}: {outcome["count"]}
         </span>
 
-        <%!-- A provider that was rate-limited during matching used to cost this
-            item its records until somebody re-ran the whole match. The chip is
-            the retry. --%>
+        <%!-- The chip is the retry, so a provider that was rate-limited
+            during matching does not cost this item its records until somebody
+            re-runs the whole match. --%>
         <button
           :for={outcome <- @outcomes}
           :if={outcome["status"] == "failed" and @retryable}
@@ -103,12 +97,10 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # **A provider that answered by halves says so.** Audible's regional
-  # catalogs are one provider making several requests, and one region being
-  # rate-limited is not the same event as the provider being down — the
-  # records on screen came from the regions that answered, and "couldn't be
-  # reached" over the top of them reads as a lie. The count is what came
-  # back; the tooltip names the region and why.
+  # A provider that answered by halves says so: one region of a multi-region
+  # catalogue being rate-limited is not the provider being down, and the
+  # records on screen came from the regions that answered. The count is what
+  # came back; the tooltip names the region and why.
   defp unreached_words(outcome, opts \\ [])
 
   defp unreached_words(%{"partial" => true, "count" => count}, opts) do
@@ -119,11 +111,9 @@ defmodule AmbryWeb.Admin.Decisions do
     "couldn't be reached" <> if(opts[:retry] == false, do: "", else: ", retry")
   end
 
-  # Where a candidate stops being an alternative and starts being noise. Sits
-  # deliberately at the boundary rather than below it: on the operator's
-  # Martian the contradicted Wil Wheaton editions score exactly 0.5, and they
-  # are the *other real recording* of that book — precisely what somebody
-  # opens this list to find. One constant, tune it here.
+  # Where a candidate stops being an alternative and starts being noise. At
+  # the boundary rather than below it: a second real recording whose metadata
+  # partly contradicts the search scores right about here.
   @worth_showing 0.5
 
   attr :records, :list, required: true
@@ -133,15 +123,11 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   A level's records, with the junk folded away.
 
-  Eight rows all wearing the same weight is how a 6% study guide got read as
-  an alternative worth considering. Below `#{@worth_showing}` a record is not
-  a rival reading of the book, it is a search result that happened to share a
-  word — so it goes behind a link and stops competing for the eye.
+  Below `#{@worth_showing}` a record is a search result that shared a word
+  rather than a rival reading, so it goes behind a link.
 
-  **A ticked record is never hidden**, whatever it scores. Folding away
-  something the operator has chosen would leave the form showing a decision
-  with no visible cause, and a low score is exactly why somebody would have
-  gone looking for it by hand.
+  A ticked record is never hidden, whatever it scores: folding away what the
+  operator chose would leave a decision with no visible cause.
   """
   def record_list(assigns) do
     {shown, folded} = Enum.split_with(assigns.records, &worth_showing?(&1, assigns.used))
@@ -168,9 +154,8 @@ defmodule AmbryWeb.Admin.Decisions do
     """
   end
 
-  # An *unscored* record is not a weak one — a record staged before its level
-  # ranked anything carries no score, and reading a missing score as zero
-  # would fold it away unread.
+  # An unscored record is not a weak one: reading a missing score as zero
+  # would fold away a record staged before its level ranked anything.
   defp worth_showing?(record, used) do
     case record["score"] do
       score when is_number(score) -> score >= @worth_showing or used.(record)
@@ -195,10 +180,9 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   One provider record, and whether it counts.
 
-  Not an identity — evidence. Hardcover and rreading-glasses both holding a
-  record of one book is the normal case, not a duplicate to clean up, and each
-  knows things the other doesn't. Ticking both is how the description comes
-  from one and the cover from the other.
+  Evidence, not an identity: two providers both holding a record of one book
+  is the normal case, and each knows things the other doesn't. Ticking both is
+  how the description comes from one and the cover from the other.
   """
   def record_row(assigns) do
     ~H"""
@@ -223,17 +207,12 @@ defmodule AmbryWeb.Admin.Decisions do
         phx-value-id={@record["id"]}
         class="mt-1 h-4 w-4 flex-none rounded-sm border-zinc-600 bg-zinc-700 text-lime-600 focus:ring-lime-500"
       />
-      <%!-- Identification, not selection: the cover or face that tells this
-          record apart, visible BEFORE ticking — the chips below remain the
-          place a photo is chosen.
+      <%!-- Identification, not selection: visible BEFORE ticking, while the
+          chips below remain where a photo is chosen.
 
-          The box is always 48×48 and the image is `object-contain` inside it.
-          Cropping to fill turned every portrait jacket into a square, which
-          is the one thing an operator is looking at these for — square art is
-          the audiobook and a portrait is the print cover, and `object-cover`
-          made those two indistinguishable. The box is rendered even with
-          nothing to put in it, so the titles down the list stay on one rail
-          instead of stepping left whenever a record has no art. --%>
+          `object-contain` in a fixed box, because cropping to fill makes a
+          portrait print jacket indistinguishable from square audiobook art.
+          The box renders empty rather than collapsing. --%>
       <span class="group/zoom relative -my-0.5 h-12 w-12 flex-none">
         <img
           :if={thumb = record_thumb(@record)}
@@ -259,15 +238,12 @@ defmodule AmbryWeb.Admin.Decisions do
         </span>
       </span>
       <div class="min-w-0 flex-grow">
-        <%!-- Which database said this is the first thing an operator checks,
-              and it used to ride at the end of the facts line, where it was
-              the first thing truncation took. It is a fact about the record
-              rather than one of the record's own, so it wears the badge
-              costume and holds its width; the title gives way instead. --%>
-        <%!-- A div, not a p: `<.badge>` renders a div, and a div inside a
-              paragraph makes the parser close the paragraph early — which
-              put the badge on a line of its own instead of beside the
-              title. --%>
+        <%!-- Which database said this holds its width and the title gives
+              way: it is a fact about the record rather than one of its own,
+              so it wears the badge costume.
+
+              A div, not a p: a div inside a paragraph closes the paragraph
+              early. --%>
         <div class="flex items-baseline gap-2 text-sm font-medium">
           <span class="min-w-0 truncate">{candidate_title(@record)}</span>
 
@@ -293,9 +269,8 @@ defmodule AmbryWeb.Admin.Decisions do
       <span :if={@working} class="flex-none pt-0.5 text-xs text-zinc-400">
         fetching…
       </span>
-      <%!-- The meter makes the ranking visible before the number is read —
-            eight cards with bare percentages all carried identical visual
-            weight whether they were a 100% match or a 6% study guide. --%>
+      <%!-- Ranking visible before the number is read: bare percentages carry
+            identical visual weight at 100% and at 6%. --%>
       <span :if={!@working && @record["score"]} class="flex flex-none flex-col items-end gap-1 pt-0.5">
         <span class="text-xs tabular-nums text-zinc-400">
           {round(@record["score"] * 100)}%
@@ -328,9 +303,8 @@ defmodule AmbryWeb.Admin.Decisions do
   An existing Book this release might be another edition of.
 
   Kept well away from the provider records, because it answers a different
-  question. Linking creates nothing, inherits the book's curation and adds an
-  alternate edition; importing a provider record creates a Book. Ranking the
-  two together made the form ask one question that was really two.
+  question: linking creates nothing and inherits the book's curation, while
+  importing a provider record creates a Book.
   """
   def local_book_row(assigns) do
     ~H"""
@@ -379,14 +353,11 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   An audiobook in the library these files might be a better copy of.
 
-  The work level's local-book costume, one level down and answering the
-  question one level up: not "which book is this" but "is this an audiobook
-  you already have, in better files".
+  The work level's local-book costume, asking a different question: not
+  "which book is this" but "is this an audiobook you already have, in better
+  files".
 
-  **Only ever a proposal.** Once the operator has answered, the answer lives in
-  the picker beside this — a row and a filled box both claiming to hold it is
-  one answer rendered twice, free to disagree about which is the real one. So
-  this offers, and the box states.
+  Only ever a proposal: the answer lives in the picker beside it.
   """
   def local_recording_row(assigns) do
     ~H"""
@@ -436,19 +407,12 @@ defmodule AmbryWeb.Admin.Decisions do
   The person level's search-again form — the work-level pattern with a name
   where the work has title and author.
 
-  The box holds the *query*, exactly as `research_form`'s holds its fields.
-  It used to render the person's name decision, so searching for anything else
-  worked and then snapped back to the pre-filled name the moment the results
-  landed — the one moment the operator needs to see what produced them. The
-  two are genuinely different questions: searching "Robert Galbraith" for a
-  person the import will create as "J.K. Rowling" is the case this form is
-  for, and neither answer should overwrite the other.
+  The box holds the *query*, never the person's name decision: bound to the
+  decision, a search for anything else snaps back to the pre-filled name the
+  moment the results land.
 
-  The person edit form hand-wrote this same markup, which is how the two
-  drifted: the copy there grew a three-way button label the inbox never got,
-  and a fix to either reached only half the people searches in the admin.
-  One component, parameterised by the two things that genuinely differ —
-  which event routes it, and whether there is a person key to route *to*.
+  One component for every people search in the admin, parameterised by which
+  event routes it and whether there is a person key to route *to*.
   """
   def person_research_form(%{standalone: true} = assigns) do
     ~H"""
@@ -473,13 +437,11 @@ defmodule AmbryWeb.Admin.Decisions do
 
   # The same box, minus the form element it cannot have here.
   #
-  # **The query is not one of the enclosing form's values.** It was, briefly,
-  # and that made it a value the form posts back: the box captured whatever
-  # the card first rendered with — one letter, because the card appears as
-  # soon as a name starts being typed — and then won every render against the
-  # name it was supposed to be following. A query is view state, so it lives
-  # in the socket like the inbox's does, and `phx-keyup` is how a box with no
-  # form of its own says what it holds.
+  # The query is not one of the enclosing form's values: as one it would post
+  # back whatever the card first rendered with and then win every render
+  # against the name it is supposed to be following. It is view state, so it
+  # lives in the socket, and `phx-keyup` is how a box with no form of its own
+  # says what it holds.
   def person_research_form(assigns) do
     ~H"""
     <div class="flex flex-wrap items-end gap-2">
@@ -524,9 +486,9 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   An editable version of the search that produced these records.
 
-  The stored candidate list makes "show me the alternatives" free; this is for
-  the case the list exists for — the right answer isn't in it at all, usually
-  because a wrong tag sent the search somewhere strange.
+  For the case the stored candidate list cannot cover: the right answer isn't
+  in it at all, usually because a wrong tag sent the search somewhere
+  strange.
   """
   def research_form(assigns) do
     ~H"""
@@ -569,17 +531,15 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </label>
 
-      <%!-- Beside full-height inputs, so it is one: adjacent bar controls
-          share exact height (§7) — the sm action costume left this button
-          short next to every input it touches. --%>
+      <%!-- Full height, because adjacent bar controls share exact height (§7).
+          The `sm` costume would leave it short beside every input. --%>
       <.button color={:zinc} type="submit" disabled={@running}>
         {if @running, do: "Searching…", else: @label}
       </.button>
 
-      <%!-- Milliseconds, and it always has something to say. Its own control
-            because pairing it with a provider fan-out made "would the
-            embedded cover be better than this one?" cost a round trip to
-            every database that has ever heard of the book. --%>
+      <%!-- Its own control: paired with the provider fan-out, asking "is the
+            embedded cover better?" would cost a round trip to every
+            database that has heard of the book. --%>
       <.button
         :if={@scan_files}
         color={:zinc}
@@ -606,14 +566,11 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   A candidate's distinguishing facts, in one line.
 
-  Narrator and year lead because they are what tell two recordings of one work
-  apart — the whole reason the recording level exists.
+  Narrator and year lead because they tell two recordings of one work apart.
 
-  **Which database said so is not one of them.** It rode at the end of this
-  line for a while, which is precisely where a truncated line loses it: the
-  facts are what tell two records apart, the source is what the operator
-  weighs them by, and it belongs to the row rather than to the sentence. It
-  renders as a badge beside the title.
+  Which database said so is not one of them: that is what the operator weighs
+  the record by rather than what tells it apart, so it is a badge on the
+  row.
   """
   def candidate_facts(candidate) do
     [
@@ -640,9 +597,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   defp bio?(description), do: is_binary(description) and String.trim(description) != ""
 
-  # The first words of the bio are what tells a namesake apart — "an English
-  # professional footballer" is a sentence the operator must get to read
-  # before ticking.
+  # The first words of the bio are what tells a namesake apart.
   defp bio_snippet(description) do
     if bio?(description), do: String.slice(description, 0, 90)
   end
@@ -688,10 +643,8 @@ defmodule AmbryWeb.Admin.Decisions do
   One scalar decision: what the sources proposed, what it will be, and where
   that came from.
 
-  The candidates stay visible after one is chosen. Hiding them would make the
-  choice feel final when the whole point is that it's reviewable — and
-  re-querying to see an alternative you already had is the cost the ranked
-  candidate list exists to avoid.
+  The candidates stay visible after one is chosen: hiding them makes the
+  choice feel final when the point is that it is reviewable.
   """
   def decision_row(assigns) do
     ~H"""
@@ -704,11 +657,9 @@ defmodule AmbryWeb.Admin.Decisions do
       <div class="flex items-baseline gap-2 pl-3">
         <.label>{@label}</.label>
 
-        <%!-- Only when it says something the rail can't. Amber already means
-            "look here"; "sources disagree" and "nothing proposed it" are
-            different problems wanting different things from the operator, and
-            a badge repeating "needs confirming" next to an amber rail is the
-            same fact twice (§2). --%>
+        <%!-- Only when it says something the rail can't: a badge repeating
+            "needs confirming" beside an amber rail is the same fact twice
+            (§2). --%>
         <.badge
           :if={explained?(Field.state(@field))}
           color={elem(state_words(Field.state(@field)), 1)}
@@ -727,12 +678,9 @@ defmodule AmbryWeb.Admin.Decisions do
       </div>
 
       <div class="flex items-start gap-3">
-        <%!-- A URL in a text box is not a cover. Seeing the image is the only
-              way to catch a provider that returned the wrong edition's art —
-              and its dimensions, because a thumbnail and a full-size cover
-              look identical here and only one of them is worth importing.
-              Routed through the admin proxy like every other import preview,
-              or tracking protection blocks the provider CDN. --%>
+        <%!-- A URL in a text box is not a cover, and its dimensions matter: a
+              thumbnail and a full-size cover look identical here. Proxied
+              (§7) or tracking protection blocks the provider CDN. --%>
         <%!-- pl-3 wrapper: an image is content, not a container — it sits on
             the text rail (design language §3). On the wrapper, so rows
             without a preview keep their input on the box edge. --%>
@@ -768,8 +716,7 @@ defmodule AmbryWeb.Admin.Decisions do
               class={@control_class}
             />
             <%!-- A description is markdown, and markdown in a plain box is
-                  written blind — the same textarea/preview pair the person
-                  form has had all along. --%>
+                  written blind. --%>
             <div :if={@type == "textarea"} class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <.input
                 id={"#{@section}-#{@name}-input"}
@@ -843,10 +790,9 @@ defmodule AmbryWeb.Admin.Decisions do
             />
           </.proposal_chip>
 
-          <%!-- Choosing "none" is an approval, not an omission. It's what makes
-                "every piece is settled" reachable on a record with optional
-                fields nobody filled in. Ghost, because it's the escape hatch,
-                not a peer value. --%>
+          <%!-- Choosing "none" is an approval, not an omission: it makes "every
+                piece is settled" reachable on a record with empty optional
+                fields. Ghost, because it is an escape hatch. --%>
           <.proposal_chip
             :if={!@field.required}
             chosen={@field.approved && is_nil(@field.source)}
@@ -875,31 +821,18 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   One credit, resolved to an identity.
 
-  ## One control by default
+  One control by default: a credited name IS an identity, and how many humans
+  stand behind it is a fact about the person that no provider reports. The
+  person layer is a section of its own and the credit references it.
 
-  A credited name IS an identity. How many humans stand behind it is a fact
-  about the *person* — not about this book — and no provider reports it, so
-  asking on every import buried the two cases where the answer is interesting
-  under dozens where it isn't. The person layer is a section of its own, and
-  the credit carries a reference to it: names, faces, and a link.
+  The name is editable, because a provider's spelling is a proposal like any
+  other.
 
-  ## The name is editable
-
-  A provider's spelling is a proposal like any other. Without a box to
-  overrule it, "David Wong" could only be imported as a person called David
-  Wong — the human is Jason Pargin, and that import is one author plus one
-  differently-named person, which is now two edits rather than impossible.
-  "This is a pen name" is the second of the two: it gives the human a name of
-  their own and takes the operator to the card that now has a box for it.
-
-  A link decision always targets an identity, never a Person. That is the
-  generalized fix for the pen-name bug where matching found a Person and
-  linked its first identity.
+  A link decision always targets an identity, never a Person, or matching
+  links whichever identity happens to be first.
   """
-  # Removed is a tombstone the operator can take back — a ghost row (dashed,
-  # like every escape hatch) holding the name and a restore, out of the
-  # decision queue. It renders instead of vanishing so removal is never a
-  # one-way door.
+  # Removed is a tombstone the operator can take back: a ghost row holding
+  # the name and a restore, out of the decision queue.
   def credit_row(%{credit: %Credit{removed: true}} = assigns) do
     ~H"""
     <div
@@ -928,9 +861,9 @@ defmodule AmbryWeb.Admin.Decisions do
     assigns = assign(assigns, :faces, Enum.map(assigns.persons, &person_face/1))
 
     ~H"""
-    <%!-- A decision block, so it wears the state rail like every other one —
-        the rail is the ONLY settledness encoding (design language §2); the
-        check icon it used to grow shifted the title sideways on approval. --%>
+    <%!-- A decision block, so it wears the state rail like every other one.
+        The rail is the ONLY settledness encoding (§2): a check icon appearing
+        on approval would shift the title sideways. --%>
     <div class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@credit)]}>
       <div class="flex items-center justify-between gap-2 pl-3">
         <div class="flex min-w-0 items-baseline gap-2">
@@ -976,10 +909,8 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <%!-- The people ride beside the box rather than under it. A credit is
-            one line of meaning — this name, these humans — and a full-cast
-            recording is a run of these rows, where a second line each is what
-            turns the section into a wall. --%>
+      <%!-- Beside the box, not under it: a credit is one line of meaning, and
+            a full-cast recording is a run of these rows. --%>
       <div class="flex flex-wrap items-center gap-2">
         <form
           id={"credit-#{@section}-#{@index}-identity"}
@@ -1002,10 +933,8 @@ defmodule AmbryWeb.Admin.Decisions do
             class={input_classes("w-full")}
           />
 
-          <%!-- The prefix segment already says "Existing"; this only speaks
-                when the linked identity is backed by other humans — a pen
-                name's real names are worth a line, "already in the library"
-                twice is not. --%>
+          <%!-- Only speaks when the linked identity is backed by other humans:
+                the prefix segment already says "Existing". --%>
           <span
             :if={identity_backing(@credit)}
             class="text-xs text-zinc-400"
@@ -1015,12 +944,8 @@ defmodule AmbryWeb.Admin.Decisions do
           </span>
         </form>
 
-        <%!-- A reference, not the person. The human lives once, in the People
-              section, because one human is one record — rendering them inside
-              every credit that named them is what made an author who reads
-              their own book appear twice, with a sentence apologising for it.
-              What a credit needs is enough to recognise who it means and a way
-              to get there. --%>
+        <%!-- A reference, not the person: one human is one record, living
+              once in the People section. --%>
         <.credit_people
           :if={@credit.mode == :create}
           id={"credit-people-#{@section}-#{@index}"}
@@ -1028,9 +953,9 @@ defmodule AmbryWeb.Admin.Decisions do
         />
       </div>
 
-      <%!-- The way back after a rename or a clear — the same chip the scalar
-            fields have always had. Only speaks while the box disagrees with
-            the evidence; a linked identity has the library's own name. --%>
+      <%!-- The way back after a rename or a clear, in the same chip the
+            scalar fields wear. Only speaks while the box disagrees with the
+            evidence; a linked identity has the library's own name. --%>
       <div
         :if={
           @credit.mode == :create && @credit.proposed_name &&
@@ -1069,16 +994,12 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   Who a credit means, as a link to their card.
 
-  **A reference, not the person.** The human lives once, in the People
-  section, because one human is one record — rendering them inside every
-  credit that named them is what made an author who reads their own book
-  appear twice, with a sentence apologising for it. What a credit needs is
-  enough to recognise who it means and a way to get there.
+  A reference, not the person: one human is one record, living once in the
+  People section.
 
-  The way there flashes what it landed on (`assets/js/hooks/flash-target.js`),
-  because an anchor jump on a long form drops you somewhere with no
-  indication of which card was meant. Same answer, and the same `row-flash`,
-  as coming back from a form to the row you were editing.
+  The link flashes what it lands on (`assets/js/hooks/flash-target.js`),
+  because an anchor jump on a long form gives no indication of which card was
+  meant.
   """
   def credit_people(assigns) do
     ~H"""
@@ -1099,9 +1020,8 @@ defmodule AmbryWeb.Admin.Decisions do
         {face.name}
       </.link>
 
-      <%!-- One credit standing for a dozen humans would push the row into a
-            paragraph of faces. The rest are a click away in the section that
-            lists every one of them. --%>
+      <%!-- A dozen humans behind one credit would make the row a paragraph of
+            faces; the rest are a click away in the People section. --%>
       <.link
         :if={length(@faces) > person_chips()}
         href={@section_href}
@@ -1157,47 +1077,31 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   One human this import will create, as a decision card of their own.
 
-  The card is where a person's own questions live — what they are called, which
-  face, which biography — separately from the *credit*, which asks a different
-  question: which identity does this book credit. They were one control for a
-  long time, which is why an author reading their own book rendered twice.
+  A person's own questions (what they are called, which face, which
+  biography) live here, separately from the *credit*, which asks which
+  identity this book credits.
 
-  ## The name box is the exception, not the furniture
+  The name box is the exception, not the furniture: a credited name is the
+  human's name in almost every import, so the card states it and the box
+  appears only when the name is genuinely the person's own.
 
-  A credited name is the human's name in almost every import, so the card
-  states it and offers nothing to type. The box appears when the name is
-  genuinely the person's own — the operator said the credit is a pen name, or
-  the credit stands for several humans, neither of whom it names. That is also
-  what "This is a pen name" was missing: with a name box on every card in
-  every state, the control had no visible effect at all.
+  Events address the credit that introduces them (`section`, `index`,
+  `person_index`): a person exists only as long as a credit names them.
 
-  The events still address the credit that introduces them (`section`,
-  `index`, `person_index`), because "remove this person" means removing them
-  from that credit — the person exists only as long as a credit names them.
-
-  ## One card, two form owners
-
-  The import form saves on change and has no form element of its own, so each
-  control here is a little `<form>`. The edit forms are one big form with a
-  Save button, and forms cannot nest — the browser drops the inner tag and
-  the controls silently join the outer form.
-
-  So `input_prefix` names the two situations rather than forking the card:
-  given one, the three form-bearing controls (the identity box, the search,
-  the biography) become plain inputs posting under that prefix, and the chips
-  write those inputs on the client instead of raising events
-  (`assets/js/hooks/set-input.js`). Everything else — the overlay, the
-  titles, the records, the photo strip, the spacing — is the same markup
-  either way, which is the point: a person is a person on both surfaces.
+  One card, two form owners. The import form saves on change and has no form
+  of its own, so each control here is a little `<form>`; an edit form is one
+  form with a Save button, and forms cannot nest. Given an `input_prefix`,
+  the three form-bearing controls become plain inputs posting under it and
+  the chips write those inputs on the client
+  (`assets/js/hooks/set-input.js`).
   """
   def person_card(assigns) do
     assigns =
       assign(assigns,
         own_name: assigns.person.own_name or not Credit.simple?(assigns.group.credit),
         linked: linked_person(assigns.person),
-        # A linked person is called what the library calls them, here as well
-        # as on the credit chip — the staged name is a leftover of finding
-        # them, not their name.
+        # A linked person is called what the library calls them: the staged
+        # name is a leftover of finding them.
         words: person_words(assigns.person, linked_person(assigns.person))
       )
 
@@ -1211,27 +1115,23 @@ defmodule AmbryWeb.Admin.Decisions do
       class={["relative space-y-3 rounded-lg bg-zinc-900 p-4", is_nil(@input_prefix) && ["border-l-4", state_rail(@person)]]}
       data-role="person-card"
     >
-      <%!-- A provider round-trip is the same kind of event as a matching job,
-            and gets the same answer: the card is not yours while it runs. A
-            button changing its own label to "Searching…" was the whole
-            indication, in a fold that could close over it. --%>
-      <%!-- Named by the QUERY, like the work and recording scrims: a search
-            for a name other than this person's own said "Looking for
-            <the person>…" while looking for somebody else entirely. --%>
+      <%!-- The card is not yours while a provider round-trip runs. A button
+            relabelling itself is not enough, especially inside a fold that
+            can close over it. --%>
+      <%!-- Named by the QUERY: a search for a name other than this person's
+            own would claim to be looking for them. --%>
       <.busy_overlay busy={@searching} label={"Looking for #{@query_name || @words}…"} />
 
       <div class="space-y-3" inert={@searching}>
-        <%!-- Titled by the CREDIT, which is the one name on this card that
-              doesn't move: the box below is the human's name, and a header
-              that followed it re-titled the card letter by letter while the
-              operator typed the very thing the card is about. --%>
+        <%!-- Titled by the CREDIT, the one name here that doesn't move: the box
+              below is the human's name, and a header following it re-titles
+              the card letter by letter as it is typed. --%>
         <div class="flex items-baseline justify-between gap-2 pl-3">
           <div class="flex min-w-0 items-baseline gap-2">
             <.label>{card_words(@group.credit, @words)}</.label>
 
-            <%!-- Where they are credited is a fact about this card, so it
-                  wears the status costume beside the title rather than a
-                  sentence under it. --%>
+            <%!-- A fact about this card, so it wears the status costume beside
+                  the title rather than a sentence under it. --%>
             <.badge :if={@appears != []} color={:gray} class="text-xs">
               {credited_words(@appears)}
             </.badge>
@@ -1263,9 +1163,8 @@ defmodule AmbryWeb.Admin.Decisions do
         />
 
         <%!-- One human on two credits is the ordinary reason a name appears
-              twice, so it is the default, and the badge above already says
-              which two. What is left is the escape hatch for the other case,
-              asked here because the card exists once per person. --%>
+              twice, so it is the default and the badge above says which two.
+              This is the escape hatch, asked once per person. --%>
         <p
           :if={length(Enum.uniq_by(@appears, & &1.kind)) > 1}
           class="pl-3 text-xs text-zinc-400"
@@ -1282,14 +1181,12 @@ defmodule AmbryWeb.Admin.Decisions do
           </button>
         </p>
 
-        <%!-- The 99-in-100 case: the credit names the human, the title says so,
-              and the card asks nothing. The link is the whole line — saying
-              "named by the credit" under a card titled by the credit was the
-              same fact twice. --%>
+        <%!-- The usual case: the credit names the human and the card asks
+              nothing. The link is the whole line, since a card titled by the
+              credit saying "named by the credit" is one fact twice. --%>
         <p :if={@person.mode == :create and !@own_name} class="pl-3 text-xs text-zinc-400">
-          <%!-- The key travels beside the credit's address: the inbox
-                removes a person FROM a credit, while an edit form's card is
-                keyed by the row it hangs off and has no section to name. --%>
+          <%!-- The key travels beside the credit's address: an edit form's card
+                is keyed by the row it hangs off and has no section to name. --%>
           <button
             type="button"
             phx-click="separate-name"
@@ -1302,21 +1199,18 @@ defmodule AmbryWeb.Admin.Decisions do
           </button>
         </p>
 
-        <%!-- The exception, revealed: a provider's spelling is a proposal, and
-              without a box to overrule it "David Wong" could only be imported
-              as a person called David Wong when the human is Jason Pargin. The
-              typeahead is also how they become somebody already in the
-              library. --%>
+        <%!-- The exception, revealed: without a box to overrule it, a pen name
+              could only ever be imported as a person of that name. The
+              typeahead is also how they become somebody the library has. --%>
         <div :if={@person.mode == :create and @own_name} class="space-y-1">
           <p class="pl-3 text-xs text-zinc-400">{alias_words(@group.kind)}</p>
 
           <.identity_box person={@person} input_prefix={@input_prefix} link_input={@link_input} />
 
-          <%!-- Both escape hatches from the same state, on the rail under the
-                box they belong to. A shared pen name is the composite-author
-                case and it is asked here rather than on the credit, where it
-                changed a card the operator couldn't see. Narrators stay
-                one-to-one with a person by design. --%>
+          <%!-- Both escape hatches from the same state, on the rail under
+                the box they belong to. A shared pen name is asked here
+                rather than on the credit, where it would change a card out
+                of view. --%>
           <div class="flex flex-wrap items-baseline gap-x-4 pl-3 text-xs text-zinc-400">
             <span :if={@group.section == "work"}>
               Is this pen name more than one person?
@@ -1333,8 +1227,8 @@ defmodule AmbryWeb.Admin.Decisions do
               </button>
             </span>
 
-            <%!-- Every way in needs a way out: the reveal used to be a fold
-                  that could not be folded back. --%>
+            <%!-- Every way in needs a way out: a reveal that cannot be
+                  folded back is a one-way door. --%>
             <button
               :if={Credit.simple?(@group.credit)}
               type="button"
@@ -1347,11 +1241,9 @@ defmodule AmbryWeb.Admin.Decisions do
           </div>
         </div>
 
-        <%!-- A different KIND of question from the provider records below, and
-              the same shape the work level gives it: those describe a human,
-              this one IS one, and choosing them creates nobody. Matching
-              collects them whenever a credited name is already in the library
-              — which is exactly the author who turns up narrating. --%>
+        <%!-- A different KIND of question from the provider records below: those
+              describe a human, this one IS one, and choosing them creates
+              nobody. --%>
         <div :if={@locals != [] or @person.mode == :link} class="space-y-2">
           <p class="pl-3 text-xs text-zinc-400">
             {local_people_words(@person, @locals, @group.kind)}
@@ -1403,9 +1295,8 @@ defmodule AmbryWeb.Admin.Decisions do
   attr :input_prefix, :string, default: nil
   attr :link_input, :string, default: nil
 
-  # The one control that has to know who owns the form. Its own `<form>` where
-  # the card is the only form on the page, a plain input inside the enclosing
-  # one where it isn't; the box itself is the same box.
+  # The one control that has to know who owns the form: its own `<form>`
+  # where the card is the only form on the page, a plain input where it isn't.
   defp identity_box(%{input_prefix: nil} = assigns) do
     ~H"""
     <form id={"person-#{@person.key}-identity"} phx-change="person-change">
@@ -1416,9 +1307,8 @@ defmodule AmbryWeb.Admin.Decisions do
   end
 
   # The id belongs to the JOIN, not to the person: picking somebody the
-  # library has means this credit points at them, and writing it under the
-  # nested person meant the pick landed on a field nothing casts — the box
-  # closed and forgot them.
+  # library has means this credit points at them, and under the nested person
+  # the pick lands on a field nothing casts.
   defp identity_box(assigns) do
     ~H"""
     <.person_resolver
@@ -1453,9 +1343,8 @@ defmodule AmbryWeb.Admin.Decisions do
   defp person_words(_person, %{"name" => name}), do: name
   defp person_words(person, nil), do: Field.value(person.name) || "Unnamed person"
 
-  # The credited name, which is what this card is a card *about*. Falls back
-  # to the human's own name only when the credit has none — a cleared credit
-  # box mid-retype, where a blank title would name nothing at all.
+  # The credited name, which is what this card is about. Falls back to the
+  # human's own name only when the credit has none, mid-retype.
   defp card_words(%Credit{name: name}, words) when is_binary(name) do
     if String.trim(name) == "", do: words, else: name
   end
@@ -1483,16 +1372,12 @@ defmodule AmbryWeb.Admin.Decisions do
   What to show for a person: the library's own name and face where this
   decision links to one, the staged fields where it will create one.
 
-  A linked decision keeps whatever was typed on the way to finding them, by
-  design — linking must not overwrite staged curation, because unlinking has
-  to give it back. But rendering it is wrong: type "j", pick J.K. Rowling
-  from the typeahead, and the credit chip read "j" beside the portrait of
-  whichever candidate the half-typed name had turned up.
+  A linked decision keeps whatever was typed on the way to finding them, so
+  unlinking can give it back, but rendering that would show a half-typed name
+  beside the linked person's portrait.
 
-  The src is resolved here rather than by the caller because the two cases
-  need different handling — a library thumbnail is a local path served as-is,
-  a staged image may be a remote provider URL that has to go through the
-  proxy.
+  The src is resolved here: a library thumbnail is a local path served as-is,
+  a staged image may be a remote URL needing the proxy.
   """
   def person_face(person) do
     case linked_person(person) do
@@ -1508,10 +1393,9 @@ defmodule AmbryWeb.Admin.Decisions do
     end
   end
 
-  # Linking is an answer to "who is this", and a pen name is an answer to
-  # "whose name is on the book" — the second doesn't stop being true because
-  # the first was answered from the library. Saying so generically here threw
-  # away the more specific thing the card had been saying one state earlier.
+  # Linking answers "who is this" and a pen name answers "whose name is on
+  # the book"; the second doesn't stop being true because the first was
+  # answered from the library.
   defp local_people_words(%PersonDecision{mode: :link, own_name: true}, _locals, kind),
     do: alias_words(kind)
 
@@ -1524,20 +1408,18 @@ defmodule AmbryWeb.Admin.Decisions do
   defp local_people_words(_person, locals, _kind),
     do: "#{length(locals)} people by this name are already in your library."
 
-  # Which records a control offers is a property of what it is picking, not a
-  # decision the caller makes: a "Written by" row can only ever resolve an
-  # Author. Naming the source here rather than taking a list as an attr is
-  # what let the import form stop loading every author, narrator and person in
-  # the library on mount.
+  # Which records a control offers is a property of what it is picking, not
+  # a decision the caller makes: a "Written by" row can only ever resolve an
+  # Author. Naming the source here is what keeps the form from loading every
+  # identity in the library on mount.
   defp identity_search(:author), do: &People.search_authors/2
   defp identity_search(:narrator), do: &People.search_narrators/2
 
   defp identity_fetch(:author), do: &People.author_option/1
   defp identity_fetch(:narrator), do: &People.narrator_option/1
 
-  # Who is really behind a linked identity, when the names add something. The
-  # same `detail` the typeahead's rows carry, read off the one record this
-  # credit points at — it used to be a map of every identity in the library.
+  # Who is really behind a linked identity, when the names add something.
+  # Read off the one record this credit points at.
   defp identity_backing(%Credit{mode: :link, kind: kind, identity_id: id}) when not is_nil(id) do
     case identity_fetch(kind).(id) do
       %{detail: detail} -> detail
@@ -1558,10 +1440,9 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   A person the library already has, offered instead of creating another.
 
-  The same well the local-book row is, because it is the same question one
-  level down: reusing a human is the outcome worth having, and the form's job
-  is to make it one click rather than a duplicate nobody notices until two
-  Andy Weirs are sitting in the people list.
+  The same question the local-book row asks, one level down: reusing a human
+  is the outcome worth having, and the form's job is to make it one click
+  rather than a duplicate nobody notices.
   """
   def local_person_row(assigns) do
     ~H"""
@@ -1625,10 +1506,8 @@ defmodule AmbryWeb.Admin.Decisions do
   Where this human is credited, as the badge beside the card's title.
 
   The card is away from the credits, so it has to say what it belongs to.
-  A badge rather than a sentence because that is what it is: a fact about the
-  card, stated once, in the costume every other status fact wears. The
-  interesting half — that two credits mean one person rather than two of a
-  name — is a line of its own, since it comes with a control.
+  That two credits mean one person is a line of its own, since it comes with
+  a control.
   """
   def credited_words(appears) do
     appears
@@ -1667,68 +1546,37 @@ defmodule AmbryWeb.Admin.Decisions do
     doc: "see `person_card/1` — set where the card sits inside a form that is not its own"
 
   # Enough to see there are alternatives without the row becoming a contact
-  # sheet. TMDB keeps every headshot anyone has uploaded and a working actor
-  # can have dozens.
+  # sheet: a working actor can have dozens of headshots on file.
   @photo_preview 5
 
   @doc """
   The face and bio a new person will be created with.
 
-  3b's promise is that the operator never leaves the inbox to finish a leaf
-  entity, and a person with no face is unfinished — every credit imported
-  without one was a trip to the person form afterwards.
+  A person with no face is unfinished, and the operator should never have to
+  leave the inbox to finish one.
 
-  ## A description is a description
+  No modal: a person's description wants the same editable text box with the
+  same proposals underneath it that a recording's does. The photos are chips
+  too, circular and at the size they will be seen, because the decision is
+  whether a face survives a circular crop. Past the first few they fold away.
 
-  This used to be a modal. Two of them, in effect: a photo grid and a bio list
-  sharing one sheet, where choosing either dismissed the other, and where a
-  button labelled "find a photo and bio" showed you no bios at all until it
-  closed. A person's description is not a different kind of thing from a
-  recording's — it wants the same editable text box with the same proposals
-  underneath it, because a provider's blurb is a starting point you tweak, not
-  a thing you take or leave.
+  One human is one record, so the same photo appears in both credits because
+  it is the same photo, not because two copies are kept in step.
 
-  So there is no modal. The photos are chips too, circular and at the size
-  they'll be seen, because **the decision is whether a face survives a circular
-  crop** — which is why the alternatives matter and why the obvious portrait is
-  so often the wrong one. Past the first few they fold away rather than pushing
-  the rest of the credit off screen.
-
-  ## One human is one record
-
-  A person behind two credits — an author reading their own book — is created
-  once and is now *stored* once: both credits reference the same
-  `PersonDecision` by key. The row therefore shows the same photo in both
-  places because it is the same photo, not because two copies are being kept
-  in step. Editing either edits the person.
-
-  ## The photos are already here
-
-  Matching asks every person-level provider about every credited human, so the
-  candidates arrive with the item and the grid renders with nothing to click
-  first. "Look again" is the escape hatch for a name that has *changed* since
-  — a rename, a pen name revealed — where nobody has searched for who this now
-  is.
+  The candidates arrive with the item. "Look again" is for a name that has
+  *changed* since.
   """
   def person_curation(assigns) do
     assigns =
       assign(assigns,
-        # **These ids have to be unique in the document, and the address is
-        # only unique where a card is one of a draft's.** An import form's
-        # people are a grid — this credit, this human behind it — and one
-        # person can be rendered in two places, an author who reads their own
-        # book, so keying by WHERE this is rather than by who it is is what
-        # tells those two apart. An edit form has no such grid: every card is
-        # the first person behind the first credit of the only section, so
-        # every card on it claimed `recording-0-0` and four hook-bearing
-        # elements per card collided. LiveView's own words for that are
-        # "duplicate IDs will cause undefined behavior at runtime, as DOM
-        # patching will not be able to target the correct elements", and what
-        # the operator saw was a bio box that vanished when an unrelated part
-        # of the form patched (2026-08-21). So a caller with a better answer
-        # gives it; the person key travels in the form's hidden field either
-        # way, because the edit targets the human and the id targets the
-        # element.
+        # These ids have to be unique in the document, and the address is
+        # only unique where a card is one of a draft's. An import form's
+        # people are a grid, so keying by where a card is rather than by who
+        # it is tells two renderings of one human apart. An edit form has no
+        # such grid: every card would claim the same address and its
+        # hook-bearing elements would collide, which patches the wrong DOM.
+        # So a caller with a better answer gives it; the person key travels
+        # in the form's hidden field either way.
         at: assigns.at || "#{assigns.section}-#{assigns.index}-#{assigns.person_index}",
         image: Field.value(assigns.person.image),
         description: Field.value(assigns.person.description),
@@ -1754,10 +1602,9 @@ defmodule AmbryWeb.Admin.Decisions do
           class="h-12 w-12 flex-none rounded-full border border-dashed border-zinc-700"
         />
 
-        <%!-- Where the card is inside a form, the chosen face is one of that
-              form's values and has to have an input to live in — the URL the
-              save downloads. On the inbox the decision is the draft's, and
-              there is nothing to post. --%>
+        <%!-- Inside a form the chosen face is one of that form's values and needs
+              an input to live in. On the inbox the decision is the draft's,
+              and there is nothing to post. --%>
         <input
           :if={@input_prefix}
           type="hidden"
@@ -1767,9 +1614,8 @@ defmodule AmbryWeb.Admin.Decisions do
       </div>
 
       <%!-- The same three parts in the same order as the work and recording
-            levels, and now with the same name on them: the query, who
-            answered, and what they said. The person level used to carry no
-            label at all and its search hid in a fold under its own results. --%>
+            levels, under the same name: the query, who answered, and what
+            they said. --%>
       <.microlabel class="block pl-3">Provider records</.microlabel>
 
       <.person_research_form
@@ -1789,11 +1635,9 @@ defmodule AmbryWeb.Admin.Decisions do
         {@person.doubt_detail}
       </p>
 
-      <%!-- Folded on the same threshold as the work and recording levels, and
-            for the same reason: a re-search under a new name leaves the old
-            name's records scored against a question nobody is asking any
-            more, and eight rows of equal weight is how the wrong human stays
-            in the running. A ticked record is never folded. --%>
+      <%!-- Folded on the same threshold as the other levels: eight rows of
+            equal weight is how the wrong human stays in the running. A
+            ticked record is never folded. --%>
       <.record_list records={@records} used={&PersonDecision.uses?(@person, &1)}>
         <:row :let={record}>
           <.record_row
@@ -1805,21 +1649,13 @@ defmodule AmbryWeb.Admin.Decisions do
         </:row>
       </.record_list>
 
-      <%!-- The same answer the other two levels have. A person the matcher
-            doubted — it found humans of roughly this name and believed none
-            of them — stays outstanding until somebody says so, and this is
-            what says so. It costs nothing but the photo and the biography:
-            a name is all it takes to create a person.
+      <%!-- The same answer the other two levels have: a doubted person stays
+            outstanding until somebody says so, and it costs nothing but the
+            photo and the biography.
 
-            **On both surfaces.** It was the import form's alone, on the
-            reasoning that an edit form has no outstanding decision to
-            settle — and left the records running straight into the
-            biography with nothing between them, which is how the operator
-            found it (2026-08-21). The reasoning was wrong anyway: records
-            about this name arrive ticked here, so "none of these is my
-            narrator" is a thing that needs saying, and it is one click
-            against unticking every row and clearing two fields by hand.
-            Where the card is inside a form the fields are inputs, so the
+            Records about this name arrive ticked, so "none of these is my
+            narrator" needs saying, and it is one click against unticking
+            every row by hand. Inside a form the fields are inputs, so the
             button empties them the way the chips fill them. --%>
       <div :if={@records != []} class="flex flex-wrap items-center gap-2 pt-1">
         <button
@@ -1840,10 +1676,9 @@ defmodule AmbryWeb.Admin.Decisions do
         </button>
       </div>
 
-      <%!-- Shown while there is a face OR faces to choose from, and not only
-            the second: a photo whose record has since been unticked leaves a
-            chosen face with no strip under it, and the strip is where the
-            way out of it lives. --%>
+      <%!-- Shown while there is a face OR faces to choose from: a photo whose
+            record was since unticked would leave a chosen face with no strip
+            under it, and the strip is the way out. --%>
       <div
         :if={@photos != [] or @image}
         class="grid-cols-[4rem_minmax(0,1fr)] grid items-start gap-x-2 pl-3"
@@ -1867,13 +1702,9 @@ defmodule AmbryWeb.Admin.Decisions do
             />
           </.proposal_chip>
 
-          <%!-- **No face is one of the faces.** This was a text button after
-              the strip, shown only once a photo was chosen, and it read as a
-              caption rather than an option — the operator whose best-match
-              photo came back wrong found no way to take it off (2026-08-21).
-              A person with no picture is a perfectly good answer, so it is
-              one of the things you pick between, in the strip, wearing the
-              same ring when it is the one in force. --%>
+          <%!-- No face is one of the faces: a person with no picture is a
+              perfectly good answer, so it sits in the strip wearing the same
+              ring when it is in force. --%>
           <.proposal_chip
             chosen={is_nil(@image)}
             shape="circle"
@@ -1887,9 +1718,8 @@ defmodule AmbryWeb.Admin.Decisions do
             </span>
           </.proposal_chip>
 
-          <%!-- A dozen headshots is normal and would push the rest of the credit
-              off the screen; the point is that alternatives EXIST, not that
-              they're all on show. --%>
+          <%!-- The point is that alternatives EXIST, not that a dozen headshots
+              are all on show. --%>
           <button
             :if={length(@photos) > photo_preview()}
             type="button"
@@ -2102,21 +1932,16 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   One proposal, and whether it's the one in use.
 
-  Shared by every place the form offers alternatives — a scalar's candidates, a
-  person's photos, a person's bios — because they are the same interaction and
-  were being hand-written each time, which is how one of them ended up with no
-  way to tell which chip was chosen.
+  Shared by every place the form offers alternatives (a scalar's candidates, a
+  person's photos, a person's bios): the same interaction, so the same markup.
 
-  **`inert` is for a chip that adds a row.** Clicking a chosen one appended
-  the author it was already reporting, so an author ticked green could be
-  added to the book a second time, and a third. There is nothing a click
-  could mean there, so it renders as a plain span with the same costume and
-  no click, and becomes an offer again the moment it stops being true — edit
-  the field, or remove the row.
+  **`inert` is for a chip that adds a row**, where clicking a chosen one would
+  append the entity it is already reporting. It renders as a plain span with
+  the same costume and no click, and becomes an offer again the moment it
+  stops being true.
 
-  Chosen chips elsewhere stay live on purpose. On the import form, clicking
-  the one already in use is how a decision gets confirmed: the value doesn't
-  change, the rail goes green, and the operator has said they looked.
+  Chosen chips elsewhere stay live: clicking the one already in use is how a
+  decision gets confirmed, leaving the value alone and turning the rail green.
   """
   def proposal_chip(%{chosen: true, inert: true} = assigns) do
     ~H"""
@@ -2129,9 +1954,8 @@ defmodule AmbryWeb.Admin.Decisions do
         @shape != "circle" && "inline-flex items-center gap-1.5 px-2 py-1"
       ]}
     >
-      <%!-- The chosen chip is the single most important state on the form, and
-            a 1px border-hue change was nearly invisible — so it says so three
-            ways: border, tint, and a check. --%>
+      <%!-- The most important state on the form, so it says so three ways:
+            border, tint and a check. A border-hue change alone is invisible. --%>
       <.icon :if={@shape != "circle"} name="fa-check" class="text-brand-dark h-3 w-3 flex-none" />
       {render_slot(@inner_block)}
     </span>
@@ -2223,10 +2047,8 @@ defmodule AmbryWeb.Admin.Decisions do
 
   def series_row(assigns) do
     ~H"""
-    <%!-- The same anatomy as every other decision block: railed header row
-        with the state on the block's left rail (no extra check icon — the
-        rail is the only settledness encoding, §2), controls below with
-        their labels above them. --%>
+    <%!-- The same anatomy as every other decision block: railed header row,
+        state on the left rail and nowhere else (§2), controls below. --%>
     <div
       class={["space-y-2 rounded-lg border-l-4 bg-zinc-900 p-4", state_rail(@link)]}
       data-role="series-link"
@@ -2245,9 +2067,8 @@ defmodule AmbryWeb.Admin.Decisions do
             {elem(state_words(SeriesLink.state(@link)), 0)}
           </.badge>
 
-          <%!-- Every other decision block says where its answer came from; a
-              series membership is a proposal like any other and was the one
-              block that didn't, so a settled row said nothing at all. --%>
+          <%!-- Every decision block says where its answer came from, and a series
+              membership is a proposal like any other. --%>
           <span :if={@link.source} class="text-xs text-zinc-400">
             from {source_words(@link.source)}
           </span>
@@ -2279,9 +2100,9 @@ defmodule AmbryWeb.Admin.Decisions do
       </div>
 
       <%!-- Boxes on one line align by their boxes, not a baseline (§3), and
-          the number wears no label: the book form has always spelled this
-          field with a placeholder alone, and a label over one box of two
-          made the row tall and the two controls' tops disagree. --%>
+          the number wears no label: a placeholder alone is how this field is
+          spelled everywhere, and a label over one box of two makes the row
+          tall and the two controls' tops disagree. --%>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <form
           id={"series-#{@index}-link"}
@@ -2420,9 +2241,8 @@ defmodule AmbryWeb.Admin.Decisions do
         </div>
       </div>
 
-      <%!-- The cross-item case this row exists for: an earlier part already
-          created the set, and joining it is what keeps one work from
-          growing a second, parallel group. --%>
+      <%!-- The cross-item case this row exists for: an earlier part created the
+          set, and joining it keeps one work from growing a second. --%>
       <p
         :if={@link.mode == :link and not @link.curated and not GroupLink.resolved?(@link)}
         class="pl-3 text-sm text-zinc-400"
@@ -2434,38 +2254,28 @@ defmodule AmbryWeb.Admin.Decisions do
       <%!-- Reads as a sentence across the row — "<set> no. 1 of 3" — with the
           same label-free number box the series row and the book form use. --%>
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <%!-- Two controls, not one box that infers which you meant.
-            Whether the book has a set to join is knowable, so the form says
-            so rather than making the operator discover it by typing: with
-            candidates there is a drop-down to join one, without them there
-            is nothing to join and the only thing to do is name a new set.
+        <%!-- Two controls, not one box that infers which you meant. Whether the
+            book has a set to join is knowable, so the form says so rather
+            than making the operator discover it by typing.
 
-            A typeahead here searched for sets belonging to a book that
-            usually does not exist yet — measured on the three "Wings and
-            Ruin" parts, its whole answer was `Create "Graphic Audio LLC"`,
-            the box echoed back. And the mode was inferred from whether what
-            you typed happened to match a record, which is what the `new` /
-            `existing` badge was for. Picking a drop-down row or typing a
-            name says it outright. --%>
+            A typeahead would search for sets belonging to a book that usually
+            does not exist yet, so its whole answer is the box echoed back,
+            and it would leave the mode inferred from whether what you typed
+            happened to match. --%>
         <form
           id="group-link"
           phx-change="link-group"
           class="min-w-48 flex max-w-md flex-grow items-start gap-2"
         >
-          <%!-- **`flex-1 min-w-0`, not `w-full`.** Two `w-full` children of a
-              flex row shrink in proportion to their *content*, so naming a
-              set for a book that already has one crushed the drop-down to
-              "N…" beside a name box three times its width. Basis-zero splits
-              the column evenly however long the words in it are, which is
-              what the audiobook form's row does. --%>
+          <%!-- **`flex-1 min-w-0`, not `w-full`.** Two `w-full` children of a flex
+              row shrink in proportion to their *content*, so one crushes the
+              other. Basis-zero splits the column evenly. --%>
           <div :if={@link.candidates != []} class="min-w-0 flex-1">
-            <%!-- The box has to be stated here, unlike every other control on
-                this row. `@tailwindcss/forms` gives `input`, `select` and
-                `textarea` their padding and border, and `input_classes/1`
-                leans on that; a drop-down's trigger is a `button`, which the
-                plugin never touches, so it collapsed to exactly the height of
-                its own text. These are the plugin's own numbers, so it sits
-                level with the number boxes beside it. --%>
+            <%!-- Stated here, unlike every other control on this row:
+                `@tailwindcss/forms` gives `input`, `select` and `textarea`
+                their padding and border, but a drop-down's trigger is a
+                `button`, which it never touches. The plugin's own numbers,
+                so it sits level with the boxes beside it. --%>
             <.live_component
               module={EntityDropdown}
               id="group-dropdown"
@@ -2488,9 +2298,8 @@ defmodule AmbryWeb.Admin.Decisions do
           />
         </form>
 
-        <%!-- `w-20` on both boxes, not `w-16`: "total" clipped to "tota" in
-              the narrower one, and two adjacent number boxes of different
-              widths to fit one placeholder reads as an accident. --%>
+        <%!-- `w-20` on both: "total" clips in the narrower one, and two number
+              boxes of different widths read as an accident. --%>
         <form id="group-part" phx-change="set-group-part" class="flex-none">
           <input
             type="number"
@@ -2571,14 +2380,14 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   The block's left rail — the one thing that encodes settledness (§2).
 
-  The tiers exist because settled-versus-waiting threw away the question the
-  operator actually asks of a machine-matched import: has anyone looked at
-  this yet. A 4px rail renders crisp at any DPI where a tinted hairline goes
-  mushy.
+  Four tiers rather than settled-versus-waiting, which throws away the
+  question an operator actually asks of a machine-matched import: has anyone
+  looked at this yet. A 4px rail renders crisp at DPIs where a tinted hairline
+  goes mushy.
 
-  `:uncatalogued` shares amber with `:waiting`: both want a look, and the
-  rail says *how settled*, not *what to do about it* — the badge beside it
-  is where the two part company.
+  `:uncatalogued` shares amber with `:waiting`, because the rail says *how
+  settled* rather than *what to do about it*. The badge beside it is where the
+  two part company.
   """
   def state_rail(%{__struct__: _} = decision), do: state_rail(Tier.of(decision))
   def state_rail(:blocked), do: "border-red-400/70"
@@ -2616,15 +2425,13 @@ defmodule AmbryWeb.Admin.Decisions do
   @doc """
   A tier as words and a colour, for surfaces with no room for a rail.
 
-  A queue row is one line: it has nowhere to put a 4px edge per level, so it
-  says the same states in words. Same vocabulary as the form's rail, or the
-  two drift — which is exactly what happened when the queue had its own.
+  A queue row is one line with nowhere to put a 4px edge per level, so it says
+  the same states in words. Same vocabulary as the form's rail, from one
+  place, or the two drift.
 
-  `:uncatalogued` is the one tier the words say more than the rail does: it
-  shares amber with `:waiting` because both want a look, but "nothing found"
-  and "needs you" ask for completely different things, and the queue printing
-  "matched" over an empty candidate list is what made the distinction worth
-  having.
+  `:uncatalogued` is the tier the words say more than the rail does: it shares
+  amber with `:waiting`, but "nothing found" and "needs you" ask for different
+  things and "matched" over an empty candidate list says neither.
   """
   def tier_words(:blocked), do: {"blocked", :red}
   def tier_words(:waiting), do: {"needs you", :yellow}
@@ -2655,9 +2462,8 @@ defmodule AmbryWeb.Admin.Decisions do
   def source_words("date"), do: "the date itself"
   def source_words("local"), do: "the library"
 
-  # A group proposal used to seed its own words for these two, back when
-  # nothing rendered a group's provenance and "from name" was never seen.
-  # Drafts stored before that still carry them.
+  # A group proposal seeds its own words for these two, so drafts can carry
+  # either spelling.
   def source_words("name"), do: "the release name"
   def source_words("library"), do: "the library"
 
@@ -2670,7 +2476,7 @@ defmodule AmbryWeb.Admin.Decisions do
 
   def source_words(other), do: other
 
-  defp truncate(nil), do: "—"
+  defp truncate(nil), do: empty_value()
 
   defp truncate(value) when is_binary(value) do
     if String.length(value) > 60, do: String.slice(value, 0, 60) <> "…", else: value

@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   alias Ambry.People.PubSub.PersonCreated
   alias Ambry.People.PubSub.PersonDeleted
   alias Ambry.People.PubSub.PersonUpdated
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :name,
@@ -73,40 +74,21 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
     )
   end
 
-  # The list it is already showing, re-queried — not rebuilt out of string
-  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
-  # and nothing else, and since a missing `"sort"` parses as `nil` and
-  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
-  # operator's sort away and put the list back on the default — while the
-  # address bar went on claiming the sort they had chosen.
+  # The list it is already showing, re-queried, never rebuilt out of string
+  # params. Handing `maybe_update_*` a map of `"filter"` and `"page"` and
+  # nothing else means a missing `"sort"` parses as `nil`, and since
+  # `Map.merge` lets that `nil` win, every PubSub event silently throws the
+  # operator's sort away and puts the list back on the default while the
+  # address bar goes on claiming the sort they chose.
   defp refresh_people(socket), do: load_people(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     person = People.get_person!(id)
 
-    case People.delete_person(person) do
-      {:ok, _deleted_person} ->
-        {:noreply,
-         socket
-         |> refresh_people()
-         |> put_flash(:info, "Deleted #{person.name}")}
-
-      {:error, :has_authored_books} ->
-        message = """
-        Can't delete person because they have authored books.
-        You must delete the books before you can delete this person.
-        """
-
-        {:noreply, put_flash(socket, :error, message)}
-
-      {:error, :has_narrated_media} ->
-        message = """
-        Can't delete person because they have narrated audiobooks.
-        You must delete the audiobooks before you can delete this person.
-        """
-
-        {:noreply, put_flash(socket, :error, message)}
+    case Deletion.outcome(People.delete_person(person), person.name) do
+      {:ok, message} -> {:noreply, socket |> refresh_people() |> put_flash(:info, message)}
+      {:error, message} -> {:noreply, put_flash(socket, :error, message)}
     end
   end
 
@@ -127,7 +109,7 @@ defmodule AmbryWeb.Admin.PersonLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_people(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}

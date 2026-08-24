@@ -43,9 +43,7 @@ defmodule Ambry.Metadata.Providers.Tmdb do
         label: "API key",
         type: :secret,
         default: nil,
-        help:
-          "Free key from #{@signup_url} — either the v3 API key or the " <>
-            "v4 read access token works."
+        help: "Free key from #{@signup_url}. The v3 key or the v4 read token."
       }
     ]
   end
@@ -60,7 +58,7 @@ defmodule Ambry.Metadata.Providers.Tmdb do
     else
       # info, not warning: this provider is a purely optional extra — an
       # unkeyed TMDB is a fine steady state, not a misconfiguration
-      [{:info, "Optional — paste a free API key from #{@signup_url} to enable TMDB headshots."}]
+      [{:info, "Optional. Paste a free API key from #{@signup_url} to enable TMDB headshots."}]
     end
   end
 
@@ -130,7 +128,7 @@ defmodule Ambry.Metadata.Providers.Tmdb do
       {nil, []} -> nil
       {department, []} -> department
       {nil, titles} -> Enum.join(titles, ", ")
-      {department, titles} -> "#{department} — #{Enum.join(titles, ", ")}"
+      {department, titles} -> "#{department} · #{Enum.join(titles, ", ")}"
     end
   end
 

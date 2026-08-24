@@ -91,7 +91,6 @@ defmodule AmbrySchema.Playback do
     field :previous_rate, :float
   end
 
-  # V2 input - events only, no playthroughs needed
   input_object :sync_events_input do
     field :last_sync_time, :datetime
     field :device, non_null(:device_input)
@@ -100,7 +99,6 @@ defmodule AmbrySchema.Playback do
 
   ## Mutation Output
 
-  # V2 payload - events only
   object :sync_events_payload do
     field :events, non_null(list_of(non_null(:playback_event)))
     field :server_time, non_null(:datetime)

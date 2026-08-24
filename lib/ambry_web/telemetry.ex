@@ -24,7 +24,6 @@ defmodule AmbryWeb.Telemetry do
 
   def metrics do
     [
-      # Phoenix Metrics
       summary("phoenix.endpoint.start.system_time",
         unit: {:native, :millisecond}
       ),

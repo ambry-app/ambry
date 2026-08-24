@@ -412,6 +412,18 @@
 
         <.form_footer>
           <.button>Save</.button>
+
+          <:danger :if={@live_action == :edit}>
+            <.button
+              type="button"
+              color={:red}
+              phx-click="delete"
+              data-confirm="Delete this person? Someone with books or audiobooks can't be deleted."
+              data-role="delete-person"
+            >
+              Delete
+            </.button>
+          </:danger>
         </.form_footer>
       </.simple_form>
     </div>

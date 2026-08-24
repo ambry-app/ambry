@@ -9,7 +9,7 @@ defmodule Ambry.Media.Editions do
   an SQL twin of the representative rule for pagination, held in lockstep
   by tests.
 
-  The rules (ROADMAP "Tile system v2", operator-authored):
+  The rules:
 
     * parts order within a group: part number (nulls last), then id
     * a group with only one visible part presents as a single edition —

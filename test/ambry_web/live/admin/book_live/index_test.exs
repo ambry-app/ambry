@@ -77,7 +77,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       refute has_element?(view, "[data-role='book-title']", book.title)
       assert has_element?(view, "[data-role='empty-message']")
-      assert render(view) =~ "Book deleted successfully"
+      assert render(view) =~ "Deleted #{book.title}."
     end
 
     test "cannot delete a book that has media", %{conn: conn} do
@@ -94,7 +94,7 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
 
       # Book should still be visible
       assert has_element?(view, "[data-role='book-title']", book.title)
-      assert render(view) =~ "Can&#39;t delete book because it has audiobooks"
+      assert render(view) =~ "#{book.title} has audiobooks in the library."
     end
   end
 
@@ -277,31 +277,15 @@ defmodule AmbryWeb.Admin.BookLive.IndexTest do
       assert has_element?(view, "[data-focus='#{book.id}']")
     end
 
-    # Being in the URL is what carried it here and what put it in the
-    # browser's history, where every back and forward through the entry lit
-    # the row up again. The list says when it has flashed and the entry is
-    # replaced with the same list without it.
-    test "the flash spends it, and the history entry goes with it", %{conn: conn} do
-      book = insert(:book, title: "Findable")
-
-      {:ok, view, _html} = live(conn, ~p"/admin/books?filter=Findable&focus=#{book.id}")
-
-      render_hook(view, "focus-flashed", %{})
-
-      assert_patch(view, ~p"/admin/books?filter=Findable")
-      refute has_element?(view, "[data-focus='#{book.id}']")
-    end
-
-    # The list the operator merely walked to has nothing to spend, and a
-    # stale page saying otherwise must not send them anywhere.
-    test "a list nobody was sent to stays where it is", %{conn: conn} do
+    # Spending it is the hook's own business — it takes the param out of the
+    # address bar and tells nobody — so the list the operator merely walked
+    # to simply has nothing to hand over.
+    test "a list nobody was sent to has nothing to light", %{conn: conn} do
       insert(:book, title: "Findable")
 
       {:ok, view, _html} = live(conn, ~p"/admin/books")
 
-      render_hook(view, "focus-flashed", %{})
-
-      refute_patched(view, ~p"/admin/books")
+      refute has_element?(view, "[data-focus]")
     end
   end
 

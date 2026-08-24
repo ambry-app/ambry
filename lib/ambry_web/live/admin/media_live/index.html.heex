@@ -41,9 +41,7 @@
     <:row :let={media}>
       <.index_row record_id={media.id} navigate={~p"/admin/audiobooks/#{media}/edit?#{return_query(assigns)}"}>
         <:cover>
-          <div class={["h-16 w-16 rounded-sm", if(!media.thumbnail, do: "bg-zinc-800")]}>
-            <img :if={media.thumbnail} src={media.thumbnail} alt="" class="h-full w-full rounded-sm" />
-          </div>
+          <.row_cover src={media.thumbnail} />
         </:cover>
 
         <:headline>{media_display_title(media)}</:headline>

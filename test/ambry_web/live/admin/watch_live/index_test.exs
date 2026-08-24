@@ -133,8 +133,8 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
       assert Wanted.get_watch!(watch.id).status == :upcoming
     end
 
-    # Three verbs at most, short enough that two fit the 224px rail.
-    test "the row offers at most three actions", %{conn: conn} do
+    # Four verbs at most, so the 224px rail is two clean rows of two.
+    test "the row offers at most four actions", %{conn: conn} do
       watch()
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches")
@@ -146,16 +146,27 @@ defmodule AmbryWeb.Admin.WatchLive.IndexTest do
         |> Floki.parse_fragment!()
         |> Floki.find("[data-role='row-actions'] > *")
 
-      assert length(actions) <= 3
+      assert length(actions) <= 4
     end
 
-    test "forgetting is not on the row; dismissing is", %{conn: conn} do
+    test "forgetting is offered on the row, beside dismissing", %{conn: conn} do
       watch()
 
       {:ok, view, _html} = live(conn, ~p"/admin/watches")
 
       assert has_element?(view, "[data-role='dismiss-watch']")
-      refute has_element?(view, "[data-role='delete-watch']")
+      assert has_element?(view, "[data-role='delete-watch']")
+    end
+
+    test "forgetting the watch from the row removes it", %{conn: conn} do
+      watch = watch()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/watches")
+
+      view |> element("[data-role='delete-watch']") |> render_click()
+
+      assert has_element?(view, "[data-role='empty-message']")
+      assert_raise Ecto.NoResultsError, fn -> Wanted.get_watch!(watch.id) end
     end
   end
 

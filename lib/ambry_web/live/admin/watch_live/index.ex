@@ -82,8 +82,8 @@ defmodule AmbryWeb.Admin.WatchLive.Index do
       0 -> "Expected today"
       1 -> "Expected tomorrow"
       -1 -> "Was expected yesterday"
-      days when days > 1 -> "Expected in #{days} days — #{format_date(date)}"
-      days -> "Expected #{abs(days)} days ago — #{format_date(date)}"
+      days when days > 1 -> "Expected in #{days} days, on #{format_date(date)}"
+      days -> "Expected #{abs(days)} days ago, on #{format_date(date)}"
     end
   end
 

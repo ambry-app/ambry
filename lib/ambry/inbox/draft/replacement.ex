@@ -22,8 +22,8 @@ defmodule Ambry.Inbox.Draft.Replacement do
   ## Proposed from the path evidence, confirmed by a human
 
   `Ambry.Media.imported_from/1` says which recording a file was imported
-  into. Discovery used to read the same data to *hide* the file; here it
-  pre-fills this decision instead. A proposal arrives unapproved, because
+  into. That provenance pre-fills this decision rather than hiding the file
+  from discovery. A proposal arrives unapproved, because
   "the files this was made from turned up again" and "these files should
   replace it" are not the same statement — the first is evidence, the second
   is the operator's.

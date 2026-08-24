@@ -3,35 +3,22 @@ defmodule Ambry.Inbox.Draft do
   The staged import: everything this release will become, before any of it is
   real.
 
-  ## The invariant
+  An import is a tree of decisions, and import is possible iff every decision
+  is resolved. `unresolved/1` is the single expression of that, so the import
+  button, the queue's Ready badge and the tests cannot disagree.
 
-  **An import is a tree of decisions, and import is possible iff every
-  decision is resolved.** `unresolved/1` is the single expression of that —
-  the import button, the queue's Ready badge and the tests all read it, so
-  they cannot disagree about whether an item is finished.
+  Nothing may be implicit: a field nobody proposed is a `:missing` decision
+  the operator can see, and a field two sources disagree about is
+  `:ambiguous` rather than silently first-wins.
 
-  Nothing about an import may be implicit. A field nobody proposed is a
-  `:missing` decision the operator can see, not a surprise at approval time;
-  a field two sources disagree about is `:ambiguous` rather than silently
-  first-wins. The corollary is that the form must never render an import
-  button that fails.
+  An embed, not staging tables: held in a jsonb column on `inbox_items`, so
+  half-curated discoveries never touch the library tables. Embedded schemas
+  buy changesets, validation and `inputs_for`, which is what makes the form
+  ordinary nested LiveView.
 
-  ## Why an embed, not staging tables
-
-  Held as an embed in a jsonb column on `inbox_items`, so half-curated
-  discoveries never touch the library tables (3b's reason for a separate
-  inbox table in the first place). Embedded schemas buy changesets,
-  validation and `inputs_for`, which is what makes the form ordinary nested
-  LiveView rather than hand-rolled jsonb poking. Real staging tables would
-  add referential integrity to data whose entire point is that it isn't real
-  yet.
-
-  ## Rescans never touch a draft
-
-  Discovery updates an item's `files`, `probe` and `tags` and stops there. A
-  curated choice is not something a background scan may overwrite; where the
-  evidence genuinely moved, the affected decisions are marked stale rather
-  than rewritten (see `Ambry.Inbox.Draft.Seed.restale/2`).
+  Rescans never touch a draft. Discovery updates `files`, `probe` and `tags`
+  and stops; where the evidence genuinely moved, the affected decisions are
+  marked stale rather than rewritten (`Ambry.Inbox.Draft.Seed.restale/2`).
   """
 
   use Ecto.Schema
@@ -50,23 +37,20 @@ defmodule Ambry.Inbox.Draft do
   @primary_key false
 
   embedded_schema do
-    # Asked first, because answering it yes settles everything below: the
-    # audiobook being replaced already has its book, credits, chapters and
-    # metadata, and only the files are in question.
+    # Asked first, because answering it yes settles everything below: only
+    # the files of an existing audiobook are in question.
     embeds_one :replacement, Replacement, on_replace: :update
 
     embeds_one :work, Work, on_replace: :update
     embeds_one :recording, Recording, on_replace: :update
     embeds_one :destination, Destination, on_replace: :update
 
-    # The humans this import will create or reuse, one record each. Credits at
-    # both levels reference them by key, which is what makes an author who
-    # reads their own book one person rather than two kept in step by hand.
+    # The humans this import will create or reuse, one record each. Credits
+    # at both levels reference them by key.
     embeds_many :people, PersonDecision, on_replace: :delete
 
-    # Bumped when discovery sees the underlying files change, so a draft built
-    # against evidence that has since moved can say so instead of quietly
-    # describing a file that isn't there any more.
+    # Bumped when discovery sees the underlying files change, so a draft can
+    # say its evidence moved.
     field :evidence, :string
     field :stale, :boolean, default: false
   end
@@ -85,9 +69,8 @@ defmodule Ambry.Inbox.Draft do
   @doc """
   Every decision still needing a human, in the order the form presents them.
 
-  Returns a list of `%{section:, label:, state:}`. Empty means importable —
-  that is the whole invariant, and it is the only thing anything else should
-  ask.
+  Returns a list of `%{section:, label:, state:}`. Empty means importable,
+  which is the whole invariant.
   """
   def unresolved(nil), do: [%{section: :draft, label: "Not yet prepared", state: :missing}]
 
@@ -95,9 +78,8 @@ defmodule Ambry.Inbox.Draft do
     stale(draft) ++ replacement(draft) ++ described(draft) ++ destination(draft)
   end
 
-  # Replacing an audiobook collapses the rest: it already has its book, its
-  # credits, its chapters and its metadata, and this import is about its
-  # files. Only where the new ones go is still a question.
+  # Replacing an audiobook collapses the rest: only where the new files go
+  # is still a question.
   defp described(%__MODULE__{} = draft) do
     if Replacement.replacing?(draft.replacement),
       do: [],
@@ -119,10 +101,8 @@ defmodule Ambry.Inbox.Draft do
       ]
   end
 
-  # Asked once per human rather than once per credit. A self-narrated book
-  # reported the same outstanding person twice when the credits each owned
-  # their own copy — the invariant counts decisions, and one human is one
-  # decision.
+  # Asked once per human rather than once per credit: the invariant counts
+  # decisions, and one human is one decision.
   defp people(%__MODULE__{people: people}) do
     people
     |> Enum.reject(&PersonDecision.resolved?/1)
@@ -180,9 +160,8 @@ defmodule Ambry.Inbox.Draft do
   @doc """
   The people a credit is backed by, in the order it lists them.
 
-  A key with no decision behind it is skipped rather than crashing: a draft is
-  operator input held in jsonb, and a dangling reference is a data problem to
-  render as an incomplete credit, not a 500 on the form.
+  A key with no decision behind it is skipped rather than crashing: a draft
+  is operator input held in jsonb.
   """
   def people_for(draft, %Credit{} = credit),
     do: credit.person_keys |> Enum.map(&person(draft, &1)) |> Enum.reject(&is_nil/1)
@@ -191,32 +170,14 @@ defmodule Ambry.Inbox.Draft do
   The humans this import will create, grouped by the credit that introduces
   them.
 
-  ## Why people are a section and not a decoration on a credit
+  One human is one record, so a person is listed once, under the first credit
+  that names them, and the credits carry a reference. Grouping by credit keeps
+  a composite pen name's people adjacent.
 
-  The model already says people are a level: `PersonDecision` is keyed, one
-  human is one record, and `appearances/1` exists to answer which credits
-  reference them. The form said otherwise — it rendered a person *inside* each
-  credit that named them, so an author who reads their own book appeared
-  twice, and the row had to print "Same person as the author. One X will be
-  created" to apologise for a duplication the model had deliberately deleted.
-
-  A person is therefore listed once, under the first credit that names them,
-  and the credits carry a reference instead. Grouping by credit is what keeps
-  a composite pen name's people adjacent: "James S.A. Corey" is one credit
-  standing for two humans, and any other ordering scatters the pair.
-
-  **Only people this import introduces.** A credit pointing at an identity the
-  library already has brings no humans with it: that person was chosen in the
-  credit's typeahead, carries curation an import may never overwrite, and has
-  nothing left to decide — and the one dangerous case, a name matching two
-  existing identities, is a decision on the credit where `Credit.state/1`
-  computes it.
-
-  A person the operator matched to somebody already in the library *from their
-  card* is a different thing and stays listed. Nothing else proposes that link
-  — the seeder never does — so dropping them the moment it is made took the
-  decision off the form and the way back with it, leaving the credit's chip
-  pointing at a card that no longer existed.
+  Only people this import introduces: a credit pointing at an existing
+  identity brings no humans, since that person carries curation an import may
+  never overwrite. A person the operator matched to the library from their
+  card stays listed, because nothing else proposes that link.
 
   Returns `[%{credit:, kind:, section:, index:, people: [...]}]`, dropping
   credits that introduce nobody new.
@@ -241,8 +202,7 @@ defmodule Ambry.Inbox.Draft do
   end
 
   # A removed credit holds its person keys for a possible restore, but a
-  # person only a tombstone references is nobody's decision — the same rule
-  # `referenced_keys/1` follows.
+  # person only a tombstone references is nobody's decision.
   defp new_people(_draft, %Credit{removed: true}, _seen), do: []
   defp new_people(_draft, %Credit{mode: :link}, _seen), do: []
 
@@ -255,9 +215,8 @@ defmodule Ambry.Inbox.Draft do
   @doc """
   Which credits reference each person, so the form can say where they appear.
 
-  Returns `%{key => [%{kind:, section:, index:, name:}]}`. This is display
-  only — it is derived from the credits every time rather than stored, because
-  a second copy of "who is where" is exactly the thing that used to drift.
+  Returns `%{key => [%{kind:, section:, index:, name:}]}`, derived every time
+  rather than stored.
   """
   def appearances(nil), do: %{}
 
@@ -287,9 +246,8 @@ defmodule Ambry.Inbox.Draft do
   @doc """
   Every person key the credits currently reference, in form order.
 
-  What `Seed` reconciles against: a person nobody credits any more has no
-  reason to stay on the form, and a credit naming somebody new needs a
-  decision minting for them.
+  What `Seed` reconciles against: a person nobody credits has no reason to
+  stay on the form, and a credit naming somebody new needs a decision.
   """
   def referenced_keys(%__MODULE__{} = draft) do
     for {_kind, _section, _index, credit} <- credits(draft),
@@ -305,20 +263,17 @@ defmodule Ambry.Inbox.Draft do
   @doc """
   Whether a human has answered anything in this draft yet.
 
-  What tells "matched but untouched" from "the operator has been working on
-  it", which is the difference between a draft that may be thrown away and
-  rebuilt from fresh evidence and one that may only be re-derived around what
-  they decided. A retry that finally reaches a provider needs the first: its
-  new record isn't *ticked*, so re-deriving from the ticked set would ignore
-  it entirely and the retry would buy nothing.
+  Tells a draft that may be thrown away and rebuilt from fresh evidence from
+  one that may only be re-derived around what the operator decided. A retry
+  that finally reaches a provider needs the first, since its new record is
+  not yet ticked.
   """
   def curated?(nil), do: false
 
   def curated?(%__MODULE__{} = draft) do
-    # Answering the identity question and ticking records are curation too.
-    # Both were missed here, so a draft whose only human input was either
-    # one was rebuilt wholesale by the next background re-match. The group
-    # link carries its own curated flag, like a series link.
+    # Answering the identity question and ticking records are curation too:
+    # a draft whose only human input was either one must not be rebuilt
+    # wholesale by the next background re-match.
     (draft.replacement && draft.replacement.curated) == true or
       Enum.any?(fields(draft), &(&1 && &1.curated)) or
       Enum.any?(credits(draft), fn {_kind, _section, _index, credit} -> credit.curated end) or
@@ -359,8 +314,7 @@ defmodule Ambry.Inbox.Draft do
   end
 
   # Every decision the tree contains, resolved or not. Counted rather than
-  # stored: a stored total is a second source of truth waiting to drift from
-  # the first.
+  # stored, so it cannot drift.
   defp total(%__MODULE__{} = draft) do
     replacement_total(draft.replacement) + described_total(draft) +
       destination_total(draft.destination)

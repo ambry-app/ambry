@@ -2,22 +2,11 @@ defmodule AmbryWeb.Admin.NavHooks do
   @moduledoc """
   LiveView lifecycle hooks to help render the admin nav.
 
-  The nav carries the one number that is true no matter which page the
-  operator is on: how much is waiting in the inbox. It lives here rather than
-  on the overview because that was the whole argument for landing on the
-  inbox instead of a dashboard — saving a click — and a badge saves it from
-  everywhere, including from inside the form the operator is already in.
-
-  Only the inbox gets one. A count on every nav item is a nav bar nobody
-  reads; this one is a queue with work in it, and the rest are lists.
-
-  Recomputed on `handle_params`, which is every navigation. It is a single
-  grouped count, and the inbox page keeps its own live numbers — the badge is
-  a "there is work over there" signal, not a live readout. Nothing here
-  polls: the one thing on an admin page that has to stay live without the
-  operator moving is the background-work indicator, and that is
-  `AmbryWeb.Admin.JobIndicatorLive`, which owns its own process precisely so
-  this hook doesn't have to drag every page through a re-render.
+  The one number that's true from anywhere is how much is waiting in the
+  inbox, so that's the only nav item with a badge. Recomputed on
+  `handle_params`, which is every navigation: it's a "there is work over
+  there" signal, not a live readout. The live one is
+  `AmbryWeb.Admin.JobIndicatorLive`, which owns its own process.
   """
 
   import Phoenix.Component, only: [assign: 2]

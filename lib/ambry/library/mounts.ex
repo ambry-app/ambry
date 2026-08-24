@@ -2,34 +2,26 @@ defmodule Ambry.Library.Mounts do
   @moduledoc """
   Which mount a path lives under, read live from `/proc/self/mountinfo`.
 
-  This exists because "same filesystem" and "can be hardlinked between" are
-  different questions, and `link(2)` answers the second one in terms of
-  *mounts*:
+  "Same filesystem" and "can be hardlinked between" are different questions,
+  and `link(2)` answers the second in terms of *mounts*:
 
-    * Two mounts of one NFS export share a superblock — one `st_dev` — and
-      the kernel still refuses to link across them (`EXDEV`). A device
-      comparison alone says "fine" and the refusal arrives later, after the
-      destination folder has already been created.
-    * The inverse on btrfs: one mount holds many subvolumes, each with its
-      own anonymous `st_dev`, and links across subvolumes are refused too.
-      There the device comparison is the one that catches it, and the mount
-      table would wrongly say "same".
+    * Two mounts of one NFS export share a superblock, so one `st_dev`, and
+      the kernel still refuses to link across them. A device comparison says
+      "fine" and the refusal arrives after the destination folder exists.
+    * The inverse on btrfs: one mount holds many subvolumes, each with its own
+      anonymous `st_dev`, and links across subvolumes are refused too. There
+      the mount table would wrongly say "same".
 
   So the hardlink question is device equality *refined by* mount identity,
-  never one or the other — see `Ambry.Library.same_filesystem?/2`.
+  never one or the other (`Ambry.Library.same_filesystem?/2`).
 
-  Read live rather than captured into a column: mount tables change with
-  every remount and autofs event, and the doctrine of `Ambry.Library.Status`
-  applies — a stale answer is worse than none. The file is tiny and the
-  check runs at preflight frequency, not per request.
+  Read live rather than stored, because mount tables change with every
+  remount and a stale answer is worse than none.
 
-  ## Known limit
-
-  Matching is by literal path prefix, so a registered path that is itself a
-  symlink into another mount is attributed to the symlink's mount, not the
-  target's. Registered locations are mount-point-shaped in practice; if one
-  ever isn't, the worst case is the pre-existing one — placement's own loud
-  `EXDEV` refusal at link time.
+  **Known limit**: matching is by literal path prefix, so a registered path
+  that is itself a symlink into another mount is attributed to the symlink's
+  mount. Registered locations are mount-point-shaped in practice, and the
+  worst case is placement's own loud refusal at link time.
   """
 
   @mountinfo "/proc/self/mountinfo"
@@ -51,8 +43,8 @@ defmodule Ambry.Library.Mounts do
   Parses mountinfo content.
 
   Fields are space-separated with octal escapes inside the mount point
-  (`\\040` for the space in "/mnt/my nas"), so a plain split is safe and
-  the escapes are undone afterwards.
+  (`\\040` for a space), so a plain split is safe and the escapes are undone
+  afterwards.
   """
   def parse(content) do
     for line <- String.split(content, "\n", trim: true),
@@ -65,8 +57,7 @@ defmodule Ambry.Library.Mounts do
   The mount a path lives under: longest mount-point prefix, matched on a
   path-segment boundary so `/mnt/nas-a` never claims `/mnt/nas-abc`.
 
-  Overmounts shadow: when two entries claim the same mount point, the later
-  one is the visible mount, so among equal-length matches table order wins.
+  Overmounts shadow, so among equal-length matches the later table entry wins.
   """
   def mount_of(path, mounts) do
     mounts

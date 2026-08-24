@@ -4,26 +4,21 @@ defmodule Ambry.Metadata.Provider do
 
   Providers are split by which level of Ambry's data model they can speak to:
 
-    * `:work` — the abstract side: books, authors, series. These providers
-      know about works and their editions but nothing about narrators or
-      audiobook releases.
+    * `:work` — the abstract side: books, authors, series.
     * `:recording` — the concrete side: audiobook releases with narrators,
       square cover art, chapters. ASIN is the natural key at this level.
-    * `:person` — the humans behind author and narrator identities: bios
-      and profile photos, keyed on real people rather than published-as
-      names (covers narrate-only people and the halves of composite pen
-      names that book catalogs can't see).
+    * `:person` — the humans behind author and narrator identities, keyed on
+      real people rather than published-as names.
 
   All callbacks return normalized structs defined in this module, so the web
-  layer never depends on any provider's upstream payload shape. Capabilities
-  declare which optional callbacks a provider implements; callers must check
-  capabilities (via `Ambry.Metadata.Registry`) before invoking optional
+  layer never depends on a provider's upstream payload shape. Callers must
+  check capabilities (via `Ambry.Metadata.Registry`) before invoking optional
   callbacks.
 
   Providers are pure fetch-and-normalize modules: no caching (see
-  `Ambry.Metadata.Cache`) and no persistence. Configuration (base URL, API
-  token, …) is passed into every call as a map, sourced from the provider
-  registry so operators can change it at runtime.
+  `Ambry.Metadata.Cache`) and no persistence. Configuration is passed into
+  every call as a map, sourced from the provider registry so operators can
+  change it at runtime.
   """
 
   defmodule PublishedDate do
@@ -51,12 +46,9 @@ defmodule Ambry.Metadata.Provider do
     @doc """
     Demotes a full January-1st date to year-only display.
 
-    Goodreads-shaped sources (and Hardcover) encode "we only know the
-    year" as a literal `YYYY-01-01`, indistinguishable in the payload
-    from a real date — so a full Jan-1 date is far more likely year-only
-    knowledge than a genuine release day. The underlying date is kept;
-    the operator can flip the display format back per book when a
-    release really was January 1st.
+    Some sources encode "we only know the year" as a literal `YYYY-01-01`,
+    indistinguishable in the payload from a real date. The underlying date is
+    kept, and the display format can be flipped back per book.
     """
     def assume_jan1_is_year_only(nil), do: nil
 
@@ -113,11 +105,9 @@ defmodule Ambry.Metadata.Provider do
     release (recording-level providers). Recording-level results carry
     narrators and an ASIN; work-level results may carry an editions list.
 
-    `duration_seconds` is how long the *recording* is, and it is nil on a
-    work: a novel has no runtime, a reading of it does. It is the field that
-    tells two recordings of the same book apart when everything else about
-    them agrees — abridged from unabridged, one cast from another — which is
-    why an audiobook library carries it and a book catalogue would not.
+    `duration_seconds` is how long the *recording* is, and is nil on a work.
+    It is what tells two recordings of one book apart when everything else
+    about them agrees.
     """
     defstruct [
       :provider,
@@ -145,15 +135,10 @@ defmodule Ambry.Metadata.Provider do
     A normalized author (or narrator) profile.
 
     `image_urls` is every photo the provider has of this person, best first;
-    `image_url` is the first of them, kept because most callers want one
-    picture and shouldn't have to say so.
+    `image_url` is the first of them.
 
-    Several matters because a profile photo has to survive a **circular
-    crop**. The obvious portrait — Wikipedia's lead image, TMDB's primary
-    headshot — is frequently the one that doesn't: a head at the edge of a
-    wide shot, a group photo, a book jacket with the face bottom-left. The
-    alternative three rows down is often the one that works, and a picker
-    showing one image per provider can't offer it.
+    Several matters because a profile photo has to survive a circular crop,
+    which the obvious portrait frequently does not.
     """
     defstruct [:provider, :id, :name, :description, :image_url, image_urls: []]
 
@@ -162,9 +147,8 @@ defmodule Ambry.Metadata.Provider do
     @doc """
     Every photo this profile has, best first.
 
-    Falls back to `image_url` because `image_urls` is additive: a provider
-    that only ever had one photo per person still builds the struct the old
-    way, and must keep contributing that photo.
+    Falls back to `image_url`, which a provider with one photo per person
+    fills alone.
     """
     def images(%__MODULE__{image_urls: [_ | _] = urls}), do: urls
     def images(%__MODULE__{image_url: url}) when is_binary(url) and url != "", do: [url]
@@ -206,17 +190,11 @@ defmodule Ambry.Metadata.Provider do
     @moduledoc """
     A book search expressed as the fields it's actually made of.
 
-    A single concatenated string is lossy in a way that silently breaks
-    providers: Audible's catalog endpoint takes `title`, `author` and
-    `narrator` as separate parameters, so handing it `"Neuromancer William
-    Gibson"` searched for a book *titled* that and returned nothing at all —
-    which is why the inbox's whole recording level came up empty.
+    A single concatenated string silently breaks providers that take `title`,
+    `author` and `narrator` as separate parameters, which search for a book
+    whose title is the whole string and return nothing.
 
-    Providers that only do free text can call `to_string/1` (or interpolate,
-    via `String.Chars`) and lose nothing. Providers that can be precise get to
-    be precise. `narrator` is the field that distinguishes two recordings of
-    one work, so it exists here even though only recording-level providers
-    have any use for it.
+    Providers that only do free text call `to_string/1` and lose nothing.
     """
 
     @enforce_keys []
@@ -233,9 +211,7 @@ defmodule Ambry.Metadata.Provider do
     def blank?(%__MODULE__{} = query), do: to_string(query) == ""
 
     @doc """
-    A query from operator-typed fields — string keys, blanks dropped.
-
-    This is the shape every "search again" form submits, inbox or not.
+    A query from operator-typed fields: string keys, blanks dropped.
     """
     def from_fields(fields) when is_map(fields) do
       %__MODULE__{
@@ -305,10 +281,9 @@ defmodule Ambry.Metadata.Provider do
   @type notice :: {:info | :warning | :error, String.t()}
 
   @doc """
-  Whether the provider can be used with the given config — e.g. a provider
-  requiring an API token is unavailable until one is configured. Unavailable
-  providers stay visible in the admin settings (with notices explaining why)
-  but are not offered in import forms. Optional; defaults to `true`.
+  Whether the provider can be used with the given config. Unavailable
+  providers stay visible in the admin settings but are not offered in import
+  forms. Optional; defaults to `true`.
   """
   @callback available?(config()) :: boolean
 
@@ -319,10 +294,9 @@ defmodule Ambry.Metadata.Provider do
   """
   @callback config_notices(config()) :: [notice()]
 
-  # `{:partial, …}` is for a provider that is more than one source behind one
-  # name — Audible's regional catalogs — where some of them answered and some
-  # did not. The results are usable and incomplete, and a provider that says
-  # only the first half turns an unreachable region into an empty one.
+  # `{:partial, …}` is for a provider that is several sources behind one name
+  # where only some answered: usable and incomplete, which is a different
+  # answer from empty.
   @callback search_books(query :: String.t() | Query.t(), config()) ::
               {:ok, [Book.t()]} | {:partial, [Book.t()], term} | {:error, term}
   @callback book_details(id :: String.t(), config()) :: {:ok, Book.t()} | {:error, term}
@@ -333,21 +307,17 @@ defmodule Ambry.Metadata.Provider do
   @doc """
   The audiobook editions of a work this provider already identified.
 
-  A third key, alongside "search for a work" and "search for a recording":
-  once the work is matched, its own edition list is the most direct route to
-  the recordings that exist — including ones a storefront has since delisted
-  and can no longer be searched for at all.
+  Once the work is matched, its own edition list is the most direct route to
+  the recordings that exist, including delisted ones no search can reach.
   """
   @callback editions(work_id :: String.t(), config()) :: {:ok, [Book.t()]} | {:error, term}
 
   @doc """
   The audiobook editions of several works at once, keyed by work id.
 
-  Declared separately from `editions/2` because whether a provider can answer
-  for many works in one round trip is a real difference in what it can do, not
-  an optimization a caller may assume. A provider that can say so is asked
-  once instead of once per work — which is the difference between opening
-  every candidate work and opening only the first few.
+  Declared separately from `editions/2` because answering for many works in
+  one round trip is a real difference in capability, not an optimization a
+  caller may assume.
   """
   @callback editions_bulk(work_ids :: [String.t()], config()) ::
               {:ok, %{String.t() => [Book.t()]}} | {:error, term}

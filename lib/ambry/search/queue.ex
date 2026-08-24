@@ -4,13 +4,13 @@ defmodule Ambry.Search.Queue do
 
   Filled by row triggers on every table the index reads, drained by
   `Ambry.Search.Drain`. Two columns and a composite primary key: a reference
-  is dirty or it isn't, and enqueueing the same one twice is free.
+  is dirty or it is not, and enqueueing one twice is free.
 
-  The point of the table is that it is filled *below* the application. Ambry
-  writes to `books`, `people` and their joins from several places — the admin
-  contexts, `Ambry.Inbox.Importer`, replacement, organizing — and the importer
-  in particular is walled off from `Ambry.Search` by its boundary. A trigger
-  cannot be walled off and cannot be forgotten.
+  The point is that it is filled *below* the application. Ambry writes to the
+  library tables from several places, and `Ambry.Inbox.Importer` is walled off
+  from `Ambry.Search` by its boundary. A trigger cannot be walled off and
+  cannot be forgotten.
+
   """
 
   import Ecto.Query
@@ -26,11 +26,10 @@ defmodule Ambry.Search.Queue do
   @doc """
   Takes up to `limit` references off the queue, deleting them.
 
-  `FOR UPDATE SKIP LOCKED` so the cron backstop and the listener can drain at
-  the same time without doing each other's work or waiting on it. The delete
-  is the claim, so it has to run inside the same transaction as the rebuild it
-  feeds: a rebuild that raises rolls the rows back onto the queue rather than
-  losing them.
+  `FOR UPDATE SKIP LOCKED`, so the cron backstop and the listener can drain at
+  once without doing each other's work. The delete is the claim, so it runs
+  inside the same transaction as the rebuild it feeds: a rebuild that raises
+  rolls the rows back onto the queue.
   """
   def claim(limit) do
     %{rows: rows} =
@@ -51,9 +50,8 @@ defmodule Ambry.Search.Queue do
     Enum.map(rows, fn [type, id] -> {reference_type(type), id} end)
   end
 
-  # Spelled out rather than `String.to_existing_atom/1`: this is the whole
-  # set of things a trigger may enqueue, and an unknown one is a migration
-  # and a drain that disagree, which should be loud.
+  # Spelled out rather than `String.to_existing_atom/1`: an unknown reference
+  # type is a migration and a drain that disagree, which should be loud.
   defp reference_type("book"), do: :book
   defp reference_type("media"), do: :media
   defp reference_type("series"), do: :series
@@ -63,11 +61,8 @@ defmodule Ambry.Search.Queue do
   defp reference_type("person"), do: :person
 
   @doc """
-  Marks every record in the library dirty.
-
-  What "reindex everything" means now: the drain does the rest. This replaces
-  `refresh_entire_index!/0`, which deleted the whole table and rebuilt it
-  inline on every boot — during which search returned nothing.
+  Marks every record in the library dirty, which is what "reindex everything"
+  means: the drain does the rest, so search keeps answering throughout.
   """
   def enqueue_all! do
     enqueue_all!(:book, from(b in Book, select: b.id))

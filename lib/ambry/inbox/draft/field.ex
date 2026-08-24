@@ -2,15 +2,12 @@ defmodule Ambry.Inbox.Draft.Field do
   @moduledoc """
   One scalar decision: a value, where it came from, and whether it's settled.
 
-  Values are held as strings regardless of their eventual type. A draft is a
-  staging area whose other half is an HTML form, and strings are what a form
-  produces; approval casts them once, at the point where they become real
-  columns. Keeping `%Date{}` and `%Decimal{}` in the jsonb would mean casting
-  on the way in, on the way out, and again on every re-render.
+  Values are held as strings regardless of their eventual type, because a
+  draft's other half is an HTML form; approval casts them once, where they
+  become real columns.
 
-  `candidates` is what the sources proposed — kept whole rather than reduced
-  to a winner, so "show me the alternatives" costs nothing and re-querying is
-  only needed when the right answer isn't in the list at all.
+  `candidates` is what the sources proposed, kept whole rather than reduced to
+  a winner, so "show me the alternatives" costs nothing.
   """
 
   use Ecto.Schema
@@ -35,23 +32,13 @@ defmodule Ambry.Inbox.Draft.Field do
     field :required, :boolean, default: false
 
     # Which candidate was taken. `source` alone can't say: two records from
-    # one provider are two proposals with one source, and the form could
-    # neither highlight the right chip nor apply the second one.
+    # one provider are two proposals with one source.
     field :chosen_key, :string
 
     # Whether a *human* settled this, as opposed to the seeder settling it
-    # because there was only one thing on offer. The same distinction `Credit`
-    # and `SeriesLink` already draw, and for the same reason: re-derivation
-    # must not move a value somebody chose, and must be free to move one
-    # nobody did.
-    #
-    # `chosen_key` cannot answer this — the seeder sets it too — so keying
-    # re-derivation on it made every auto-settled field permanently sticky.
-    # Measured on the operator's Becky Chambers file: the title settled from
-    # the tags at seed time (nothing else was on offer, the work being
-    # doubted), and then ticking the correct record could not dislodge it. The
-    # book imported as **"Wayfarers, Book 1"** with the real title sitting
-    # un-chosen in the candidate list.
+    # because there was only one thing on offer: re-derivation must not move
+    # a value somebody chose, and must be free to move one nobody did.
+    # `chosen_key` cannot answer it, since the seeder sets that too.
     field :curated, :boolean, default: false
 
     embeds_many :candidates, Candidate, on_replace: :delete
@@ -76,12 +63,9 @@ defmodule Ambry.Inbox.Draft.Field do
     |> validate_settled()
   end
 
-  # Typing a value *is* the decision — 1d's lock semantics exactly: editing a
-  # value records it as the operator's and locks it, while accepting a
-  # provider's suggestion records that provider and stays unlocked so a future
-  # refresh may still update it. Without this a field the operator retyped
-  # would keep claiming it came from whichever provider proposed the old
-  # value, and refresh would later overwrite their correction.
+  # Typing a value is the decision: it records `manual` and locks, while
+  # accepting a provider's suggestion records that provider and stays open to
+  # a future refresh.
   defp track_manual_edit(changeset, attrs) do
     explicit_source? = Map.has_key?(attrs, "source") or Map.has_key?(attrs, :source)
 
@@ -98,11 +82,8 @@ defmodule Ambry.Inbox.Draft.Field do
     end
   end
 
-  # A required field cannot be waived. Without this the form could approve its
-  # way past a missing title or publication date and hand approval a decision
-  # it has no way to execute — the failure would surface as a changeset error
-  # deep inside the transaction, which is exactly the late surprise the whole
-  # decision model exists to eliminate.
+  # A required field cannot be waived: the form would otherwise approve its
+  # way past a missing title and fail deep inside the import transaction.
   defp validate_settled(changeset) do
     required? = get_field(changeset, :required)
     approved? = get_field(changeset, :approved)
@@ -116,11 +97,8 @@ defmodule Ambry.Inbox.Draft.Field do
   end
 
   @doc """
-  The operator's edit: a typed value with no provider behind it.
-
-  Editing is what `1d` calls curation, so the source becomes `manual` and the
-  field settles — there is nothing left to decide about a value someone chose
-  deliberately.
+  The operator's edit: a typed value with no provider behind it, which settles
+  the field.
   """
   def edit(%__MODULE__{} = field, value) do
     value = presence(value)
@@ -131,12 +109,9 @@ defmodule Ambry.Inbox.Draft.Field do
         source: "manual",
         chosen_key: "manual",
         curated: true,
-        # Clearing the box is the first half of retyping, and a *required*
-        # field cannot be settled as blank — so it un-settles rather than
-        # becoming an approved-and-empty value the changeset then refuses to
-        # save. Validation gates saving; the invariant gates importing, and
-        # conflating the two makes the form unusable. Clearing an optional
-        # field is a real answer ("no bio") and stays settled.
+        # Clearing the box is the first half of retyping, so a required
+        # field un-settles rather than becoming approved-and-empty. Clearing
+        # an optional one is a real answer and stays settled.
         approved: not (field.required and is_nil(value))
     }
   end
@@ -147,22 +122,19 @@ defmodule Ambry.Inbox.Draft.Field do
   def choose(%__MODULE__{} = field, key) do
     case Enum.find(field.candidates, &(&1.key == key)) do
       nil -> field
-      # Picking a chip is a human answering the question, which is what makes
-      # it survive re-derivation — `take/2` alone is the seeder settling a
-      # field and stays movable.
+      # Picking a chip is a human answering, so it survives re-derivation;
+      # `take/2` alone is the seeder settling a field and stays movable.
       candidate -> %{take(field, candidate) | curated: true}
     end
   end
 
   @doc """
-  Settles the field on a proposal.
+  Settles the field on a proposal: the one place a candidate becomes a
+  field's value.
 
-  The one place a candidate becomes a field's value, because keeping it in one
-  place is the only thing that works: hand-rolled versions of these four
-  assignments in the seeder and in `Draft.Edit` have each forgotten
-  `chosen_key` at least once, and a value whose candidate the field can't name
-  renders as a filled box with no chip highlighted — settled to the model,
-  unsettled to the eye.
+  A hand-rolled version that forgets `chosen_key` renders as a filled box
+  with no chip highlighted, which is settled to the model and unsettled to
+  the eye.
   """
   def take(%__MODULE__{} = field, %Candidate{} = candidate) do
     %{
@@ -183,10 +155,7 @@ defmodule Ambry.Inbox.Draft.Field do
   def chose?(%__MODULE__{} = field, candidate), do: field.chosen_key == candidate.key
 
   @doc """
-  Settles the field as deliberately empty.
-
-  Waiving is an approval, not an omission — it's what makes "every piece is
-  resolved" reachable on a record with optional fields nobody filled in.
+  Settles the field as deliberately empty: an approval, not an omission.
   """
   def waive(%__MODULE__{} = field),
     do: %{
@@ -209,11 +178,8 @@ defmodule Ambry.Inbox.Draft.Field do
   @doc """
   Why it isn't resolved, for the operator-facing unresolved list.
 
-  `:missing` and `:ambiguous` are genuinely different problems — one needs a
-  value from somewhere, the other needs a choice between values already in
-  hand — and the form should not describe them the same way. Which is exactly
-  why this counts *distinct* proposals: it used to report "sources disagree"
-  for a field with one proposal, and for a field with none at all.
+  Counts *distinct* proposals, so `:ambiguous` genuinely means the sources
+  disagree rather than that there are several records.
   """
   def state(%__MODULE__{approved: true}), do: :approved
 
@@ -235,11 +201,8 @@ defmodule Ambry.Inbox.Draft.Field do
   def value(%__MODULE__{value: value}), do: presence(value)
 
   @doc """
-  The settled value as a `Date`.
-
-  Returns nil for anything unparseable rather than raising: a value that got
-  this far was approved, and a malformed one is a data problem for the
-  changeset to report against the real column, not a crash mid-transaction.
+  The settled value as a `Date`, or nil for anything unparseable — a data
+  problem for the changeset to report, not a crash mid-transaction.
   """
   def date(nil), do: nil
 
@@ -252,11 +215,9 @@ defmodule Ambry.Inbox.Draft.Field do
 
   def date(%__MODULE__{}), do: nil
 
-  # A newly typed date whose day is real is a full date — nobody records
-  # June 2nd to mean "2011" — so a date edit drags a stale precision along.
-  # Only the date's own change triggers it: a precision the operator sets
-  # deliberately (format changing, date not) is never overruled, and
-  # first-of-month days stay ambiguous and keep what was set.
+  # A newly typed date whose day is not the first is a full date, so a date
+  # edit drags a stale precision along. Only the date's own change triggers
+  # it, so a precision set deliberately is never overruled.
   defp full_when_day_known(changeset) do
     value = Ecto.Changeset.get_change(changeset, :value)
     format_changed? = Map.has_key?(changeset.changes, :format)
@@ -288,8 +249,7 @@ defmodule Ambry.Inbox.Draft.Field do
   @doc """
   The settled value as an existing atom, for `Ecto.Enum` columns.
 
-  Only ever converts to atoms that already exist — a draft is operator input,
-  and `String.to_atom/1` on operator input leaks the atom table.
+  Never mints one: a draft is operator input.
   """
   def atom(field, default) do
     case value(field) do

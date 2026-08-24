@@ -5,8 +5,9 @@ defmodule Ambry.Inbox.RunImport do
   ## Why this is a job and not a click
 
   Importing is the longest thing the inbox does: every file is re-probed and
-  then every byte is placed. Measured on a 28-file release, that is seven
-  seconds of ffprobe plus a 131MB copy, and a copy off a NAS is slower still.
+  then every byte is placed. A multi-file release is seconds of ffprobe plus a
+  copy of the whole recording, and a copy across a network share is slower
+  still.
 
   Run from the form it was held in an async task owned by the LiveView, which
   meant the operator had to sit on the page and watch it — and worse, the task
@@ -23,7 +24,7 @@ defmodule Ambry.Inbox.RunImport do
   ## Failure is reported on the item, not by the job
 
   `Inbox.import_item/1` already writes what went wrong onto the item's
-  `issue`, in the same sentence the form used to flash. So a refused import
+  `issue`, in the sentence the form would otherwise flash. So a refused import
   returns `:ok` here rather than failing the job: a discarded job is deleted
   by the pruner within a day, while the issue is still on the row tomorrow,
   which is when somebody actually reads it. Only an unexpected crash is

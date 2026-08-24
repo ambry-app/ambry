@@ -106,7 +106,7 @@ defmodule AmbryWeb.Admin.UserLive.IndexTest do
       |> render_click()
 
       refute has_element?(view, "[data-role='user-email']", user.email)
-      assert render(view) =~ "User deleted successfully"
+      assert render(view) =~ "Deleted #{user.email}."
 
       assert_raise Ecto.NoResultsError, fn -> Ambry.Accounts.get_user!(user.id) end
     end

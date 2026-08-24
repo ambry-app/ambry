@@ -12,6 +12,7 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
   alias Ambry.Books.PubSub.UniverseCreated
   alias Ambry.Books.PubSub.UniverseDeleted
   alias Ambry.Books.PubSub.UniverseUpdated
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :name,
@@ -71,23 +72,20 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
     )
   end
 
-  # The list it is already showing, re-queried — not rebuilt out of string
-  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
-  # and nothing else, and since a missing `"sort"` parses as `nil` and
-  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
-  # operator's sort away and put the list back on the default — while the
-  # address bar went on claiming the sort they had chosen.
+  # The list it is already showing, re-queried, never rebuilt out of string
+  # params. Handing `maybe_update_*` a map of `"filter"` and `"page"` and
+  # nothing else means a missing `"sort"` parses as `nil`, and since
+  # `Map.merge` lets that `nil` win, every PubSub event silently throws the
+  # operator's sort away and puts the list back on the default while the
+  # address bar goes on claiming the sort they chose.
   defp refresh_universes(socket), do: load_universes(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     universe = Books.get_universe!(id)
-    {:ok, _universe} = Books.delete_universe(universe)
+    {:ok, message} = Deletion.outcome(Books.delete_universe(universe), universe.name)
 
-    {:noreply,
-     socket
-     |> refresh_universes()
-     |> put_flash(:info, "Universe deleted successfully")}
+    {:noreply, socket |> refresh_universes() |> put_flash(:info, message)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -107,7 +105,7 @@ defmodule AmbryWeb.Admin.UniverseLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_universes(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}

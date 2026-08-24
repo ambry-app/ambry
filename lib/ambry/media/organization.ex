@@ -223,8 +223,8 @@ defmodule Ambry.Media.Organization do
   end
 
   # The folders the files just left, and any parent left empty by them.
-  # Passing the old *file* paths is what makes the pruning start at their
-  # folders rather than at the folders' parents. Stops at any registered
+  # Passing the *file* paths is what makes the pruning start at their folders
+  # rather than at the folders' parents. Stops at any registered
   # location — a root's existence is configuration, not a consequence of
   # holding a book.
   defp prune(from_paths) do

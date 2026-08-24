@@ -25,11 +25,8 @@
       <%= for kind <- kinds(),
               groups = of_kind(@found, kind),
               groups != [] do %>
-        <% {heading, hint} = section(kind) %>
         <section class="space-y-4" data-role={"section-#{kind}"}>
-          <h2 class="text-xl font-bold text-zinc-100">{heading}</h2>
-
-          <p class="max-w-prose text-sm text-zinc-400">{hint}</p>
+          <h2 class="text-xl font-bold text-zinc-100">{section(kind)}</h2>
 
           <%!-- One card per set, so where one ends and the next begins is the
               shape of the page rather than a line drawn on it. --%>
@@ -74,8 +71,7 @@
       <.disclosure summary={dismissed_words(@dismissed)} class="text-sm text-zinc-300">
         <div class="space-y-7 pt-3">
           <div :for={group <- @dismissed} class="space-y-2" data-role="dismissed-set">
-            <% {heading, _hint} = section(group.kind) %>
-            <.microlabel class="block pl-3">{heading}</.microlabel>
+            <.microlabel class="block pl-3">{section(group.kind)}</.microlabel>
 
             <.duplicate_row :for={record <- group.records} kind={group.kind} record={record} />
 

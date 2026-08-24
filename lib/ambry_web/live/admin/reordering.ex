@@ -4,41 +4,29 @@ defmodule AmbryWeb.Admin.Reordering do
   thing the server has to know about it.
 
   Deliberately not drag-and-drop. Ordering a book's two authors is a
-  once-in-a-while act on a list that is almost always two or three long, and a
-  pair of buttons needs no JavaScript beyond a swap, works on a phone, and
-  leaves the ordering itself in the params where it can be read.
+  once-in-a-while act on a list of two or three, and a pair of buttons needs
+  no JavaScript beyond a swap, works on a phone, and leaves the ordering in
+  the params.
 
-  ## The move is a change event, like every other edit
+  **The move is a change event, like every other edit.** The `reorder-rows`
+  hook swaps two rows' hidden `_sort` and `position` values and dispatches a
+  change: the client edits the form, the server casts what it is posted, the
+  same arrangement `inputs_for/1` documents for adding and removing rows.
 
-  `inputs_for/1` documents adding and removing rows as buttons that carry a
-  name and a value and dispatch a change: **the client edits the form, the
-  server casts what it is posted.** Reordering is not in those docs, but it
-  belongs to the same arrangement, and the `reorder-rows` hook implements it —
-  it swaps two rows' hidden `_sort` values (which is the order) and their
-  `position` values, then dispatches the change. Nothing here handles a move.
+  Handled as an event instead, the server would rewrite the form's params,
+  which is a second mechanism indexing the same list as `_drop` — and `_drop`
+  names a *slot*, so deleting one row and then moving another lands the delete
+  on whichever row moved into that slot. Ecto reconciles the two itself
+  (`cast_params/4` begins `sort -- drop`), and only when both arrive in one
+  cast from the form, unedited.
 
-  It was an event once, and the handler rewrote the form's params: reorder the
-  entries, renumber them, write the sort list back. That is a second mechanism
-  indexing the same list as `_drop`, which names a *slot* — so deleting the
-  second author and then moving the first one down landed the delete on the
-  row that had just moved into that slot. The author who was deleted came
-  back and the author who was kept was destroyed, silently, on save. Ecto
-  reconciles the two itself (`cast_params/4` begins `sort -- drop`), and it
-  can only do that when both arrive in one cast, from the form, unedited.
-
-  ## Why a row carries a position at all
-
-  `cast_assoc`'s `:sort_param` really does order the incoming params, but
-  order alone does not survive the round trip: `Ecto.Association.Has` has no
-  `:ordered` field (`Ecto.Embedded` does), so a reorder that changes no field
-  leaves every child changeset empty, `Relation.cast` returns `:ignore`, and
-  the association ends up with no change at all — buttons that visibly work
-  and save nothing.
-
-  So the order is carried by a real field. Each row renders a hidden
-  `position` holding its rendered index, and swapping two of them is what
-  makes the children genuinely differ; `Ambry.Ecto.Positions` renumbers them
-  0..n on the way to the database.
+  **Why a row carries a position at all.** `:sort_param` orders the incoming
+  params, but order alone does not survive the round trip: `Ecto.Association.Has`
+  has no `:ordered` field, so a reorder that changes no field leaves every
+  child changeset empty, `Relation.cast` returns `:ignore`, and the buttons
+  visibly work while saving nothing. So each row renders a hidden `position`
+  holding its rendered index, and `Ambry.Ecto.Positions` renumbers them on the
+  way to the database.
   """
 
   import Ecto.Changeset
@@ -46,16 +34,13 @@ defmodule AmbryWeb.Admin.Reordering do
   @doc """
   How many rows of an ordered list the form is actually rendering.
 
-  Not `length(get_assoc(changeset, assoc))`, which is the trap this exists to
-  close: a row removed with the ✕ is still *in* the association, marked for
-  replacement, and `inputs_for` skips it while a plain count does not. So the
-  form believed there was one more row than the operator could see — the last
-  visible row kept its "move down" arrow, pointing at a row that wasn't there,
-  and a single remaining row still wore arrows at all.
+  Not `length(get_assoc(changeset, assoc))`: a row removed with the ✕ is still
+  *in* the association, marked for replacement, and `inputs_for` skips it
+  while a plain count does not. The form would believe there is one more row
+  than the operator can see.
 
-  Every call site asks the same question ("how many rows are on screen") for
-  three purposes: whether to offer the arrows, what the last index is, and
-  whether to say the list is empty.
+  Three call sites ask it: whether to offer the arrows, what the last index
+  is, and whether the list is empty.
   """
   def row_count(%Ecto.Changeset{} = changeset, association) do
     changeset

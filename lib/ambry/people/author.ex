@@ -28,17 +28,9 @@ defmodule Ambry.People.Author do
   @doc """
   An author created by the credit that names them, with the human behind them.
 
-  One human is one `Person` holding identities, so a pen name invented on a
-  book form cannot be a bare `authors` row: it arrives with an
-  `authors_people` row and a person. The person is *named by the credit*
-  unless the form said otherwise, because the operator typed one name into
-  one box and being asked for it twice would be a question about our schema.
-
-  A person who differs from their pen name — Robert Galbraith, J.K. Rowling —
-  is said on the person's own card, which is where that question belongs.
-
-  More than one human can stand behind one pen name (James S.A. Corey), so
-  the list takes the sort and drop params every other editable list here does.
+  A pen name invented on a book form cannot be a bare `authors` row: it
+  arrives with an `authors_people` row and a person, named by the credit
+  unless the form said otherwise.
   """
   def credited_changeset(author, attrs) do
     attrs = Map.put_new_lazy(attrs, "author_people", fn -> [%{"person" => %{}}] end)

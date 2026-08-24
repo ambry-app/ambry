@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   alias Ambry.Library
   alias Ambry.Library.Root
   alias Ambry.Library.Source
+  alias AmbryWeb.Admin.Deletion
   alias Ecto.Changeset
 
   @impl Phoenix.LiveView
@@ -48,6 +49,24 @@ defmodule AmbryWeb.Admin.LocationLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    entity = socket.assigns.entity
+
+    result =
+      case socket.assigns.type do
+        :source -> Library.delete_source(entity)
+        :root -> Library.delete_root(entity)
+      end
+
+    case Deletion.outcome(result, entity.name, :detached) do
+      {:ok, message} ->
+        {:noreply, socket |> put_flash(:info, message) |> push_navigate(to: ~p"/admin/locations")}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"source" => params}, socket) do
     changeset =
       socket.assigns.entity

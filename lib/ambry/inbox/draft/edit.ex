@@ -2,15 +2,12 @@ defmodule Ambry.Inbox.Draft.Edit do
   @moduledoc """
   The operations the import form performs on a staged import.
 
-  Scalar *values* are ordinary form inputs — the form autosaves, so typing is
-  handled by casting params. Everything here is the other half: the choices
-  that aren't text, where the operator is picking between things rather than
-  writing one (which candidate, which identity, who's behind a credit).
+  Scalar *values* are ordinary form inputs, since the form autosaves.
+  Everything here is the other half: choices that are not text, where the
+  operator picks between things rather than writing one.
 
-  Doing those as explicit operations rather than as more form params keeps
-  each one a single named transition with the invariant intact afterwards,
-  instead of a hidden-input trick whose meaning has to be reconstructed from
-  the params on the way back in.
+  Explicit operations rather than more form params, so each is a named
+  transition with the invariant intact afterwards.
   """
 
   alias Ambry.Inbox.AutoMatch
@@ -32,10 +29,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Settles that these files replace an audiobook the library already has.
 
-  The answer that collapses the rest of the form: the audiobook keeps its
-  book, its credits, its chapters and its metadata, and this import is about
-  its files. Nothing else on the draft is touched, so changing the answer
-  back leaves every decision where the operator left it.
+  The answer that collapses the rest of the form: the audiobook keeps
+  everything but its files. Nothing else on the draft is touched, so changing
+  the answer back leaves every decision where the operator left it.
   """
   def replace_recording(draft, media_id) when is_integer(media_id) do
     update_in(
@@ -74,10 +70,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Settles that this release is an edition of a Book already in the library.
 
-  Nothing is created: the book's title, date and authors stay exactly as they
-  are, and only the *additive* proposals — a series it isn't in yet — remain
-  to decide. This is what stops a second recording of a work splitting the
-  library in two, which is why it's the first question the form asks.
+  Nothing is created: the book's title, date and authors stay as they are and
+  only the additive proposals remain to decide. This is what stops a second
+  recording of a work splitting the library in two.
   """
   def link_book(draft, %InboxItem{} = item, book_id) do
     draft
@@ -91,9 +86,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Settles that this is a book the library doesn't have yet.
 
-  Not a separate answer from "import this provider record" — importing a
-  record IS creating a book. This is the answer to "is it one you already
-  have", and it's no.
+  Not a separate answer from "import this provider record", which is the same
+  thing. This answers "is it one you already have", and it's no.
   """
   def new_book(draft, %InboxItem{} = item) do
     draft
@@ -107,10 +101,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Adds or removes a provider record from those describing this import.
 
-  Records are evidence, not identities: Hardcover and rreading-glasses both
-  having a record of one book is the normal case, and each knows things the
-  other doesn't. Ticking both is how the description comes from one and the
-  cover from the other.
+  Records are evidence, not identities: two providers both holding a record
+  of one book is the normal case, and ticking both is how the description
+  comes from one and the cover from the other.
   """
   def toggle_source(draft, %InboxItem{} = item, level, record) do
     draft
@@ -131,19 +124,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Adds or removes a person record from those describing this human.
 
-  The same rule as `toggle_source/4`, at the third level: the exact-name gate
-  decides the initial ticks, and from there the checkbox does. The photo and
-  bio pools re-derive from the ticked set — with anything the operator chose
-  or typed surviving, as always — which is also how a differently-spelled
-  record of the right human gets to contribute a face the gate couldn't
-  auto-admit.
+  The same rule as `toggle_source/4`, one level down: the exact-name gate
+  decides the initial ticks and the checkbox decides from there.
 
-  **Touching the evidence answers the level**, exactly as it does for a
-  recording. A person the matcher doubted (it found humans of roughly that
-  name and believed none of them) is seeded unapproved, and until this the
-  only thing in the whole form that could approve one was linking them to
-  somebody already in the library — so 96 of the operator's 344 queued items
-  held a person no control could settle.
+  Touching the evidence answers the level, as it does for a recording.
   """
   def toggle_person_source(draft, %InboxItem{} = item, key, record) do
     matched = get_in(item.matches, ["people", key])
@@ -174,12 +158,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Settles a person as one no database has a record of.
 
-  The person level's "None of these", and it needed one for the same reason
-  the other two levels do: a doubted level stays outstanding until somebody
-  says otherwise. The difference is only in what it costs — a human nobody
-  has a record of is *still perfectly importable*, since a name is all a
-  Person needs, so this settles the level and leaves them with no photo and
-  no biography rather than blocking anything.
+  The person level's "None of these". A human nobody has a record of is still
+  importable, since a name is all a Person needs, so this settles the level
+  rather than blocking anything.
   """
   def uncatalogued_person(draft, %InboxItem{} = item, key) do
     matched = get_in(item.matches, ["people", key])
@@ -203,20 +184,13 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Settles a level as one no catalogue lists, described by the file alone.
 
-  A real answer rather than a failure: a delisted edition disappears from
-  Audible's search *and* from direct ASIN lookup, so plenty of perfectly good
-  rips are in no storefront at all.
+  A real answer rather than a failure: a delisted edition disappears from a
+  storefront's search *and* its ASIN lookup.
 
-  **Both levels need it, and only the recording had it.** A doubted work
-  leaves "Provider records" outstanding until a record is ticked, and
-  answering the *identity* question ("no, a new book") doesn't touch it — so
-  an operator who believed none of the records had one way out: tick one they
-  didn't believe. Measured on the operator's own queue, 22 of the pending
-  items were in exactly that state.
-
-  The recording's `approved` is set because at that level it means "the
-  evidence question is answered"; the work's means "is this a book you
-  already have", which is a different question this must not answer.
+  Both levels need it, or the only way out of a doubted level is ticking a
+  record you do not believe. The recording's `approved` is set, because there
+  it means "the evidence question is answered"; the work's means "is this a
+  book you already have", which this must not answer.
   """
   def uncatalogued(draft, item, level \\ :recording)
 
@@ -248,23 +222,18 @@ defmodule Ambry.Inbox.Draft.Edit do
   defp settle(decision, :recording),
     do: %{decision | approved: true, doubt: :none, doubt_detail: nil}
 
-  # The work level was given doubt after the recording level already had it,
-  # and this half was missed: ticking a record left `doubt: :low_confidence`
-  # standing, so "Which records describe this book" stayed outstanding
-  # forever and **a doubted work could never be settled at all** — there was
-  # no control on the page that cleared it. Found by importing the operator's
-  # own Chambers and Harry Potter files end to end.
+  # Ticking a record has to clear the work's doubt, or the level stays
+  # outstanding with no control on the page that settles it.
   #
   # `approved` is deliberately NOT touched here, unlike the recording's: at
-  # this level it answers "is this a book you already have", which is a
-  # different question that ticking a provider record does not answer.
+  # this level it answers "is this a book you already have", which ticking a
+  # provider record does not answer.
   defp settle(%Work{sources: []} = decision, :work), do: decision
 
   defp settle(decision, :work), do: %{decision | doubt: :none, doubt_detail: nil}
 
-  # A recording is a recording of exactly one work, so an edition record that
-  # came out of a work's own list carries that work with it — ticking the
-  # edition ticks the work rather than asking the same question twice.
+  # A recording is a recording of exactly one work, so an edition record from
+  # a work's own list ticks that work too.
   defp follow_work(draft, item, :recording, %{"of_work" => %{"source" => source, "id" => id}})
        when is_binary(source) do
     record = Enum.find(records(item, "work"), &(AutoMatch.ref(&1) == {source, to_string(id)}))
@@ -287,9 +256,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Re-derives every field from the currently ticked records.
 
-  Called after new evidence arrives — a hydrated record, fresh search results
-  — because a record that was a summary when it was ticked may now have a
-  description and a cover to offer.
+  Called after new evidence arrives, because a record that was a summary when
+  it was ticked may now have a description and a cover to offer.
   """
   def resettle(draft, item), do: reseed(draft, item, :both)
 
@@ -302,9 +270,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   # Fields are derived from whichever records are ticked, so every change to
   # the ticked set re-derives them. Typed values and curated credits survive.
   #
-  # Ticking a *recording* record leaves the work alone unless the record said
-  # which work it belongs to — otherwise choosing an edition rebuilt the
-  # authors the operator had just finished curating.
+  # Ticking a recording record leaves the work alone unless the record said
+  # which work it belongs to, or choosing an edition rebuilds the authors.
   defp reseed(draft, item, level) do
     work =
       if level in [:work, :both],
@@ -347,13 +314,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Renames the identity a credit will create.
 
-  A provider's spelling is a proposal like any other, and there was no way to
-  overrule it — so "David Wong" could only ever be imported as a person called
-  David Wong, when the human is Jason Pargin.
-
-  The default person's name follows along while it is still tracking the
-  credit, which is what makes that case two edits instead of a special mode:
-  rename the credit, reveal the pen name, rename the person.
+  A provider's spelling is a proposal like any other. The default person's
+  name follows along while it is still tracking the credit, which makes the
+  pen-name case two edits rather than a special mode.
   """
   def rename_credit(draft, section, index, name) do
     was = Enum.at(credits_in(draft, section), index)
@@ -364,23 +327,19 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   # Renaming something to what it is already called is not an edit, and must
-  # not spend the credit's `curated` flag saying it was. Cheap insurance
-  # rather than the fix for anything: a form that echoes a value back is
-  # asserting nothing, whatever made it echo.
+  # not spend the credit's `curated` flag saying it was.
   defp do_rename_credit(draft, section, index, name, was) do
     draft
     |> update_credit(section, index, fn credit ->
       # Clearing the box un-confirms: a credit cannot stay settled with
-      # nothing to create. Any other rename keeps the confirmation, so fixing
-      # a typo doesn't cost a second click.
+      # nothing to create. Any other rename keeps the confirmation.
       %{
         credit
         | name: name,
           curated: true,
           approved: credit.approved and not blank?(name),
-          # An added row starts with nobody behind it; the first real name
-          # mints its person. Once minted, keys are stored, never re-derived
-          # — later renames follow via `follow_credit_name/3`.
+          # An added row starts with nobody behind it and the first real
+          # name mints its person. Keys are then stored, never re-derived.
           person_keys: mint_keys(credit, name)
       }
     end)
@@ -392,13 +351,10 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   defp mint_keys(credit, _name), do: credit.person_keys
 
-  # A person still called what the credit called them is still tracking it, so
-  # they follow the rename. One whose name is their own is left alone — which
-  # is what makes the pen-name case two ordinary edits rather than a special
-  # mode: rename the credit, say it's a pen name, rename the person. The
-  # `own_name` flag is checked as well as the names, because the two agree for
-  # exactly as long as it takes to type the real one, and fixing the credit's
-  # spelling in that window must not drag the human's name along.
+  # A person still called what the credit called them follows the rename; one
+  # whose name is their own is left alone. The `own_name` flag is checked as
+  # well as the names, because the two agree for as long as it takes to type
+  # the real one.
   defp follow_credit_name(draft, nil, _name), do: draft
 
   defp follow_credit_name(draft, %Credit{} = was, name) do
@@ -412,10 +368,9 @@ defmodule Ambry.Inbox.Draft.Edit do
     end)
   end
 
-  # A cleared box is a blank in both places — nil in the person's field, ""
-  # in the credit — and a bare == between them broke tracking exactly at the
-  # clear-to-retype moment, leaving the person nameless while the credit got
-  # its new name.
+  # A cleared box is nil in the person's field and "" in the credit, and a
+  # bare == between them breaks tracking exactly at the clear-to-retype
+  # moment.
   defp tracking?(person_name, credit_name), do: presence(person_name) == presence(credit_name)
 
   defp blank?(nil), do: true
@@ -435,9 +390,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Puts the evidence's spelling back in a renamed credit.
 
-  The way back the scalar fields have always had through their chips — a
-  cleared or mistyped name is recoverable by click, not by remembering what
-  the provider said.
+  The way back the scalar fields have through their chips.
   """
   def reset_credit_name(draft, section, index) do
     case Enum.at(credits_in(draft, section), index) do
@@ -462,16 +415,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Says that the credited name is not the person's name.
 
-  A credit and a human are two different questions and the form used to ask
-  them in one control: the credited name doubled as the person's name, so
-  "David Wong" could only ever be imported as a person called David Wong when
-  the human is Jason Pargin. Separating them gives the person a name of their
-  own — which is what puts a name box on their card, the thing this control
-  does that can be seen — and un-approves it, because it is now a decision
-  nobody has answered.
-
-  Marking the credit curated is what stops a background re-match folding the
-  two back together.
+  Separating them gives the person a name of their own, which puts a name box
+  on their card, and un-approves it. Marking the credit curated stops a
+  background re-match folding the two back together.
   """
   def separate_person_name(draft, section, index) do
     draft
@@ -494,10 +440,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Takes it back: the credited name is this human's name after all.
 
-  Every way in needs a way out, and a name box the operator can only ever
-  *reveal* is the fold that could never be folded again in a different
-  costume. Putting the credited name back is the whole of it — the box goes,
-  and the name resumes following the credit.
+  Putting the credited name back is the whole of it: the box goes, and the
+  name resumes following the credit.
   """
   def use_credited_name(draft, key) do
     name = crediting_name(draft, key)
@@ -512,9 +456,8 @@ defmodule Ambry.Inbox.Draft.Edit do
     end)
   end
 
-  # What the credit that introduces this human calls them. The credits are the
-  # only thing that knows: a key is a normalised string, minted once and then
-  # left alone through every later rename.
+  # What the credit that introduces this human calls them. The credits are
+  # the only thing that knows, since a key is minted once and then left alone.
   defp crediting_name(draft, key) do
     Enum.find_value(credits_in(draft, :work) ++ credits_in(draft, :recording), fn credit ->
       if not credit.removed and key in credit.person_keys, do: credit.name
@@ -529,11 +472,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Adds another human behind a credit.
 
-  Two or more is a shared pen name — the whole of the composite-author case,
-  expressed as a longer list rather than a different mode. The new person gets
-  a key of their own straight away, because an unnamed human is still a
-  distinct human and keying them by their (blank) name would merge every
-  unnamed row into one.
+  Two or more is a shared pen name, expressed as a longer list rather than a
+  different mode. The new person gets a key of their own straight away, since
+  keying an unnamed human by their blank name would merge every unnamed row
+  into one.
   """
   def add_person(draft, %InboxItem{} = item, section, index) do
     key = PersonDecision.split_key("person", keys(draft))
@@ -556,9 +498,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Points a credit's person at somebody already in the library.
 
-  The whole reference moves, not a name on it: linking means the library's own
-  Person, with the name, photo and biography they already have, and an import
-  may never overwrite that curation.
+  The whole reference moves, not a name on it: linking means the library's
+  own Person, whose curation an import may never overwrite.
   """
   def link_person(draft, key, person_id) do
     update_person(draft, key, fn person ->
@@ -578,9 +519,8 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Renames the person this import will create.
 
-  A provider's spelling is a proposal like any other, and there was no way to
-  overrule it — so "David Wong" could only ever be imported as a person called
-  David Wong, when the human is Jason Pargin.
+  A provider's spelling is a proposal like any other, and a pen name would
+  otherwise only ever be importable as a person of that name.
   """
   def rename_person(draft, key, name) do
     update_person(draft, key, fn person ->
@@ -591,14 +531,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Gives a person a photo, or a bio, from the picker.
 
-  Recorded with the provider that supplied it, so approval writes 1d
-  provenance for the created Person by construction — the same way every
-  other decision in the draft does.
-
-  **No mirroring.** A person behind two credits used to be two records kept in
-  step by hand, and every operation here had to remember to walk the other
-  places the same human appeared. One human is one record now, so setting
-  their photo is setting their photo.
+  Recorded with the provider that supplied it, so approval writes the created
+  Person's provenance by construction. One human is one record, so there is
+  nothing to mirror.
   """
   def choose_person_image(draft, key, candidate_key),
     do: update_person_field(draft, key, :image, &Field.choose(&1, candidate_key))
@@ -609,11 +544,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Types a bio directly, as the operator's own words.
 
-  A person's description is a description like any other — the one on the
-  recording has been an editable text box since the form existed, and there
-  is no reason a provider's blurb about a human should be the one piece of
-  prose in this form you can only take or leave. Recorded as `manual`, which
-  is what stops a later refresh overwriting the edit.
+  A person's description is a description like any other, so it gets the same
+  editable box a recording's has. Recorded as `manual`, which is what stops a
+  later refresh overwriting the edit.
   """
   def edit_person_bio(draft, key, description),
     do: update_person_field(draft, key, :description, &Field.edit(&1, description))
@@ -633,15 +566,11 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Says that the identically-named person on another credit is somebody else.
 
-  The default is that they are the same human, because an author reading their
-  own book is the ordinary reason one name turns up on two credits and two
-  humans of one name on a single audiobook is not.
+  The default is that they are the same human, because an author reading
+  their own book is the ordinary reason one name turns up on two credits.
 
-  Splitting mints a **new key** rather than setting a flag. The old `distinct`
-  boolean could not express the case it was for: two rows both marked distinct
-  were told apart only by where they sat, so grouping had to happen where the
-  positions were known and a key computed from the struct silently merged them
-  straight back together. Two people is two keys.
+  Splitting mints a **new key** rather than setting a flag: two rows both
+  marked distinct would be told apart only by where they sat.
   """
   def split_person(draft, %InboxItem{} = item, section, index, person_index) do
     case at(draft, section, index, person_index) do
@@ -696,17 +625,13 @@ defmodule Ambry.Inbox.Draft.Edit do
   Drops a proposed credit — the source suggested somebody this recording
   isn't actually by.
 
-  A tombstone, not a deletion. Deleting the row left nothing curated behind,
-  so `Seed.keep_curated/2` re-appended the same proposal on the next reseed —
-  removal was the one edit that didn't stick — and it was also the one edit
-  with no way back. The reseed drops the people only this credit referenced,
-  which used to be skipped outright: the orphaned `PersonDecision` stayed in
-  `draft.people`, where `unresolved/1` counted it as a decision the operator
-  could neither see nor settle.
+  A tombstone, not a deletion: deleted outright, `Seed.keep_curated/2`
+  re-appends the same proposal on the next reseed. The reseed also drops the
+  people only this credit referenced, or an orphaned `PersonDecision` sits in
+  `draft.people` unable to be seen or settled.
 
-  A row the operator added themselves really is deleted: no evidence proposed
-  it, so there is nothing for a reseed to resurrect and nothing a ghost would
-  be holding for them.
+  A row the operator added themselves really is deleted, since no evidence
+  proposed it.
   """
   def remove_credit(draft, %InboxItem{} = item, section, index) do
     case Enum.at(credits_in(draft, section), index) do
@@ -734,9 +659,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Adds a credit the sources didn't propose.
 
-  The row starts blank and unconfirmed — the operator is about to type the
-  name — and curated from birth, so no reseed sweeps it away. Its person is
-  minted by the first real name (see `rename_credit/4`).
+  The row starts blank and unconfirmed, and curated from birth so no reseed
+  sweeps it away. Its person is minted by the first real name (see
+  `rename_credit/4`).
   """
   def add_credit(draft, section) do
     credit = %Credit{
@@ -756,11 +681,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   ## ordering
 
   @doc """
-  Moves a credit one slot up or down. List order is billing order — the
-  importer writes `position` from it — so an order the operator chose is an
-  answer, and both moved rows are marked curated to survive reseeds
-  (`Seed.keep_curated/2` rebuilds *uncurated* rows in derivation order,
-  which would quietly undo the move).
+  Moves a credit one slot up or down. List order is billing order, so an
+  order the operator chose is an answer and both moved rows are marked
+  curated: `Seed.keep_curated/2` rebuilds uncurated rows in derivation order
+  and would undo the move.
   """
   def move_credit(draft, section, index, direction) do
     update_credits(draft, section, &swap(&1, index, direction))
@@ -798,8 +722,8 @@ defmodule Ambry.Inbox.Draft.Edit do
 
   @doc """
   Brings the draft's people into line with the credits, for callers outside
-  this module — the form calls it after name edits, because a person named
-  for the first time needs their decision minted before approval can read it.
+  this module: a person named for the first time needs their decision minted
+  before approval can read it.
   """
   def sync_people(draft, %InboxItem{} = item), do: Seed.reseed_people(draft, item)
 
@@ -822,8 +746,7 @@ defmodule Ambry.Inbox.Draft.Edit do
   end
 
   # The same tombstone as `remove_credit/4`; a series references no people,
-  # so there is nothing to reconcile. Operator-added rows really delete,
-  # same as credits — no evidence proposed them.
+  # so there is nothing to reconcile. Operator-added rows really delete.
   def remove_series(draft, index) do
     case Enum.at(draft.work.series, index) do
       %SeriesLink{source: "manual"} ->
@@ -843,13 +766,10 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Replaces the chapter list with an applied titles merge.
 
-  `marker_source` is nil for every UI path — a titles merge changed no
-  marker, and claiming otherwise would put a provider's name on a timeline
-  it never touched; the parameter exists for callers staging a timeline
-  that isn't the probe's (tests, a future re-extraction). Rows arrive
-  already merged, as structs or plain maps — normalized here so the embed
-  always holds its own struct. Curated: an applied merge is a deliberate
-  operator answer and must survive reseeds.
+  `marker_source` is nil for every UI path, since a titles merge changes no
+  marker; the parameter is for callers staging a timeline that is not the
+  probe's. Rows arrive already merged and are normalized here. Curated, so an
+  applied merge survives reseeds.
   """
   def set_chapters(draft, rows, marker_source \\ nil) do
     rows = Enum.map(rows, &struct(Chapter, Map.take(&1, [:time, :title, :title_source])))
@@ -929,9 +849,8 @@ defmodule Ambry.Inbox.Draft.Edit do
     end
   end
 
-  # The same tombstone-vs-delete split as `remove_series/2`: an operator-added
-  # link really deletes (no evidence proposed it, nothing can resurrect it),
-  # a proposal tombstones so the removal survives reseeds and stays reversible.
+  # The same tombstone-vs-delete split as `remove_series/2`: an
+  # operator-added link really deletes, a proposal tombstones.
   def remove_group(draft) do
     case draft.recording.recording_group do
       nil -> draft
@@ -949,11 +868,9 @@ defmodule Ambry.Inbox.Draft.Edit do
   @doc """
   Approves the machine's ticks exactly as they are — "yes, you were right."
 
-  Ticking a record settles a level, but a level the seeder already ticked had
-  no one-click way to be human-confirmed: clicking the ticked record unticks
-  it, so confirming took an untick and a re-tick, churning a reseed each way.
-  This is the missing single click. It changes no sources — it only records
-  that a human looked.
+  Ticking a record settles a level, but clicking an already-ticked one unticks
+  it, so a level the seeder settled needs its own way to be confirmed. Changes
+  no sources: it only records that a human looked.
   """
   def approve_work(draft, approved?), do: update_in(draft.work.approved, fn _ -> approved? end)
 

@@ -4,58 +4,39 @@ defmodule Ambry.Inbox.Preflight do
 
   Every `:create` in a draft is a promise to add a row, and a draft is a
   snapshot of the library taken when the item was matched. Between the
-  snapshot and the button the library moves: a sibling item is imported, a
-  book is added by hand, another edition of the same audiobook lands in the
-  queue. `Seed.relink/2` closes most of that gap by re-pointing a draft at
-  rows that exist now, but it only fires after a sibling import, only on
-  uncurated decisions, and only where exactly one certain match exists. Every
-  case it declines is a duplicate nobody sees until the library has two of
-  something.
+  snapshot and the button the library moves. `Seed.relink/2` closes most of
+  that gap, but it only fires after a sibling import, only on uncurated
+  decisions, and only where exactly one certain match exists.
 
   So this is the check at the door: read the draft, ask the library about
   every name it means to create, and hand back what it found. It runs on the
-  click, before the job is enqueued, and costs a handful of indexed lookups
-  and one small table scan.
+  click, before the job is enqueued.
 
-  ## It reports, it does not decide
-
-  Nothing here links, merges, edits a draft or refuses an import. A name in
-  common is evidence, and the judgement it feeds — same book, or two books
-  that share a title — is the operator's, exactly as it is everywhere else on
-  this form. Attaching a recording to the wrong existing book is worse than
-  one duplicate Book and much harder to notice, which is why `Draft.Seed`
-  won't automate it either.
+  It reports and does not decide. A name in common is evidence, and the
+  judgement it feeds — same book, or two books that share a title — is the
+  operator's, because attaching a recording to the wrong existing book is
+  worse than one duplicate Book and much harder to notice.
 
   ## Identity, not similarity
 
   Names fold through `AutoMatch.person_key/1` and titles through
   `AutoMatch.title_key/1`, so punctuation, spacing, capitalisation, accents
-  and leading articles don't make a different record: "James S. A. Corey"
-  finds "James S.A. Corey", "Rodriguez" finds "Rodríguez", "Truly, Devious"
-  finds "Truly Devious". Nothing looser is asked, because a fuzzy match here
-  would ask the operator to dismiss noise on every import, and a question
-  worth ignoring is a question that gets ignored.
+  and leading articles don't make a different record. Nothing looser is asked:
+  a fuzzy match here would ask the operator to dismiss noise on every import,
+  and a question worth ignoring is a question that gets ignored.
 
   A book match carries whether it also shares an author. Both are worth
-  showing (a title-key twin under a different author spelling is exactly the
-  duplicate this exists to catch), but only one of them is near-certain, and
-  the form ranks them accordingly rather than hiding either.
+  showing, but only one is near-certain, and the form ranks them accordingly.
 
-  ## The book lookup deliberately avoids the search index
+  The book lookup deliberately avoids the search index: `Books.match_books/2`
+  reads `search_index`, which `Ambry.Search.Listener` fills asynchronously
+  after the writing transaction commits, so a check could silently miss a book
+  created moments ago. This reads `books` directly and folds titles in Elixir,
+  where the rule is `title_key/1` itself rather than a SQL restatement of it.
 
-  `Books.match_books/2` reads `search_index`, which `Ambry.Search.Listener`
-  fills asynchronously after the writing transaction commits. Measured on the
-  operator's dev server: a commit is reflected in the index about 9ms later.
-  A check that silently can't see a book created moments ago is worse than no
-  check, so this reads `books` directly and folds titles in Elixir, where the
-  rule is `title_key/1` itself rather than a SQL restatement of it that can
-  drift from it.
-
-  ## One of these is not a duplicate but a failure
-
-  A `:create` set whose name is already taken on the same book violates
-  `recording_groups (book_id, name)` and fails the import outright, with a
-  changeset error nobody asked for. Reporting it here turns a crash into a
+  One of these is not a duplicate but a failure: a `:create` set whose name is
+  already taken on the same book violates `recording_groups (book_id, name)`
+  and fails the import outright. Reporting it here turns a crash into a
   question.
   """
 
@@ -85,8 +66,7 @@ defmodule Ambry.Inbox.Preflight do
   that name.
 
   `certain?` is about the strength of the match, never about what to do with
-  it: a book sharing a title and an author is as sure as this gets, and a
-  book sharing only the title is worth a look.
+  it.
   """
   @type finding :: %{
           kind: :book | :series | :author | :narrator | :person | :set,
@@ -104,9 +84,8 @@ defmodule Ambry.Inbox.Preflight do
   @doc """
   Everything this item would create that the library may already have.
 
-  Ordered — book, series, authors, set, narrators, people — because the list
-  is compared for equality when the operator says to go ahead anyway, and
-  "the same collisions I was shown" has to mean the same thing twice.
+  Ordered book, series, authors, set, narrators, people, because the list is
+  compared for equality when the operator says to go ahead anyway.
   """
   @spec check(struct() | nil) :: [finding()]
   def check(nil), do: []
@@ -197,9 +176,8 @@ defmodule Ambry.Inbox.Preflight do
   defp series(_absent), do: []
 
   # Compared by `same_series?/2` over the whole table rather than by a key in
-  # SQL, the same way `Seed` matches them: filler words are what put one
-  # batch's Bill Hodges books under both "Bill Hodges" and "Bill Hodges
-  # Trilogy".
+  # SQL, the same way `Seed` matches them: filler words are what split one
+  # shelf across "X" and "X Trilogy".
   defp series_named(%SeriesLink{name: name}) do
     Series
     |> order_by(:id)
@@ -255,8 +233,8 @@ defmodule Ambry.Inbox.Preflight do
   end
 
   # A pen name says who is behind it, because that is the whole question an
-  # identity collision asks: "Sarah J. Maas" twice is a duplicate, while a
-  # second identity backed by somebody else is two authors of one name.
+  # identity collision asks: one human twice is a duplicate, while a second
+  # identity backed by somebody else is two authors of one name.
   defp behind(name, []), do: name
   defp behind(name, people), do: "#{name} (#{Enum.map_join(people, " and ", & &1.name)})"
 

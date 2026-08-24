@@ -49,6 +49,18 @@
 
       <.form_footer>
         <.button>Save</.button>
+
+        <:danger :if={@live_action in [:edit_source, :edit_root]}>
+          <.button
+            type="button"
+            color={:red}
+            phx-click="delete"
+            data-confirm={"Remove #{@entity.name}? Files on disk are left alone."}
+            data-role={(@type == :source && "delete-source") || "delete-root"}
+          >
+            Remove
+          </.button>
+        </:danger>
       </.form_footer>
     </.simple_form>
   </div>

@@ -2,31 +2,24 @@ defmodule Ambry.Library.ImportPreference do
   @moduledoc """
   What the last import from one source into one root did.
 
-  ## Why this is a memory and not a setting
-
-  Which of `hardlink | symlink | copy | move` an import uses is a property
-  of the **pairing**, not of either end. A hardlink is only possible when
-  the two paths share a filesystem, so the same downloads folder feeding two
-  roots on two NAS boxes genuinely wants two different answers — which a
-  policy stored on the source cannot express, and which the operator would
-  have to correct by hand on every import into the second root.
+  **A memory, not a setting.** Which of `hardlink | symlink | copy | move` an
+  import uses is a property of the **pairing**: a hardlink is only possible
+  where the two paths share a filesystem, so one downloads folder feeding two
+  roots on two volumes genuinely wants two answers, which a policy stored on
+  the source cannot express.
 
   It is also not stable enough to be configuration. The choice is a real
-  per-import decision — normally hardlink from downloads, but this one
-  release isn't seeding and the folder should be left clean — and a settings
-  field that is overridden half the time is not a setting, it is a default
-  wearing configuration's costume.
+  per-import decision, and a settings field overridden half the time is a
+  default wearing configuration's costume.
 
-  So nothing is configured. The pairing remembers what it last did, and the
-  next import proposes that. `last_used_at` doubles as the *root* default:
-  the root a source most recently imported into is the one it proposes next.
+  So nothing is configured: the pairing remembers what it last did and the
+  next import proposes that. `last_used_at` doubles as the *root* default.
 
-  ## What a memory is not allowed to do
+  **A memory only proposes.** A remembered `:hardlink` for a pairing that has
+  since moved to another filesystem is still refused at placement, because a
+  memory is evidence about what the operator wanted and never a claim about
+  what the disk can do.
 
-  Only propose. A remembered `:hardlink` for a pairing that has since moved
-  to another filesystem is still refused at the point of placement — see
-  `Ambry.Library.Placement` — because a memory is evidence about what the
-  operator wanted, never a claim about what the disk can do.
   """
 
   use Ecto.Schema

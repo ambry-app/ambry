@@ -2,46 +2,22 @@ defmodule Ambry.Inbox.Importer do
   @moduledoc """
   Turns a fully-resolved staged import into real library records.
 
-  Import is the only thing that creates records — discovery, matching and
-  the form only ever propose. It covers the whole entity graph in one
+  Import is the only thing that creates records — discovery, matching and the
+  form only ever propose. It covers the whole entity graph in one
   transaction: book, authors, narrators, series, the recording and its
-  direct-play tracks. Either all of it lands or none of it does, so a
-  half-imported item can't exist.
+  direct-play tracks, so a half-imported item can't exist.
 
-  ## It executes a draft; it does not decide anything
+  It executes a draft and decides nothing: it refuses unless
+  `Draft.resolved?/1` and then does exactly what the draft says. There are no
+  fallbacks, since inventing a series number is the confidently-wrong data
+  the inbox exists to prevent.
 
-  Every choice was made in `Ambry.Inbox.Draft` and settled by the operator (or
-  by a seeding rule confident enough to settle it). This module refuses
-  outright unless `Draft.resolved?/1`, then does exactly what the draft says.
-  That is the point of the whole design: the form cannot offer a button that
-  fails here, because everything that could fail was a visible decision
-  before the button was pressed.
+  Placement puts the files into a library root under the naming template, by
+  the policy the draft settled, and refuses where a hardlink would cross a
+  filesystem rather than silently copying.
 
-  Consequently there are no fallbacks here. If the draft doesn't say what the
-  title is, that is a bug in the form's gating, not something to paper over
-  with a guess — and inventing a series number or a publication date is
-  exactly the confidently-wrong data the inbox exists to prevent.
-
-  ## Placement
-
-  Every import places its files into a library root under the naming
-  template, by the policy the draft settled — hardlink, symlink, copy or
-  move. The original is untouched by construction for the first three and
-  deliberately gone for the last; there is no import that leaves the
-  library referencing a path outside a root.
-
-  A hardlink cannot cross a filesystem, and here the downloads folder and the
-  library can easily be on different NAS boxes. Import **refuses** in that
-  case rather than falling back to a copy: a silent copy is the storage
-  doubling this whole phase exists to eliminate.
-
-  ## Provenance
-
-  Every scalar the draft settled knows which source settled it, so
-  `field_provenance` is written by construction — a provider-accepted value
-  records that provider and stays unlocked so refresh can update it later, an
-  operator's typed value records `manual` and locks. This is what closes 1d's
-  loop for the inbox without a separate hint-collection layer.
+  Provenance is written by construction: a provider value records that
+  provider and stays unlocked, a typed value records `manual` and locks.
   """
 
   alias Ambry.Books
@@ -86,28 +62,24 @@ defmodule Ambry.Inbox.Importer do
   def import_item(%InboxItem{} = item) do
     item = Repo.preload(item, :source)
 
-    # Facts about the files come first, then the draft, then placement. The
-    # order is the order the operator can act on them: a vanished file is not
-    # something any amount of curation fixes, so reporting an unresolved
-    # decision on one would send them to the form to fix something the form
-    # can't fix.
+    # Files, then the draft, then placement: no amount of curation fixes a
+    # vanished file, so reporting a decision on one sends them to the form
+    # for nothing.
     with {:ok, files} <- audio_files(item),
          known = Preflight.check(item),
          {:ok, probes} <- probe_all(files),
          :ok <- resolved(item),
          {:ok, destination} <- destination(item),
          {:ok, outcome} <- create(item, files, probes, destination, known) do
-      # Only now, with the records committed, is anything destroyed: a moved
-      # file's source, the names a replacement moved aside, and the files the
-      # recording it replaced was served from.
+      # Only now, with the records committed, is anything destroyed.
       finish(outcome, item)
       {:ok, outcome.media}
     end
   end
 
   # Everything that had to wait for the commit. None of it may fail the
-  # import — the library holds the recording, and a job reported as failed is
-  # a lie the operator acts on — so each part says so where it happens.
+  # import: the library holds the recording, and a job reported as failed is
+  # a lie the operator acts on.
   defp finish(outcome, item) do
     log_finalize(Placement.finalize(outcome.placements), item)
     Placement.discard(outcome.vacated)
@@ -116,18 +88,9 @@ defmodule Ambry.Inbox.Importer do
     :ok
   end
 
-  # The other end of the watch: the operator said they were waiting for this
-  # recording, and now it is in the library. Turning the nag off is the whole
-  # point -- a reminder the operator has to remember to dismiss is a reminder
-  # that outlived its usefulness.
-  #
-  # Keyed on the provider records the *draft* adopted, not on everything the
-  # matcher proposed: a candidate that was offered and passed over is no
-  # evidence that this file is that recording.
-  #
-  # Like everything else in `finish/2` it may not fail the import. The
-  # recording is already in the library, and a job reported as failed is a lie
-  # the operator acts on.
+  # The other end of the watch, keyed on the records the *draft* adopted and
+  # not everything the matcher proposed: a candidate passed over is no
+  # evidence. Like everything in `finish/2` it may not fail the import.
   defp settle_watches(%InboxItem{} = item, %Media.Media{} = media) do
     case adopted_refs(item) do
       [] ->
@@ -155,9 +118,9 @@ defmodule Ambry.Inbox.Importer do
   defp retire(%{retired: nil}), do: :ok
 
   defp retire(%{retired: retired, placements: placements}) do
-    # A retired name that placement just wrote to is the *new* file wearing
-    # the old name, which is exactly what a like-for-like replacement
-    # produces. Deleting it would undo the import that just succeeded.
+    # A retired name that placement just wrote to is the new file wearing it,
+    # which a like-for-like replacement produces; deleting it would undo the
+    # import that just succeeded.
     placed = Enum.map(placements, & &1.destination)
 
     {:ok, _job} =
@@ -170,13 +133,10 @@ defmodule Ambry.Inbox.Importer do
     :ok
   end
 
-  # Import is claimed under a row lock before anything is created or any
-  # byte moves. The status check at the door reads the *caller's* copy of
-  # the item, so two concurrent imports both walked through it — measured
-  # live: the loser's transaction rolled back AFTER its 834MB copy had
-  # landed, and the orphan then refused the item forever with a message
-  # blaming a phantom second recording. Under the lock the second import
-  # waits, sees the committed status, and refuses cleanly.
+  # Claimed under a row lock before anything is created or any byte moves.
+  # The status check at the door reads the *caller's* copy, so without the
+  # lock two concurrent imports both walk through it and the loser rolls back
+  # after its copy has landed.
   defp claim(%InboxItem{id: id}) do
     import Ecto.Query, only: [from: 2]
 
@@ -196,27 +156,17 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # **The pre-flight again, against the library as it is at the write.**
+  # **The pre-flight again, against the library as it is at the write.** The
+  # click's pre-flight is a minute or more old by here, and a sibling that
+  # committed inside that window created what this is about to create again.
   #
-  # `Preflight` runs on the button, and then this import keeps going for as
-  # long as it takes to re-probe every file and copy every byte — measured on
-  # production, forty to eighty seconds, with three more imports running
-  # beside it. A sibling that committed inside that window created exactly
-  # what this one is about to create again, and nothing between the click and
-  # here would have noticed.
+  # Refuses only on **new** findings: what the operator accepted at the button
+  # is in both lists, and a relink sweep can only remove entries.
   #
-  # It refuses only on findings that are **new**. The ones the operator read
-  # and accepted at the button are in both lists; a relink sweep that turned
-  # one of this draft's creates into a link while this ran can only remove
-  # them.
-  #
-  # **It is not a guarantee, and cannot be made one here.** At READ COMMITTED
-  # a peer's uncommitted rows are invisible, so two imports whose commits
-  # interleave will not see each other however carefully either one looks.
-  # This closes the minute; only serializing the identity would close the
-  # millisecond, and that would serialize the file copies of every import
-  # that shares an author. `Ambry.Inbox.Duplicates` is what says whether the
-  # remainder ever happens.
+  # **Not a guarantee.** At READ COMMITTED a peer's uncommitted rows are
+  # invisible, so interleaved commits cannot see each other. This closes the
+  # minute; closing the millisecond would mean serializing the file copies of
+  # every import sharing an author. `Ambry.Inbox.Duplicates` reports the rest.
   defp no_new_collisions(%InboxItem{} = item, known) do
     case Preflight.check(item) -- known do
       [] -> :ok
@@ -224,10 +174,9 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # The one branch in the whole module, and it is the smallest one there is:
-  # a replacement repoints an existing recording where an ordinary import
-  # creates one. Everything either side of that — the claim, the item link,
-  # placement, the finish — is the same code, because it is the same import.
+  # The one branch in the module: a replacement repoints an existing recording
+  # where an ordinary import creates one. Everything either side is the same
+  # code, because it is the same import.
   defp create(%InboxItem{draft: draft} = item, files, probes, destination, known) do
     if Replacement.replacing?(draft.replacement) do
       replace(item, files, probes, destination, draft.replacement.media_id)
@@ -236,11 +185,9 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # Placement is deliberately the LAST thing inside the transaction, with
-  # nothing but the commit after it. Fail earlier and no bytes have moved;
-  # fail at the commit and the worst case is a stray file in the library,
-  # which the audit tooling surfaces — never a file whose source was already
-  # deleted and whose record didn't survive.
+  # The LAST thing inside the transaction. Fail earlier and no bytes moved;
+  # fail at the commit and the worst case is a stray file the audit surfaces,
+  # never a deleted source whose record did not survive.
   defp add(item, files, probes, destination, known) do
     Repo.transact(fn ->
       # People first, and for the whole draft at once: the same human can be
@@ -259,18 +206,13 @@ defmodule Ambry.Inbox.Importer do
     end)
   end
 
-  # Better files for an audiobook the library already has.
+  # Better files for an audiobook the library already has. **Only the files
+  # move**: the book, the credits, the chapters and every scalar stay as
+  # curated, or a replacement is data loss wearing an upgrade's clothes.
   #
-  # What it is *not* allowed to do is as much of the point as what it does:
-  # the book, the credits, the chapters and every scalar the recording
-  # carries are its own, curated by whoever curated them, and a replacement
-  # that reseeded any of it from tonight's providers would be a data loss
-  # wearing an upgrade's clothes. Only the files move.
-  #
-  # The old files are read *first* — `media_tracks` is the record of what
-  # this recording owns on disk, and once new tracks are written the old ones
-  # are gone — and destroyed *last*, after the commit, so a failure anywhere
-  # in here leaves the recording playing exactly what it played before.
+  # The outgoing files are read *first* (writing new tracks overwrites the
+  # record of what this recording owns) and destroyed *last*, after the
+  # commit, so a failure leaves the recording playing what it played before.
   defp replace(item, files, probes, destination, media_id) do
     Repo.transact(fn ->
       with {:ok, item} <- claim(item),
@@ -279,8 +221,8 @@ defmodule Ambry.Inbox.Importer do
            {:ok, media} <- repoint(media, probes, destination),
            # Before the link, not after: `inbox_items_one_live_import_per_media`
            # is checked per statement and a partial unique index cannot be
-           # deferred, so the old claim has to be released before the new one
-           # is made rather than the two overlapping for a statement.
+           # deferred, so the previous claim has to be released before the
+           # new one is made rather than the two overlapping for a statement.
            :ok <- supersede_previous(item, media),
            {:ok, _item} <- link(item, media),
            {:ok, media, placements, vacated} <-
@@ -298,20 +240,15 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # The recording's files, and nothing else about it. The track paths are
-  # placeholders in valid form — basenames under the destination root — for
-  # the same reason `do_create_media/6` writes them that way: the path CHECKs
-  # cannot wait for the commit, and placement rewrites them to the real
-  # relative paths inside this same transaction.
+  # The recording's files and nothing else. Track paths start as placeholders
+  # in valid form (basenames under the destination root) because the path
+  # CHECKs cannot wait for the commit; placement rewrites them in this same
+  # transaction.
   #
-  # The packaged artifacts go in the same statement as the tracks that
-  # replace them, which is what keeps the recording playable at every instant
-  # a reader could see: a recording with neither is one `maybe_validate_paths`
-  # refuses, and rightly.
-  #
-  # `source_path` and `source_files` are cleared in the same statement, and
-  # for the same reason `clear_legacy_provenance/1` clears the third: they
-  # describe a transcode, and a recording served from tracks has none.
+  # The packaged artifacts go in the same statement as the tracks replacing
+  # them, so the recording is playable at every instant a reader could see.
+  # `source_path` and `source_files` clear there too: they describe a
+  # transcode, and a recording served from tracks has none.
   defp repoint(media, probes, {root, _policy}) do
     %{
       library_root_id: root.id,
@@ -331,10 +268,9 @@ defmodule Ambry.Inbox.Importer do
     |> then(&Media.update_media(media, &1))
   end
 
-  # Markers the recording doesn't have yet, and never over ones it does — the
-  # rule `Ambry.Media.Scanner` has always followed for a rescan, and for the
-  # same reason: chapters are curated data and these files are a new rip of a
-  # recording somebody has already been through.
+  # Markers the recording does not have yet, never over ones it does: chapters
+  # are curated data, and these files are a new rip of a recording somebody
+  # has already been through.
   defp with_file_chapters(attrs, %{chapters: []}, probes) do
     case Scanner.chapters(probes) do
       {[], _source} -> attrs
@@ -344,12 +280,10 @@ defmodule Ambry.Inbox.Importer do
 
   defp with_file_chapters(attrs, _has_chapters, _probes), do: attrs
 
-  # A published recording stays published: replacing its files doesn't
-  # re-publish anything. A *legacy* one, though, was published on the
-  # strength of the artifacts this replacement just retired — so where the
-  # fleet can't play tracks yet it goes back to pending, and
-  # `Ambry.Media.publish_pending_direct_play/0` releases it with the rest
-  # when the switch is turned on.
+  # A published recording stays published. A *legacy* one was published on the
+  # strength of artifacts this replacement just retired, so where the fleet
+  # cannot play tracks yet it goes back to pending and
+  # `Ambry.Media.publish_pending_direct_play/0` releases it later.
   defp republish(%{status: :ready} = media) do
     if Settings.direct_play_publishing?() do
       {:ok, media}
@@ -371,10 +305,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp resolve_book(%{mode: :create} = work, people) do
-    # Empty lists are omitted, not passed: on a new record `[]` still
-    # counts as a change against the unloaded assoc, and a changed list
-    # with no source stamps `manual` provenance — which is how every
-    # zero-series import wore "Series from you" on the edit form.
+    # Empty lists are omitted, not passed: `[]` counts as a change against an
+    # unloaded assoc, and a changed list with no source stamps `manual`
+    # provenance, so a book with no series would read "Series from you".
     %{
       title: Field.value(work.title),
       published: Field.date(work.published),
@@ -431,11 +364,9 @@ defmodule Ambry.Inbox.Importer do
   defp resolve_identity(%Credit{mode: :link, kind: :narrator, identity_id: id}, _people),
     do: {:ok, Repo.get!(Narrator, id)}
 
-  # An identity's own changeset only casts its name — identities are normally
-  # created *through* a Person, which can't express "this pen name is two
-  # people". So the link rows go in explicitly. Each `AuthorPerson` in the
-  # list is one human behind the credit; the list being longer than one is the
-  # entire composite-author case.
+  # An identity's own changeset only casts its name, and creating one through
+  # a Person cannot express "this pen name is two people", so the link rows go
+  # in explicitly. A list longer than one is the composite-author case.
   defp resolve_identity(%Credit{mode: :create, kind: :author} = credit, people) do
     with {:ok, author} <- %Author{} |> Author.changeset(%{name: credit.name}) |> Repo.insert() do
       Enum.each(behind(credit, people), fn person ->
@@ -461,13 +392,10 @@ defmodule Ambry.Inbox.Importer do
   defp behind(%Credit{} = credit, people),
     do: Enum.map(credit.person_keys, &Map.fetch!(people, &1))
 
-  # Every human the draft implies, created once each and returned by key.
-  #
-  # One decision per human is now the model's own guarantee rather than
-  # something reconstructed here: credits reference people by key, so an
-  # author who reads their own book is one `PersonDecision` referenced twice
-  # and there is nothing left to fold together. The merge this used to do
-  # existed only because the two credits each held their own copy.
+  # Every human the draft implies, created once each and returned by key. One
+  # decision per human is the model's guarantee rather than something
+  # reconstructed here: credits reference people by key, so there is nothing
+  # to fold together.
   defp resolve_people(%Draft{} = draft) do
     Enum.reduce_while(draft.people, {:ok, %{}}, fn person, {:ok, resolved} ->
       case resolve_person(person) do
@@ -480,13 +408,9 @@ defmodule Ambry.Inbox.Importer do
   defp resolve_person(%PersonDecision{mode: :link, person_id: id}) when not is_nil(id),
     do: {:ok, Repo.get!(People.Person, id)}
 
-  # A new person arrives complete when matching found them a face and a bio,
-  # or the operator picked one — 3b's "never has to leave the inbox" is about
-  # exactly this, and a person created bare is a trip to the person form
-  # afterwards.
-  #
-  # A photo that won't fetch doesn't fail the import, for the same reason a
-  # cover doesn't: the credit is still correct without it.
+  # A new person arrives complete, since one created bare is a trip to the
+  # person form afterwards. A photo that will not fetch does not fail the
+  # import: the credit is still correct without it.
   defp resolve_person(%PersonDecision{} = person) do
     People.create_person(
       %{
@@ -499,10 +423,9 @@ defmodule Ambry.Inbox.Importer do
   end
 
   # String keys: `Provenance.track_changes/3` looks sources up by field name.
-  # The name is provenanced too. Without it `track_changes/3` sees a changed
-  # field with no source and records the only thing left — **manual, locked** —
-  # so every person the inbox created claimed to have been typed by hand, and
-  # was locked against the refresh that would have improved it.
+  # The name is provenanced too, or it sees a changed field with no source and
+  # records **manual, locked**, so every person the inbox creates claims to
+  # have been typed by hand.
   defp person_provenance(%PersonDecision{} = person) do
     %{
       "name" => person.name && person.name.source,
@@ -532,10 +455,8 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # The draft's group link, resolved like a series link: `:link` joins the
-  # existing group, `:create` mints one on the resolved book, carrying the
-  # set-level facts the operator settled. Absent or tombstoned means not
-  # part of any set.
+  # Resolved like a series link: `:link` joins the existing group, `:create`
+  # mints one on the resolved book. Absent or tombstoned means no set.
   defp resolve_group(nil, _book), do: {:ok, nil}
   defp resolve_group(%GroupLink{removed: true}, _book), do: {:ok, nil}
 
@@ -555,14 +476,11 @@ defmodule Ambry.Inbox.Importer do
 
     %{
       book_id: book.id,
-      # Created in the destination root's coordinates from the start: the
-      # track paths are CHECK-constrained to hold a resolvable stored form,
-      # and a CHECK cannot wait for the commit. They start as placeholders
-      # in valid form — basenames under the right root — that placement
-      # rewrites to the real relative paths inside this same transaction.
+      # In the destination root's coordinates from the start, because the
+      # track path CHECKs cannot wait for the commit. Placeholders in valid
+      # form that placement rewrites in this same transaction.
       # `source_path` / `source_files` stay empty: they are a transcode's
-      # bookkeeping of what it consumed, and an import has no transcode.
-      # Its files are its tracks.
+      # bookkeeping, and an import has no transcode.
       library_root_id: root.id,
       status: :pending,
       # The recording's settled place in its part set, if any.
@@ -636,11 +554,9 @@ defmodule Ambry.Inbox.Importer do
 
   ## provenance
 
-  # Each decision already knows where its value came from, so the provenance
-  # map is a projection of the draft rather than anything to collect
-  # separately. A field the operator typed records `manual` and locks; an
-  # accepted provider value records that provider and stays unlocked, so a
-  # future refresh may still update it.
+  # A projection of the draft, since each decision knows where its value came
+  # from: typed records `manual` and locks, accepted records the provider and
+  # stays unlocked for a future refresh.
   defp provenance(fields) do
     fields
     |> Enum.flat_map(fn
@@ -662,11 +578,9 @@ defmodule Ambry.Inbox.Importer do
     |> Map.new()
   end
 
-  # The list-level source: where a structural list's members came from, when
-  # they share one. Credits carry their own source; the list records the
-  # first provider-ish one, so the edit form's "Authors — from rreading-glasses"
-  # flag survives the import the way scalar flags always did. Tombstoned rows
-  # don't count: a removed proposal's source describes nothing that imported.
+  # Where a structural list's members came from, when they share one, so the
+  # edit form's list-level "from …" flag survives the import. Tombstoned rows
+  # do not count: a removed proposal describes nothing that imported.
   defp list_provenance(entries) do
     entries
     |> Enum.reject(& &1.removed)
@@ -686,14 +600,12 @@ defmodule Ambry.Inbox.Importer do
 
   ## publishing
 
-  # An imported recording is finished, so it's published — unless the switch
-  # says the fleet can't play direct-play media yet, in which case it waits
-  # in `pending` and is released when the switch is turned on.
+  # Published unless the switch says the fleet cannot play direct-play media
+  # yet, in which case it waits in `pending`.
   #
   # The reload is load-bearing: `Media.changeset` reads tracks off the struct
-  # to decide whether the legacy paths are required, and an unloaded assoc
-  # reads as "no tracks" — which would demand an mp4 path this recording will
-  # never have.
+  # to decide whether legacy paths are required, and an unloaded assoc reads
+  # as "no tracks", demanding an mp4 path this recording will never have.
   defp publish(media) do
     if Settings.direct_play_publishing?() do
       media
@@ -707,12 +619,10 @@ defmodule Ambry.Inbox.Importer do
 
   ## placement
 
-  # Where import puts the bytes. Every import places into a root — there is
-  # no other place Ambry serves from. Read off the draft rather than
-  # re-derived from the source: any input may feed any output, so which root
-  # this import goes to and how the files come in are decisions the operator
-  # made (or that resolved silently because there was only one root and the
-  # source carried a policy), not properties of where the files were found.
+  # Every import places into a root; there is nowhere else Ambry serves from.
+  # Read off the draft rather than re-derived from the source: any input may
+  # feed any output, so the root and the policy are decisions, not properties
+  # of where the files were found.
   defp destination(%InboxItem{draft: %{destination: %{root_id: root_id, policy: policy}}})
        when is_integer(root_id) and not is_nil(policy) do
     case Repo.get(Root, root_id) do
@@ -724,11 +634,9 @@ defmodule Ambry.Inbox.Importer do
   defp destination(%InboxItem{}), do: {:error, :no_library_root}
 
   defp place({root, policy}, book, media, files, retiring) do
-    # Forced: a freshly-created book carries its `book_authors` as insert
-    # results with the nested `author` unloaded, and a reused one carries
-    # nothing at all. Without this every folder silently loses its author
-    # segment — the template collapses empty tokens, so it fails quietly
-    # rather than raising.
+    # Forced: a freshly-created book carries `book_authors` with the nested
+    # `author` unloaded, so without it every folder loses its author segment,
+    # quietly, because the template collapses empty tokens.
     book = Repo.preload(book, [{:book_authors, :author}, {:series_books, :series}], force: true)
     media = Repo.preload(media, [{:media_narrators, :narrator}, :recording_group], force: true)
 
@@ -744,11 +652,9 @@ defmodule Ambry.Inbox.Importer do
     end
   end
 
-  # A recording rendering to the same names it already occupies is what a
-  # like-for-like replacement *is* — same book, same recording, so the same
-  # token and the same filenames — and placement never clobbers. Its own
-  # names are the one thing it may take, so they're moved aside rather than
-  # overwritten, and put back if the placement then fails.
+  # A like-for-like replacement renders to the names it already occupies, and
+  # placement never clobbers. Its own names are the one thing it may take, so
+  # they are moved aside rather than overwritten, and put back on failure.
   defp place_all(pairs, policy, vacated) do
     case Placement.place_all(pairs, policy) do
       {:ok, placements} ->
@@ -780,11 +686,10 @@ defmodule Ambry.Inbox.Importer do
   defp part_number(%GroupLink{removed: false, part_number: number}), do: number
   defp part_number(_absent_or_removed), do: nil
 
-  # The recording now points at the library copies and Ambry owns those
-  # names — in `media_tracks`, and only there. Not in `source_path` /
+  # Recorded in `media_tracks` and only there. Not in `source_path` /
   # `source_files`, which state what a transcode consumed: an imported
-  # recording has no transcode, and saying otherwise would answer "what was
-  # this made from" with the recording's own files.
+  # recording has none, and saying otherwise answers "what was this made
+  # from" with the recording's own files.
   defp record_placement(media, root, paths) do
     with {:ok, _tracks} <- repoint_tracks(media, root, paths) do
       media
@@ -833,11 +738,9 @@ defmodule Ambry.Inbox.Importer do
 
   ## files
 
-  # A curated chapter list is the operator's answer and lands verbatim —
-  # including any hand-nudged times. That is safe against the re-probe below
-  # because a file change flips the draft stale, and a stale draft is
-  # unresolved: import refuses before it gets here. Uncurated chapters
-  # re-derive from the fresh probe, exactly what the seeder showed.
+  # A curated chapter list lands verbatim, hand-nudged times included. Safe
+  # against the re-probe below because a file change flips the draft stale,
+  # and import refuses a stale draft. Uncurated chapters re-derive.
   defp chapters(%Chapters{curated: true} = decision, _probes) do
     # plain maps, like the scanner's own rows — `cast_embed` refuses structs
     rows = Enum.map(decision.chapters, &Map.take(&1, [:time, :title, :title_source]))
@@ -846,18 +749,14 @@ defmodule Ambry.Inbox.Importer do
 
   defp chapters(_decision, probes), do: Scanner.chapters(probes)
 
-  # An item's files as absolute disk paths, in the order discovery recorded
-  # them — which is natural sort, and therefore the play order the operator
-  # saw listed on the form. A release the operator has decided is really two
-  # books is split into separate items first; this is the one they've said
-  # is one recording.
+  # Absolute disk paths in the order discovery recorded them, which is natural
+  # sort and therefore the play order the form showed.
   defp audio_files(%InboxItem{files: []}), do: {:error, :no_audio_files}
   defp audio_files(%InboxItem{} = item), do: {:ok, InboxItem.disk_files(item)}
 
-  # Re-probed rather than trusting what discovery recorded: it costs one
-  # ffprobe per file and buys current track data, plus a file that vanished
-  # between discovery and import failing the import instead of creating a
-  # recording that points at nothing.
+  # Re-probed rather than trusted: one ffprobe per file buys current track
+  # data, and a file that vanished since discovery fails the import instead of
+  # creating a recording that points at nothing.
   defp probe_all(files) do
     case Scanner.probe_all(files) do
       {:ok, probes} -> {:ok, probes}
@@ -866,32 +765,25 @@ defmodule Ambry.Inbox.Importer do
   end
 
   defp link(item, media) do
-    # issue: nil — a failed attempt writes its reason onto the item so the
-    # row can explain itself tomorrow; succeeding is what resolves it. Left
-    # in place, "Couldn't add this to the library" sat in red on rows whose
-    # media was sitting right there in the library.
-    # `item` is the row `claim/1` locked, so this cannot be stale — but it
-    # still bumps the version, which is what tells a form open on this item
-    # that the thing it is editing is now in the library.
+    # `issue: nil` because succeeding is what resolves a failed attempt's
+    # reason; left in place it sits in red on a row whose media is in the
+    # library. `item` is the row `claim/1` locked, so it cannot be stale, but
+    # it still bumps the version, which tells an open form what happened.
     item
     |> InboxItem.changeset(%{status: :imported, media_id: media.id, issue: nil})
     |> InboxItem.versioned()
     |> Repo.update()
   end
 
-  # The other half of the replacement: the item this one just took over from
-  # stops being the recording's import. Runs after `link/2`, so the row it
-  # must not touch is the one that now holds this media id.
+  # The item this one took over from stops being the recording's import. Runs
+  # after `link/2`, so the row it must not touch is the one that now holds
+  # this media id.
   #
-  # `updated_at` is deliberately left alone. It is the moment the superseded
-  # item was imported — the row's date, the imported tab's sort, and the
-  # ordering this whole feature is built on — and `Repo.update_all` not
-  # bumping it is the behaviour being relied on rather than an omission.
-  # Touching it would rewrite the history this is trying to record.
+  # `updated_at` is deliberately left alone: it is the moment the superseded
+  # item was imported, which is the row's date and the imported tab's sort.
+  # `Repo.update_all` not bumping it is relied on rather than an omission.
   #
-  # Ordinarily one row. Zero when the recording came from somewhere other
-  # than the inbox, and more than one only for data that predates the
-  # backfill.
+  # Ordinarily one row, zero when the recording came from outside the inbox.
   defp supersede_previous(%InboxItem{id: id}, %Media.Media{id: media_id}) do
     import Ecto.Query, only: [where: 3]
 

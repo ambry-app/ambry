@@ -3,8 +3,7 @@
     <.list_controls search_form={@search_form} />
     <%!-- The list is narrowed by something the operator chose on the
           overview, so it says which list this is and offers the way out.
-          Leaving it keeps the tab and the search — an issue narrows the
-          queue, it doesn't replace it. --%>
+          Leaving it keeps the tab and the search. --%>
     <div :if={problem_words(@list_opts[:problem])} class="flex items-baseline gap-2 pt-2">
       <.microlabel>Showing</.microlabel>
       <.link
@@ -21,20 +20,16 @@
         <.icon name="fa-magnifying-glass" class="mr-2 h-4 w-4" /> Scan for new
       </.button>
 
-      <%!-- The filters are the queue's primary navigation — a segmented
-            control, not a row of text links. Counts ride along so the state
-            of the queue is readable without clicking anything.
+      <%!-- The filters are the queue's primary navigation: a segmented
+            control, with counts so the state of the queue is readable
+            without clicking anything.
 
-            One axis only: where an item is in its life, which is the one
+            One axis only, where an item is in its life, which is the one
             thing about it that changes because a human decided something.
-            A "Ready" bucket lived here too and was removed — every draft
-            gets opened either way, so it only ever split work that was
-            going to be done in full, while making every row wear two
-            badges to explain which bucket it was in. Background job state
-            is deliberately not an axis either: a row that changed tabs
-            because a job started would vanish out from under the click
-            that started it. That belongs to the row's own overlay, and to
-            the ambient job widget. --%>
+            Background job state is deliberately not an axis: a row that
+            changed tabs because a job started would vanish out from under
+            the click that started it. That belongs to the row's own
+            overlay. --%>
       <div class="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-zinc-900 p-1 text-sm">
         <span phx-click="filter-status" phx-value-status="all" class={segment_class(!@status)}>
           All
@@ -63,22 +58,18 @@
       <% end %>
     </:empty>
 
-    <%!-- An imported row stops being a candidate. What matched it, how sure
-          the machine was, and which files it came from are the record of a
-          decision already taken — they live on the item's own form, and
+    <%!-- An imported row stops being a candidate: what matched it and how
+          sure the machine was are the record of a decision already taken, and
           leaving them on the row makes finished work read like work. So the
           row becomes the audiobook it produced, in the audiobooks list's own
-          cover-and-credits shape, because it is the same thing. --%>
+          shape. --%>
     <:row :let={item}>
       <%= if item.status == :imported do %>
         <%= if item.superseded_by_id do %>
-          <%!-- A replaced import stops wearing the audiobook. The record is
-                still true about what it was — this release, these files, this
-                date — and false about everything the audiobook says now,
-                because the recording is served from somebody else's files and
-                has been edited since. So it goes back to describing itself,
-                with the badge for the one thing its shape can't say: this was
-                imported, and then superseded. --%>
+          <%!-- A replaced import stops wearing the audiobook: the record is
+                still true about what it was and false about everything the
+                audiobook says now. So it goes back to describing itself, with
+                a badge for the one thing its shape can't say. --%>
           <.index_row
             navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
             class={rail_class(item)}
@@ -124,14 +115,7 @@
               class={rail_class(item)}
             >
               <:cover>
-                <div class={["h-16 w-16 rounded-sm", if(!audiobook.thumbnail, do: "bg-zinc-800")]}>
-                  <img
-                    :if={audiobook.thumbnail}
-                    src={audiobook.thumbnail}
-                    alt=""
-                    class="h-full w-full rounded-sm"
-                  />
-                </div>
+                <.row_cover src={audiobook.thumbnail} />
               </:cover>
 
               <:headline>{media_display_title(audiobook)}</:headline>
@@ -212,10 +196,9 @@
               <:footer>Imported {Calendar.strftime(imported_at(item), "%x")}</:footer>
             </.index_row>
           <% else %>
-            <%!-- Deleting an audiobook nilifies the link rather than taking the
-                record of the import with it, so the row outlives the thing it
-                describes. It says that, instead of falling back to matching
-                details for a result that is gone. --%>
+            <%!-- Deleting an audiobook nilifies the link rather than taking
+                the record of the import with it, so the row outlives the
+                thing it describes and says so. --%>
             <.index_row
               navigate={~p"/admin/inbox/#{item}?#{return_query(assigns)}"}
               class={rail_class(item)}
@@ -277,10 +260,9 @@
             {[tag_summary(item), probe_summary(item)] |> Enum.reject(&(&1 == "")) |> Enum.join(" · ")}
           </p>
 
-          <%!-- The annotated rows — matches and the files' source — share one
-                label column, so every badge and chip starts on the same rail
-                (design language §1). The value cell owns its own wrapping: when
-                width runs out the meta drops a line INSIDE the column, and the
+          <%!-- The annotated rows share one label column, so every badge and
+                chip starts on the same rail (§1). The value cell owns its own
+                wrapping: the meta drops a line inside the column, and the
                 candidate title is the last thing to ellipsize. --%>
           <div class="mt-2 space-y-0.5">
             <div
@@ -289,10 +271,9 @@
             >
               <span class="text-xs text-zinc-400">{level_word(match.level)}</span>
               <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <%!-- The form's rail, in words, because a row is one line and has
-                    nowhere to put a 4px edge per level. Same four states, same
-                    vocabulary — the queue and the form drifted apart when they
-                    each had their own. --%>
+                <%!-- The form's rail, in words, because a row is one line and
+                    has nowhere to put a 4px edge per level. Same four states
+                    and the same vocabulary, from one place. --%>
                 <.badge
                   color={elem(tier_words(match.tier), 1)}
                   class="text-xs"
@@ -301,12 +282,11 @@
                   {elem(tier_words(match.tier), 0)}
                 </.badge>
                 <%!-- basis-48 + grow keeps the title from being shrunk out of
-                      existence (meta wraps down instead); max-w-fit stops the grow
-                      at the title's own width so the provenance stays beside it.
+                      existence; max-w-fit stops the grow at the title's own
+                      width so the provenance stays beside it.
 
                       Nothing here when nothing was found: the badge beside it
-                      already says so, and printing "no match" next to it was
-                      half of the line that read "matched · no match". --%>
+                      already says so. --%>
                 <span
                   :if={match.best}
                   class="min-w-0 max-w-fit grow basis-48 overflow-hidden text-ellipsis whitespace-nowrap"
@@ -330,11 +310,10 @@
               {progress_label(@progress[item.id])}
             </p>
 
-            <%!-- Which watched folder this came from, on the same rail as the
-                  match badges above it. What import will do to the bytes is
-                  deliberately not here: it is a per-import decision, stated
-                  in full on the item's own destination card, and no item can
-                  be imported without going through that card. --%>
+            <%!-- Which watched folder this came from, on the same rail as
+                  the match badges above it. What import will do to the bytes
+                  is a per-import decision, stated on the item's own
+                  destination card. --%>
             <div class="grid-cols-[5rem_minmax(0,1fr)] grid items-baseline gap-x-2">
               <span class="text-xs text-zinc-400">source</span>
               <p class="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-zinc-400">
@@ -357,10 +336,8 @@
           <%!-- One badge. Inside a tab named for the status, printing the
                 status on every row says nothing; what the row owes does.
 
-                Missing outranks it where it changes what can be done: what
-                a pending row owes stops mattering when there is nothing left
-                to do it to, and red is the blocker colour (§5). An ignored
-                row keeps its word — see `missing_blocks?/1`. --%>
+                Missing outranks it where it changes what can be done, and red
+                is the blocker colour (§5). See `missing_blocks?/1`. --%>
           <:badges>
             <.badge
               :if={missing_blocks?(item)}
@@ -408,20 +385,15 @@
             </span>
           </:facts>
 
-          <%!-- Import is on every pending row, and refuses on the ones that
-              aren't settled yet. It used to be absent until a row was ready,
-              so the rail's shape and the order of its buttons changed from
-              row to row and the primary action moved under the cursor. A
-              disabled button in its own place says the same thing — not yet —
-              without rearranging everything around it, and its title says
-              what is missing.
+          <%!-- Import is on every pending row and refuses on the ones that
+              aren't settled yet. Absent until a row is ready, the rail's
+              shape would change from row to row and the primary action would
+              move under the cursor; a disabled button in its own place says
+              "not yet" and its title says what is missing.
 
-              Only a settled item can actually be imported from here: the
-              queue has no way to say what's outstanding, and the form's
-              whole job is to. Import is the *extra* a settled row earns,
-              though, not a replacement for Open — these two were once
-              mutually exclusive, which left a ready item's action rail with
-              no way into its own form. --%>
+              Only a settled item can be imported from here, since the queue
+              has no way to say what's outstanding. Import is the extra a
+              settled row earns, beside Open, never instead of it. --%>
           <%!-- A replacement is not an addition, and this button acts
               without the form being opened, so it says which it is. --%>
           <:action
@@ -452,11 +424,10 @@
             Open
           </:action>
 
-          <%!-- One action, because "re-read the files" and "look for matches
-              again" were never separable: the tags matching leans on come
-              out of the probe, so asking again without re-reading asks the
-              same question. Re-reads the folder, re-probes, and re-queries
-              every provider with the cache bypassed. --%>
+          <%!-- One action, because the tags matching leans on come out of
+              the probe: asking again without re-reading asks the same
+              question. Re-reads the folder, re-probes, and re-queries every
+              provider with the cache bypassed. --%>
           <:action
             icon="fa-rotate"
             click="rescan"

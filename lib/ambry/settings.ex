@@ -1,20 +1,14 @@
 defmodule Ambry.Settings do
   @moduledoc """
-  Operator-editable settings that aren't about any one record.
+  Operator-editable settings that aren't about any one record. A missing row
+  means the default, so a fresh install needs no seeding.
 
-  A missing row means the default, so a fresh install needs no seeding.
+  **The direct-play publishing switch** enforces a client-first rollout: a
+  deployed app has to understand tracks-based media before the server
+  publishes one. Off, media can still be scanned, tracks are recorded and
+  everything is visible in the admin; only the last step is blocked, making a
+  tracks-only recording visible to clients.
 
-  ## The direct-play publishing switch
-
-  Direct-play is rolled out client-first: the mobile app has to understand
-  tracks-based media *before* the server ever publishes one, or a deployed app
-  meets a recording it can't play. The switch is what enforces that ordering —
-  it stays off while the server-side machinery ships dark, and the operator
-  turns it on only once the fleet has the tracks-capable app build.
-
-  Off doesn't mean nothing works: media can still be scanned, tracks are
-  recorded, and everything is visible in the admin UI. It only blocks the last
-  step — making a recording that has *only* tracks visible to clients.
   """
 
   alias Ambry.Library.NamingTemplate
@@ -25,10 +19,8 @@ defmodule Ambry.Settings do
   @library_naming_template "library_naming_template"
 
   @doc """
-  The folder template managed recordings are organized into.
-
-  See `Ambry.Library.NamingTemplate` for the tokens and how empty ones
-  collapse.
+  The folder template managed recordings are organized into. See
+  `Ambry.Library.NamingTemplate` for the tokens.
   """
   def library_naming_template do
     case Repo.get(Setting, @library_naming_template) do

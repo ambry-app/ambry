@@ -2,16 +2,13 @@ defmodule Ambry.Media.MediaTrack do
   @moduledoc """
   One audio file belonging to a media, played directly by clients.
 
-  Tracks are ordered by `index` and laid end-to-end on the book's continuous
-  timeline: `start_offset` is where a track begins in absolute book-seconds.
-  Direct-play v1 only ever writes a single track per media (multi-file books
-  are deferred), but the model stays multi-file-shaped so that adding
-  multi-track playback later is a player-layer feature rather than a
-  data-model migration.
+  Ordered by `index` and laid end-to-end on the book's continuous timeline,
+  with `start_offset` in absolute book-seconds.
 
-  `format`, `codec` and `mime` are recorded exactly as probed — never assumed
-  playable — so a client can answer "can this device play this?" from synced
-  track metadata alone.
+  `format`, `codec` and `mime` are recorded exactly as probed and never
+  assumed playable, so a client can answer "can this device play this?" from
+  synced track metadata alone.
+
   """
 
   use Ecto.Schema
@@ -74,9 +71,8 @@ defmodule Ambry.Media.MediaTrack do
   @doc """
   The URL clients fetch this track from.
 
-  The track's own path is a stored path relative to its library root (or a
-  legacy `/uploads/...` path), so the URL is keyed on the track instead,
-  and ends in the file's real name so downloads keep their real extension.
+  Keyed on the track rather than its path, which is root-relative, and ending
+  in the file's real name so downloads keep their extension.
   """
   def web_path(%MediaTrack{id: id, path: path}) do
     "/files/track/#{Hashids.encode(id)}/#{Path.basename(path)}"
@@ -96,11 +92,8 @@ defmodule Ambry.Media.MediaTrack do
 
   @doc """
   The same, for callers with nothing sensible to do about an unresolvable
-  path.
-
-  A stored path that cannot resolve cannot be served either, so it is a
-  broken invariant rather than a missing file, and it belongs in the log as
-  one.
+  path: it is a broken invariant rather than a missing file, and belongs in
+  the log as one.
   """
   def disk_path!(%MediaTrack{} = track) do
     {:ok, path} = disk_path(track)

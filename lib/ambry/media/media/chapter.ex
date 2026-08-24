@@ -2,42 +2,27 @@ defmodule Ambry.Media.Media.Chapter do
   @moduledoc """
   One chapter: a marker on the book's timeline, and a title for it.
 
-  These are two different facts with two different levels of trust, and the
-  whole point of this schema is that they are tracked separately.
+  Two facts with two different levels of trust, tracked separately.
 
-  ## Markers are file-derived; titles are best-available
+  **A marker is a position**, only meaningful against the bytes being played.
+  A provider's chapter times describe their own retail edition, and the error
+  compounds across a book, so provider timestamps are **never** applied to the
+  timeline. Where the markers came from is recorded once for the list, on the
+  media (`chapter_marker_source`).
 
-  A marker is a **position**, and a position is only meaningful against the
-  actual bytes being played. Audible's chapter times describe Audible's
-  retail edition, not somebody's rip — the offsets start seconds off and the
-  error compounds across a book — so provider timestamps are **never**
-  applied to the timeline. That is inherent to the data, not a bug anyone can
-  fix, which is why the whole marker/title split exists. Where the markers
-  came from is recorded once for the list, on the media
-  (`chapter_marker_source`).
+  **A title is just a name**, so it comes from wherever the best one is, per
+  row, with `title_source` recording which:
 
-  A title is just a name, and a wrong one is a cosmetic problem rather than a
-  broken seek. So titles come from wherever the best one is available, per
-  row, and `title_source` records which:
-
-    * `:embedded` — read out of the file's own chapter atoms or CHAP frames
+    * `:embedded` — the file's own chapter atoms or CHAP frames
     * `:filename` — the file's name, for chapter-per-file recordings
-    * `:provider` — Audnexus/Audible and friends, poured onto file-derived
-      markers by the merge
+    * `:provider` — poured onto file-derived markers by the merge
     * `:generated` — "Chapter 7", the floor
     * `:manual` — the operator typed it
 
-  ## Why a title is always present
-
-  `title` stays required even for a markers-only extraction, which gets a
-  generated "Chapter N". Clients need something to show — a mobile chapter
-  list of blanks is worse than a boring one — and the alternative, a nullable
-  title every render surface has to special-case, buys nothing.
-
-  `:generated` is what keeps that honest: it marks a title **nobody chose**,
-  so the merge may overwrite it freely and the editor can render it as the
-  placeholder it is. An operator's `:manual` title, by contrast, is an answer
-  and survives.
+  `title` stays required even for a markers-only extraction, because clients
+  need something to show and a nullable title is a special case on every
+  render surface. `:generated` keeps that honest: it marks a title **nobody
+  chose**, so a merge may overwrite it freely, where a `:manual` one survives.
   """
 
   use Ecto.Schema
@@ -46,9 +31,8 @@ defmodule Ambry.Media.Media.Chapter do
 
   @primary_key false
 
-  # `title_source` is part of the stored fact, not a view of it: a title
-  # nobody chose has to still say so tomorrow, or the next merge can't tell
-  # what it may overwrite.
+  # Stored rather than derived: a title nobody chose has to still say so
+  # tomorrow, or the next merge cannot tell what it may overwrite.
   @derive {Jason.Encoder, only: [:time, :title, :title_source]}
 
   @title_sources [:embedded, :filename, :provider, :generated, :manual]
@@ -85,14 +69,12 @@ defmodule Ambry.Media.Media.Chapter do
   @doc """
   Renumbers the generated titles in a cast list of chapter changesets.
 
-  The generated floor is a *position*, so it has to stop saying "Chapter 7"
-  the moment a row is inserted above it. Titles anybody chose — typed, or
-  accepted from a provider — are left exactly where they are, which is the
-  whole reason `:generated` is tracked separately from every other source.
+  The generated floor is a *position*, so it stops saying "Chapter 7" the
+  moment a row is inserted above it. Titles anybody chose are left alone,
+  which is why `:generated` is tracked separately.
 
-  This also gives a freshly-added blank row a title, so adding one doesn't
-  greet the operator with a validation error on a field they were about to
-  get to anyway.
+  Also gives a freshly-added blank row a title, so adding one does not greet
+  the operator with a validation error.
   """
   def renumber_changesets(chapter_changesets) do
     chapter_changesets
@@ -126,14 +108,12 @@ defmodule Ambry.Media.Media.Chapter do
   defp blank?(title) when is_binary(title), do: String.trim(title) == ""
 
   @doc """
-  Whether a cast moved any marker — the trigger for recording the timeline
-  as the operator's (`chapter_marker_source: :manual`), shared by every
-  parent schema that embeds chapters.
+  Whether a cast moved any marker, which is what records the timeline as the
+  operator's (`chapter_marker_source: :manual`).
 
-  A chapter is an embed with no primary key, so Ecto can't match incoming
-  params to existing rows: every cast replaces the whole list, and the
-  change is the outgoing rows AND the incoming ones. Comparing against both
-  makes any edit at all look like a moved marker — hence the reject on
+  A chapter is a keyless embed, so every cast replaces the whole list and the
+  change holds the outgoing rows as well as the incoming ones. Comparing
+  against both makes any edit look like a moved marker, hence the reject on
   `action: :replace`.
   """
   def times_moved?(before_chapters, chapter_changesets) do

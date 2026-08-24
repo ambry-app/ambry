@@ -2,28 +2,20 @@ defmodule Ambry.Wanted do
   @moduledoc """
   Audiobooks that don't exist yet.
 
-  Everything else in Ambry describes what the library *holds*. This describes
-  what it is waiting for — which is the one thing the library cannot represent
-  on its own, and the one thing an operator forgets.
+  Everything else in Ambry describes what the library holds. This describes
+  what it is waiting for.
 
-  ## What a watch is for
-
-  Not a wishlist. A watch exists to become **due**: the expected date arrives,
-  the admin dashboard starts nagging, and it keeps nagging until the operator
-  either has the recording or says otherwise. A watch that never becomes due
-  and is never dismissed has failed to do its job.
+  Not a wishlist: a watch exists to become **due**, so the expected date
+  arrives, the dashboard starts nagging, and it keeps nagging until the
+  operator either has the recording or says otherwise.
 
   Which is why `due?/1` says only that a date has passed, never that a book
-  exists. A provider's date is a plan; the recording turning up is a fact, and
-  the two are told apart everywhere in this context.
+  exists. A provider's date is a plan; the recording turning up is a fact.
 
-  ## Requests, later
-
-  A user-facing request is the same idea with an owner attached, and it will
-  get its own table rather than a `user_id` here: a watch is about the
-  recording, so two people waiting for the same book is still one watch.
-  `Ambry.Wanted.Edition` is deliberately shared between them, so promotion
-  from a watch to a request is a copy rather than a translation.
+  A user-facing request is the same idea with an owner attached, and will get
+  its own table rather than a `user_id` here: a watch is about the recording,
+  so two people waiting for one book is still one watch.
+  `Ambry.Wanted.Edition` is deliberately shared between them.
   """
 
   use Boundary,
@@ -39,10 +31,9 @@ defmodule Ambry.Wanted do
   @doc """
   Every watch, loudest first.
 
-  Ordering is by *who is waiting on whom*, matching the admin dashboard: what
-  is due comes first because it needs a human, then what is still coming in
-  date order, then what has been settled. A watch with no date sorts after
-  the dated ones — it is a real state, but it is not a deadline.
+  Ordering is by who is waiting on whom, matching the admin dashboard: due
+  first, then what is still coming in date order, then what has been settled.
+  A watch with no date sorts after the dated ones.
   """
   def list_watches(opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
@@ -89,8 +80,7 @@ defmodule Ambry.Wanted do
   What the dashboard needs to decide whether to nag, in one query pair.
 
   `due` is the nag. `next` is what makes the card worth reading when there is
-  nothing to nag about — "nothing out yet, next is Blightfall on Sep 1" is an
-  answer; an empty card is not.
+  nothing to nag about.
   """
   def summary(today \\ Date.utc_today()) do
     due = list_due(today)
@@ -123,9 +113,9 @@ defmodule Ambry.Wanted do
   @doc """
   Starts watching a recording.
 
-  Answers `{:error, :already_watching, watch}` rather than a changeset error
-  when the recording is already watched, because the useful response to "add
-  this" is the watch that already exists, not a form telling the operator off.
+  Answers `{:error, :already_watching, watch}` rather than a changeset error,
+  because the useful response to "add this" is the watch that already
+  exists.
   """
   def create_watch(attrs) do
     provider = attrs[:provider] || attrs["provider"]
@@ -155,9 +145,8 @@ defmodule Ambry.Wanted do
   @doc """
   Marks a watch satisfied.
 
-  `media` is optional because the operator can know a book is out before it is
-  in the library — and a watch that stays `upcoming` because the import hasn't
-  happened yet would keep nagging about something already handled.
+  `media` is optional because the operator can know a book is out before it
+  is in the library.
   """
   def mark_released(%Watch{} = watch, media \\ nil) do
     watch
@@ -174,10 +163,8 @@ defmodule Ambry.Wanted do
   @doc """
   The provider records the operator is waiting for, as `{provider, id}`.
 
-  A set, because the caller is asking the same question of every candidate in
-  a ranked list. Only watches still being waited on: a released or dismissed
-  watch has been answered, and an answered question should not keep colouring
-  what the inbox proposes.
+  A set, because the caller asks the same question of every candidate in a
+  ranked list. Only watches still being waited on.
   """
   def open_refs do
     Watch
@@ -190,10 +177,9 @@ defmodule Ambry.Wanted do
   @doc """
   Settles the watches an import answered, and says which.
 
-  Keyed on the provider records the operator adopted for the import, not on
-  what the matcher merely proposed: a candidate that was offered and passed
-  over is not evidence that this file is that recording. Returns the watches
-  it settled so the caller can say so.
+  Keyed on the provider records the operator adopted, not on what the matcher
+  merely proposed: a candidate offered and passed over is no evidence.
+  Returns the watches it settled so the caller can say so.
 
   Never raises and never fails the caller. This runs after the recording is
   already in the library, where a raised error would report a successful

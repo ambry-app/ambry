@@ -13,6 +13,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
   alias Ambry.Media.PubSub.RecordingGroupDeleted
   alias Ambry.Media.PubSub.RecordingGroupUpdated
   alias Ambry.Media.RecordingGroup
+  alias AmbryWeb.Admin.Deletion
 
   @valid_sort_fields [
     :name,
@@ -71,23 +72,20 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
     )
   end
 
-  # The list it is already showing, re-queried — not rebuilt out of string
-  # params. It used to hand `maybe_update_*` a map of `"filter"` and `"page"`
-  # and nothing else, and since a missing `"sort"` parses as `nil` and
-  # `Map.merge` lets the new `nil` win, every PubSub event silently threw the
-  # operator's sort away and put the list back on the default — while the
-  # address bar went on claiming the sort they had chosen.
+  # The list it is already showing, re-queried, never rebuilt out of string
+  # params. Handing `maybe_update_*` a map of `"filter"` and `"page"` and
+  # nothing else means a missing `"sort"` parses as `nil`, and since
+  # `Map.merge` lets that `nil` win, every PubSub event silently throws the
+  # operator's sort away and puts the list back on the default while the
+  # address bar goes on claiming the sort they chose.
   defp refresh_groups(socket), do: load_groups(socket, get_list_opts(socket))
 
   @impl Phoenix.LiveView
   def handle_event("delete", %{"id" => id}, socket) do
     group = Media.get_recording_group!(id)
-    {:ok, _group} = Media.delete_recording_group(group)
+    {:ok, message} = Deletion.outcome(Media.delete_recording_group(group), group.name)
 
-    {:noreply,
-     socket
-     |> refresh_groups()
-     |> put_flash(:info, "Set deleted successfully")}
+    {:noreply, socket |> refresh_groups() |> put_flash(:info, message)}
   end
 
   def handle_event("search", %{"search" => %{"query" => query}}, socket) do
@@ -107,7 +105,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Index do
   end
 
   # The page and the total, from one set of filters. Counted here rather than
-  # in the component so the "of 435" can never describe a different query from
+  # in the component so the total can never describe a different query from
   # the rows above it.
   defp list_groups(opts, default_sort) do
     filters = if opts.filter, do: %{search: opts.filter}, else: %{}

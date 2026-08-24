@@ -1,21 +1,18 @@
 defmodule Ambry.Inbox.Draft.GroupLink do
   @moduledoc """
-  The recording's proposed place in a part set: which `RecordingGroup` it
-  joins (or creates), and its part number within it.
+  The recording's proposed place in a part set: which `RecordingGroup` it joins
+  or creates, and its part number within it.
 
-  The mirror of `SeriesLink`, one level down — a media belongs to a group
-  with a part number the way a book belongs to a series with a book number —
-  but singular: a media is in at most one group, so the draft holds at most
-  one of these. `mode: :link` joins an existing group (Part 2 arriving after
-  Part 1 created the set); `mode: :create` mints one, carrying the set-level
-  facts (name, optional total) the new group is born with.
+  `SeriesLink` one level down, but singular: a media is in at most one group,
+  so the draft holds at most one of these. `mode: :link` joins an existing
+  group; `mode: :create` mints one, carrying the set-level facts it is born
+  with.
 
-  ## The part number never auto-resolves without a source
+  **The part number never auto-resolves without a source**, the same doctrine
+  as `SeriesLink.number`: "part of this set, position unknown" is a question,
+  not an answer. The escape hatch is removing the link, not importing an
+  unnumbered part.
 
-  Same doctrine as `SeriesLink.number`: "part of this set, position unknown"
-  is a question, not an answer. Detection may propose the number; only a
-  proposal or the operator supplies it, and the escape hatch is removing the
-  link, not importing an unnumbered part.
   """
 
   use Ecto.Schema
@@ -48,8 +45,8 @@ defmodule Ambry.Inbox.Draft.GroupLink do
     field :curated, :boolean, default: false
 
     # Same tombstone as `SeriesLink.removed`: removing a *proposal* is a
-    # decision that must survive reseeds and stay reversible. A link the
-    # operator added themselves really deletes (the embed goes nil).
+    # decision that must survive reseeds. A link the operator added
+    # themselves really deletes.
     field :removed, :boolean, default: false
 
     embeds_many :candidates, __MODULE__.Match, on_replace: :delete
@@ -119,10 +116,9 @@ defmodule Ambry.Inbox.Draft.GroupLink do
   @doc """
   Whether this set membership still needs a human.
 
-  A membership needs a part number to settle (see the moduledoc), plus the
-  group itself: an existing one by id, or a name for the one being created.
-  A blank name is storable — clearing the box to retype is the first half of
-  renaming — but never resolved.
+  It needs a part number, plus the group itself: an existing one by id, or a
+  name for the one being created. A blank name is storable, since clearing
+  the box is half of renaming, but never resolved.
   """
   def resolved?(%__MODULE__{part_number: nil}), do: false
 
@@ -137,9 +133,9 @@ defmodule Ambry.Inbox.Draft.GroupLink do
   @doc """
   Why it isn't resolved.
 
-  `:unnumbered` rather than `:missing`, the same distinction the series row
-  draws: a set a provider named and gave no part number to is not a set
-  nobody proposed, and saying so beside "from hardcover" contradicts itself.
+  `:unnumbered` rather than `:missing`: a set a provider named and gave no
+  part number to is not a set nobody proposed, and saying so beside a
+  provenance flag contradicts itself.
   """
   def state(%__MODULE__{} = link) do
     cond do

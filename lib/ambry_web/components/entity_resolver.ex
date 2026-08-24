@@ -2,71 +2,48 @@ defmodule AmbryWeb.Components.EntityResolver do
   @moduledoc """
   One control for "attach to an existing record, or create a new one".
 
-  A text box with a typeahead over existing records and — when `text_name`
-  is given — simultaneous new-record support: what's typed *is* the new
-  record's name until an existing record is picked, and a "Create" row in
-  the list makes the choice explicit. Without `text_name` it is a pure
-  picker for edit forms, where inventing records makes no sense.
+  A text box with a typeahead over existing records and, when `text_name` is
+  given, simultaneous new-record support: what's typed *is* the new record's
+  name until an existing record is picked, and a "Create" row makes the choice
+  explicit. Without `text_name` it is a pure picker for edit forms.
 
-  It participates in the surrounding form the way a native control would:
-  two hidden inputs carry the answer (the chosen id under `name`, the typed
+  Two hidden inputs carry the answer (the chosen id under `name`, the typed
   name under `text_name`), and the parent form's `phx-change` fires when they
-  move. Parent LiveViews keep their existing handlers and param shapes.
+  move, so parent LiveViews keep their existing handlers and param shapes.
 
   **The form is told on blur, not per keystroke.** The hidden inputs follow
-  the typing, so a save posts whatever the box currently says; what waits for
-  the box to be left is the *announcement* — picking, creating, or looking
-  away. That is when a native input fires `change`, and it is the difference
-  between "I mean a record you don't have" and "I am still typing". See
-  `moved/1`.
+  the typing, so a save posts whatever the box says; what waits for the box to
+  be left is the *announcement*. That is when a native input fires `change`,
+  and it is the difference between "I mean a record you don't have" and "I am
+  still typing". See `moved/1`.
 
-  **The form is told by this component, not by watching the DOM.** Every
-  interaction here is handled server-side, so the hidden inputs hold the new
-  answer only after the patch lands; `moved/1` pushes `entity-resolver:moved`
-  and the `entity-resolver-input` hook turns it into an `input` event once it
-  does. What this replaced watched the value attribute mutate instead, which
+  The announcement comes from this component, not from watching the DOM:
+  `moved/1` pushes `entity-resolver:moved` and the `entity-resolver-input`
+  hook turns it into an `input` event. Watching the value attribute mutate
   cannot tell an operator's pick from the parent re-rendering this row around
-  a different record — and reported the second one to the form as an edit.
+  a different record.
 
-  The list is plain markup with `phx-click` options and a small keyboard
-  hook — deliberately not a `<datalist>`, which mobile Firefox does not
-  support and which cannot offer a create row.
+  The list is plain markup with `phx-click` options and a keyboard hook,
+  deliberately not a `<datalist>`: mobile Firefox does not support one, and it
+  cannot offer a create row.
 
   ## Where the options come from
-
-  Two functions, passed in:
 
       search={&Books.search_books/2}   # (phrase, limit) -> [option]
       fetch={&Books.book_option/1}     #  id             -> option | nil
 
-  **The search runs per keystroke, server-side.** What this replaced took the
-  whole table as a list and filtered it in memory, which meant every form
-  holding a book picker loaded every book — with its cover — on mount, and the
-  filtering was `String.contains?` over one label, so "sanderson kings" found
-  nothing. The context owns the query instead: it can score, join, and stop at
-  a limit.
+  The search runs per keystroke, server-side, so the context owns the query
+  and can score, join and stop at a limit; filtering a preloaded list in
+  memory means every form holding a picker loads every record with its cover.
+  `fetch` is not decoration: without a by-id lookup a pure picker renders
+  blank over a perfectly good value.
 
-  **`fetch` is not decoration.** A filled box has to name what it holds, and
-  the preloaded list was answering that silently — the id was in it, so its
-  label was there to find. Without a by-id lookup a pure picker renders blank
-  over a perfectly good value.
+  Captured remote functions rather than an MFA tuple: checked at compile time,
+  stable across renders so change tracking behaves, and greppable.
 
-  Captured remote functions rather than an MFA tuple or a source atom:
-  `&Mod.fun/arity` is checked at compile time (an undefined one is a warning,
-  and CI runs `--warnings-as-errors`), it is stable across renders so change
-  tracking behaves, and it is greppable — the call site says which queries
-  back the box.
-
-  ## Options
-
-  `AmbryWeb.Components.EntityOption` owns the option shape and draws each
-  row, so a list here is indistinguishable from one dropped by
-  `AmbryWeb.Components.EntityDropdown`. This component reads one key of it
-  the dropdown never does — `query`, what the record is found by when that
-  differs from how it is displayed. A label composed from more than one
-  column has no column to match against, so reopening a filled box searched
-  for a string that could not exist and answered "No matches" about the very
-  record it was holding.
+  `AmbryWeb.Components.EntityOption` owns the option shape. This component
+  reads one key of it the dropdown never does, `query`, which is what the
+  record is found by when that differs from how it is displayed.
   """
 
   use AmbryWeb, :live_component
@@ -75,22 +52,19 @@ defmodule AmbryWeb.Components.EntityResolver do
 
   @limit 10
 
-  # A form control named `id` clobbers `form.id`: HTML's named getter puts the
-  # control on the form object itself, so `form.id` returns the input rather
-  # than the string in the id attribute. LiveView's patcher reads that
-  # property to match nodes, doesn't recognise the form it is looking at, and
-  # appends a second one with the same id — which pushed everything below the
-  # replacement and library pickers down by 12px on every re-render, in a way
-  # that looked like the flash was moving the page.
-  #
-  # Refused rather than documented, because the symptom points nowhere near
-  # the cause. Every other call site already qualifies the name.
+  # A form control named `id` clobbers `form.id`: HTML's named getter puts
+  # the control on the form object, so LiveView's patcher reads an input where
+  # it expects a string and appends a second form. Refused rather than
+  # documented, because the symptom points nowhere near the cause.
   @clobbers_form ~w(id name action method target elements length)
 
   @impl Phoenix.LiveComponent
   def render(%{name: name} = _assigns) when name in @clobbers_form do
     raise ArgumentError, """
-    EntityResolver was given name=#{inspect(name)}, which clobbers the     surrounding form's #{name} property and breaks LiveView's DOM patching.     Qualify it — "book_id", "media_id", "person_id" — and read that key in     the parent's phx-change handler.
+    EntityResolver was given name=#{inspect(name)}, which clobbers the
+    surrounding form's #{name} property and breaks LiveView's DOM patching.
+    Qualify it ("book_id", "media_id", "person_id") and read that key in
+    the parent's phx-change handler.
     """
   end
 
@@ -110,9 +84,8 @@ defmodule AmbryWeb.Components.EntityResolver do
       phx-click-away={@open && JS.push("close", target: @myself)}
     >
       <%!-- One of the two carries the hook, not both: firing `input` on any
-          input in a form makes LiveView serialize the whole form, so a
-          second dispatch is a second identical round trip. This one always
-          exists; the text input is optional. --%>
+          input serializes the whole form, so a second dispatch is a second
+          identical round trip. This one always exists. --%>
       <input
         type="hidden"
         id={"#{@id}-value"}
@@ -145,11 +118,9 @@ defmodule AmbryWeb.Components.EntityResolver do
         phx-debounce="150"
         class={[@class, @text_name && "pr-20"]}
       />
-      <%!-- The mode is a status, not a control — you can't click it into the
-          other mode, picking or typing puts you there — so it wears the
-          status costume: a soft-tint badge at the input's right edge, not
-          the outlined prefix segment it used to be. Absent while the field
-          is empty, because there is no outcome to name yet. --%>
+      <%!-- The mode is a status, not a control: picking or typing puts you
+          in the other one. Absent while the field is empty, because there is
+          no outcome to name yet. --%>
       <span
         :if={@text_name && @value}
         class="bg-brand-dark/15 pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm px-1.5 text-xs text-lime-300"
@@ -163,14 +134,11 @@ defmodule AmbryWeb.Components.EntityResolver do
         new
       </span>
       <%!-- Flush against the box that opened it: the list is that box's
-          contents spilling downward, not a panel that happens to be nearby.
-          Square on top, rounded below.
+          contents spilling downward. Square on top, rounded below.
 
-          The input keeps its own radius. Squaring its bottom corners to meet
-          the list was tried and looked worse (operator, 2026-08-18): the two
-          are not the same width, so the input's corners stay visible either
-          side of the seam, and squaring them removed a curve that was doing
-          no harm to close a join nobody could see. --%>
+          The input keeps its own radius, since the two are not the same
+          width and squaring its bottom corners would leave them visible
+          either side of the seam. --%>
       <%!-- `z-[35]` is a rung on the ladder in
             `AmbryWeb.Admin.Components.layout_header/1`: clear of the sticky
             footer this may open over near the bottom of a form, under the
@@ -181,13 +149,10 @@ defmodule AmbryWeb.Components.EntityResolver do
         role="listbox"
         class="min-w-48 z-[35] absolute max-h-64 w-full overflow-auto rounded-b-md bg-zinc-800 text-sm shadow-xl"
       >
-        <%!-- The held record is marked, not painted. Being first in the list
-            is most of the signal already, and the input two pixels above it
-            is wearing a lime focus ring — a brand fill and an inset brand
-            ring under that made the whole corner of the form green. So it
-            takes a neutral lift off the list's own ground and one lime
-            check, the app's mark for chosen (§6) at the smallest size it
-            comes in. --%>
+        <%!-- The held record is marked, not painted: being first in the list
+            is most of the signal, and the input above it already wears a lime
+            focus ring. A neutral lift off the list's ground and one lime
+            check, the app's mark for chosen (§6). --%>
         <li
           :for={option <- @matches}
           id={"#{@id}-option-#{option.id}"}
@@ -236,10 +201,8 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> assign(assigns)
      |> assign_new(:text_name, fn -> nil end)
      # Seeded from the field, not merely empty: a name can arrive from the
-     # server as well as from the keyboard — a proposal chip stages one in the
-     # row it appends — and a box that rendered blank would post the name
-     # away again on the next change. After the first render the operator owns
-     # it, which is what `assign_new/3` says.
+     # server, and a box rendering blank would post it away on the next
+     # change.
      |> assign_new(:text, fn -> assigns[:initial_text] || "" end)
      |> assign_new(:value, fn -> nil end)
      |> then(&assign(&1, :value, held_id(&1.assigns.value)))
@@ -252,17 +215,15 @@ defmodule AmbryWeb.Components.EntityResolver do
     {:noreply, assign(socket, open: true)}
   end
 
-  # **Looking away is the answer.** A name typed and left alone, with nothing
-  # picked, is the operator saying they mean a record the library doesn't
-  # have — the same moment a native input would have fired `change`, which is
-  # exactly when the form is told.
+  # Looking away is the answer: a name typed and left alone, with nothing
+  # picked, means a record the library doesn't have. The same moment a native
+  # input would have fired `change`.
   def handle_event("close", _params, socket) do
     {:noreply, socket |> assign(open: false, query: nil) |> moved()}
   end
 
   # Typing moves the box, not the form. The hidden inputs follow every
-  # keystroke so the form posts the right thing whenever it next serializes,
-  # but nothing is *announced* until the box is left — see `moved/1`.
+  # keystroke, but nothing is announced until the box is left — see `moved/1`.
   def handle_event("filter", %{"resolver" => params}, socket) do
     query = params[socket.assigns.id] || ""
     socket = assign(socket, query: query, open: true)
@@ -285,39 +246,22 @@ defmodule AmbryWeb.Components.EntityResolver do
      |> moved()}
   end
 
-  # Tells the surrounding form that this control moved, the way a native input
-  # would have — which is to say on **pick, create and close, and never on a
-  # keystroke.**
+  # Tells the surrounding form this control moved, the way a native input
+  # would: on pick, create and close, never on a keystroke.
   #
-  # A keystroke is not an answer. Typing a name posts the same thing as
-  # meaning it, so a form told per keystroke has a half-typed author staged
-  # in it from the first letter — worst of all while the operator is
-  # searching for one that already exists — and every surface downstream has
-  # to guess which of the two it is looking at. What this replaced answered
-  # that guess with a second hidden input carrying a "the operator said
-  # Create" flag, which nothing that *staged* a credit knew to set: a
-  # provider chip appended a perfectly good new narrator and their card never
-  # appeared (operator, 2026-08-21). Leaving on blur is the answer, and the
-  # form hears exactly one thing.
+  # A keystroke is not an answer. Typing a name posts the same string as
+  # meaning it, so a form told per keystroke has a half-typed author staged in
+  # it from the first letter. A "the operator said Create" flag pushes that
+  # job onto everything that stages a credit, which a provider chip will not
+  # set.
   #
-  # The three handlers below it call it, and nothing else does. The hidden
-  # inputs are ordinary markup rendered from assigns, so they change for two
-  # unrelated reasons: the operator moved this control, or the parent
-  # re-rendered this row around a different record entirely. The DOM cannot
-  # tell those apart — the old hook watched the value attribute mutate and
-  # fired on both, so a seeder that re-derived a credit's name had its own
-  # work reported back to it as an operator edit, and the credit was marked
-  # curated for something no human did.
+  # The three handlers below call it and nothing else does, because the DOM
+  # cannot tell an operator's move from the parent re-rendering this row
+  # around a different record.
   #
-  # **The answer travels in the event, not just the signal to go looking for
-  # it.** `push_event/3` is dispatched after the patch, so the hidden inputs
-  # ought to hold the new answer by the time this arrives — except that a
-  # `phx-change` already in flight locks a form's inputs, and typing here
-  # starts one on every keystroke. Measured: typing "Alastair" and clicking
-  # the match sent the form `identity_id=""` twice, because the debounced
-  # filter's round trip was still open and the pick's patch could not be
-  # written into the locked input. Carrying the values means the hook has
-  # them whatever the DOM is allowed to say.
+  # The answer travels in the event, not just the signal to go looking for it:
+  # a `phx-change` already in flight locks a form's inputs, so the hook would
+  # read the previous value.
   defp moved(socket) do
     push_event(socket, "entity-resolver:moved", %{
       id: socket.assigns.id,
@@ -326,14 +270,11 @@ defmodule AmbryWeb.Components.EntityResolver do
     })
   end
 
-  # The record this box is holding, so it can say its name. Asked of the
-  # source, because there is no longer a list to find it in — and not asked at
-  # all while the operator is typing, which is the common case and the one
-  # where the answer would be thrown away.
-  # **A blank id is no id.** A form posts an unpicked field as `""`, which is
-  # perfectly truthy, so a freshly typed name wore the "existing" badge and
-  # claimed to be attached to a record it had never seen. Normalised once
-  # here rather than guarded at each of the places that ask.
+  # The record this box is holding, so it can say its name. Not asked while
+  # the operator is typing.
+  #
+  # A blank id is no id: a form posts an unpicked field as `""`, which is
+  # truthy, so a freshly typed name would wear the "existing" badge.
   defp held_id(nil), do: nil
   defp held_id(""), do: nil
   defp held_id(value), do: value
@@ -348,21 +289,17 @@ defmodule AmbryWeb.Components.EntityResolver do
   defp display_value(%{held: %{label: label}}), do: label
   defp display_value(%{text: text}), do: text
 
-  # What the list filters on: what is being typed, otherwise whatever the
-  # field currently holds — an open filled field must never list records that
-  # don't match what's in it.
+  # What is being typed, otherwise whatever the field holds: an open filled
+  # field must not list records that do not match what is in it.
   #
-  # A held record answers with its own `query` when it has one, because its
-  # label may be composed rather than stored (see the moduledoc). Note the
-  # two different `query`s in play: the assign is the operator's keystrokes,
-  # `held.query` is the record's own search term.
+  # A held record answers with its own `query`, since its label may be
+  # composed rather than stored.
   defp effective_query(%{query: typed}) when is_binary(typed), do: typed
   defp effective_query(%{held: %{query: term}}) when is_binary(term), do: term
   defp effective_query(assigns), do: display_value(assigns)
 
-  # Only while the list is open. The search is a database query now, and a
-  # closed box has nothing to show — running one per parent render would be a
-  # query per keystroke of every other field on the form.
+  # Only while the list is open: the search is a database query, and running
+  # one per parent render would be a query per keystroke of every other field.
   defp matches(%{open: false}), do: []
 
   defp matches(%{equery: query, search: search} = assigns) do
@@ -372,19 +309,10 @@ defmodule AmbryWeb.Components.EntityResolver do
     |> pin(assigns.held)
   end
 
-  # What the field is already holding leads the list.
-  #
-  # Opening a filled box used to drop its own record somewhere in an
-  # alphabetical run of near-identical siblings — every recording of one book,
-  # every narrator with the same first name — so confirming what was already
-  # chosen meant reading the whole list. It is pinned whether or not the
-  # search surfaced it, which also means a box can no longer say "No matches"
-  # while holding something: an ordering that depends on the query is exactly
-  # what made that possible.
-  #
-  # `held` is nil while the operator is typing, so the pin is for the opened
-  # field, not for a search in progress — once you type, the list is an answer
-  # to what you typed.
+  # What the field is already holding leads the list, whether or not the
+  # search surfaced it, which also stops a box saying "No matches" while
+  # holding something. `held` is nil while typing, so once you type the list
+  # is an answer to what you typed.
   defp pin(found, nil), do: found
   defp pin(found, held), do: [held | Enum.reject(found, &same_record?(&1, held))]
 

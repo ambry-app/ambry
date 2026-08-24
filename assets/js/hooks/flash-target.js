@@ -1,3 +1,5 @@
+import { flashRow } from "../flash-row"
+
 // An in-page jump that says where it landed.
 //
 // A person pill beside a credit is a link to that person's card further down
@@ -20,14 +22,7 @@ export const FlashTargetHook = {
       // header; centring it is the same placement the list gets.
       event.preventDefault()
       target.scrollIntoView({ block: "center", behavior: "smooth" })
-      target.classList.remove("row-flash")
-      // Restart the animation on a second click at the same target: a class
-      // that is already there animates nothing.
-      void target.offsetWidth
-      target.classList.add("row-flash")
-      target.addEventListener("animationend", () => target.classList.remove("row-flash"), {
-        once: true,
-      })
+      flashRow(target)
     })
   },
 }

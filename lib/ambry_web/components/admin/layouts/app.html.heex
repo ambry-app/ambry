@@ -3,9 +3,9 @@
 <.side_nav active_path={@admin_nav_active_path} inbox_pending={@admin_inbox_pending} />
 
 <%!-- The nav is `fixed`, so it is out of flow and the content has to be told
-      to clear it. It used to be a flex row inside an `h-screen` shell, which
-      is the other way to keep a sidebar still — and it cost the whole admin
-      its document scroll. --%>
+      to clear it. A flex row inside an `h-screen` shell is the other way to
+      keep a sidebar still, and it costs the whole admin its document
+      scroll. --%>
 <div class="lg:pl-64">
   {@inner_content}
 </div>

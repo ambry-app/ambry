@@ -3,17 +3,14 @@ defmodule AmbryWeb.Admin.Curation do
   The edit forms' curation surface: an evidence panel, and fields that grow
   "Proposed" chips from it.
 
-  This is the import form's vocabulary — `record_row`, `provider_outcomes_row`,
-  `research_form`, `proposal_chip` — composed for a record that already
-  exists. The anatomy differences are the context's, not new costumes: an
-  edit form's fields aren't *waiting* on anyone (no state rails, no
-  amber/settled machinery — the record is real and every field already has
-  its value), and its evidence panel is session state rather than a stored
-  draft, so the panel starts as just a search and remembers nothing after
-  the page is left. What an accepted proposal leaves behind is the field's
-  provenance entry, which is the part that lives forever — so provenance is
-  worn inline in each field's header, where the import form says
-  "from rreading_glasses".
+  The import form's vocabulary (`record_row`, `provider_outcomes_row`,
+  `research_form`, `proposal_chip`) composed for a record that already exists.
+  The differences are the context's: an edit form's fields are not *waiting*
+  on anyone, so no state rails, and its evidence is session state rather than
+  a stored draft, so the panel remembers nothing after the page is left.
+
+  What an accepted proposal leaves behind is the field's provenance entry,
+  worn inline in each field's header.
   """
 
   use Phoenix.Component
@@ -50,37 +47,23 @@ defmodule AmbryWeb.Admin.Curation do
   The evidence panel: one search, fanned out to every capable provider, its
   results tickable records.
 
-  Sits **outside** the record's own `<form>` (the search is a form of its
-  own), above it — evidence first, then the decisions it feeds, the order
-  the import form established. It starts **folded**: an edit form is visited
-  for reasons that mostly aren't curation.
+  Sits outside the record's own `<form>`, above it: evidence first, then the
+  decisions it feeds. Starts folded, since an edit form is mostly visited for
+  reasons that are not curation.
 
-  ## Reading the files is not searching for the book
+  Reading the files is not searching for the book: one takes milliseconds and
+  always has something to say. So the recording level has two buttons rather
+  than making "would the embedded cover be better?" cost a fan-out.
 
-  At the recording level the button did two things: it read the recording's
-  own files, and it asked every provider about the book. One takes
-  milliseconds and always has something to say; the other takes seconds and
-  often doesn't. An operator working down the back catalogue asking "would
-  the embedded cover be an improvement?" had to pay for a provider fan-out to
-  find out. So there are two buttons, and the panel says both things in its
-  title.
-
-  ## Nothing is editable while it runs
-
-  A search used to leave the whole form live and say so only by relabelling
-  its own button — the last surface in the admin still doing that. The scrim
-  is the caller's, over the whole form, because that is the size of what a
-  fan-out changes: chips appear under every field it can fill. The import
-  form has done this since matching could hold an item.
+  Nothing is editable while it runs. The scrim is the caller's, over the whole
+  form, because chips appear under every field a fan-out can fill.
   """
   def evidence_panel(assigns) do
     ~H"""
-    <%!-- `open` is pinned server-side once anything has been asked: LiveView
-        patches strip a client-toggled open attribute (any results arriving
-        would slam the panel shut), and a panel you have used should stay open
-        anyway. The tags belong in that list even though they put nothing in
-        the panel — a fold that closes itself the moment you press a button
-        inside it reads as the button having gone wrong. --%>
+    <%!-- `open` is pinned server-side once anything has been asked, or a
+        LiveView patch would strip the client-toggled attribute and slam the
+        panel shut as results arrive. The tags belong in that list too: a fold
+        may not close itself because of a button pressed inside it. --%>
     <.disclosure
       class="pl-3 text-sm font-semibold text-zinc-200"
       container_class="space-y-2"
@@ -89,10 +72,8 @@ defmodule AmbryWeb.Admin.Curation do
     >
       <:summary_slot>{@title}</:summary_slot>
 
-      <%!-- The query, then who answered, then what they said — the import
-          form's grammar, because a card of search results is a search form
-          with its results below it. Both surfaces had it upside down, with
-          the search under the records it produced. --%>
+      <%!-- The query, then who answered, then what they said: a card of
+          search results is a search form with its results below it. --%>
       <div class="mt-2 space-y-2 rounded-lg bg-zinc-900 p-4">
         <.research_form
           :if={@level != "person"}
@@ -103,10 +84,9 @@ defmodule AmbryWeb.Admin.Curation do
           label={search_words(@evidence, @scan_files)}
         />
 
-        <%!-- A person is searched by name — the research form's
-            title/author/narrator fields are the books' vocabulary. The inbox's
-            component, not a second copy of it: this markup was hand-written
-            here and drifted from the one the import form uses. --%>
+        <%!-- A person is searched by name; the research form's
+            title/author/narrator fields are the books' vocabulary. The shared
+            component, never a copy of it: a second copy drifts. --%>
         <.person_research_form
           :if={@level == "person"}
           event="research"
@@ -166,8 +146,7 @@ defmodule AmbryWeb.Admin.Curation do
   control, and what the ticked evidence proposes.
 
   The header is the import form's "from …" idiom pointed at `Provenance`:
-  the recorded source (muted), or the amber pending source when a proposal
-  was accepted this session and saving will record it.
+  the recorded source, or an amber pending one when saving will record it.
   """
   def curated_input(assigns) do
     ~H"""
@@ -199,9 +178,9 @@ defmodule AmbryWeb.Admin.Curation do
 
   @doc """
   A curated composite date: label, provenance, one date+precision control,
-  and combined chips — a chip proposes both halves and accepting settles
-  both, so "the date from Hardcover but the precision from rreading-glasses"
-  stopped being a choice anyone is offered.
+  and combined chips. A chip proposes both halves and accepting settles both,
+  so taking the date from one provider and the precision from another is not
+  a choice anyone is offered.
   """
   def curated_date(assigns) do
     ~H"""
@@ -241,13 +220,11 @@ defmodule AmbryWeb.Admin.Curation do
   evidence instead of a draft's candidates.
 
   Chip anatomy is identical to the import form's: only the chosen chip's
-  source tag fills lime, everyone else's is bare muted uppercase; one line
-  or a list, never a partial wrap.
+  source tag fills lime, and it is one line or a list, never a partial wrap.
 
   `adds_rows` says these chips credit a person or join a series rather than
-  fill a field, which changes what a *chosen* one means: not "the field holds
-  this" but "the record already has it", and a click has nothing to do except
-  add it twice (`proposal_chip/1`).
+  fill a field, which changes what a chosen one means: not "the field holds
+  this" but "the record already has it".
   """
   def proposal_row(assigns) do
     assigns = assign(assigns, :images?, Enum.any?(assigns.proposals, & &1[:image]))
@@ -285,11 +262,10 @@ defmodule AmbryWeb.Admin.Curation do
           />
         </.proposal_chip>
 
-        <%!-- The way back. A chip changes a field in one click and the only
-            other way out was reloading the page and losing the rest of the
-            edit, so the saved value is offered as an option too — ghost,
-            because it is the escape hatch rather than a proposal, and absent
-            entirely while the field still holds what was saved. --%>
+        <%!-- The way back: a chip changes a field in one click, so the saved
+            value is offered as an option too. Ghost, because it is the escape
+            hatch rather than a proposal, and absent while the field still
+            holds what was saved. --%>
         <.proposal_chip
           :if={@revert}
           chosen={false}
@@ -319,12 +295,11 @@ defmodule AmbryWeb.Admin.Curation do
   @doc """
   Where a field's value came from.
 
-  Reads the pending hint first — an accepted proposal that will be recorded
-  on save is the field's future, and amber says "not saved yet". The lock
-  toggle this once carried is gone: nothing consumes locks yet (the refresh
-  feature they gate is unbuilt), so the toggle was UI for a promise nothing
-  tested. The manual-vs-provider semantics are still recorded on save, and
-  the lock UI returns if and when a consumer exists.
+  Reads the pending hint first: an accepted proposal that will be recorded on
+  save is the field's future, and amber says "not saved yet".
+
+  Provenance records manual-vs-provider on save. Nothing consumes the lock it
+  implies yet, so there is no lock control here.
   """
   def provenance_flag(assigns) do
     entry = assigns.record && assigns.record.id && Provenance.entry(assigns.record, assigns.field)
@@ -440,17 +415,14 @@ defmodule AmbryWeb.Admin.Curation do
   @doc """
   The form's params with one row appended to a list.
 
-  **Built from the params, not from the changeset.** Rebuilding the rows out
-  of the changeset was fine while a row was only ever an id; a row may now
-  carry a whole nested record it is about to create, and rebuilding kept the
-  columns it knew about and dropped that. The params are what the form
-  already holds — every edit the operator has made, in the shape they will be
-  posted in — so appending to them adds a row and changes nothing else. The
-  sort and drop lists travel with them untouched, which is what lets Ecto
-  reconcile the two itself (`cast_params/4` opens with `sort -- drop`).
+  **Built from the params, not from the changeset.** A row may carry a whole
+  nested record it is about to create, and rebuilding from the changeset keeps
+  the columns it knows about and drops that. The params are what the form
+  already holds, so appending to them adds a row and changes nothing else, and
+  the sort and drop lists travel untouched for Ecto to reconcile.
 
-  Before anything has been posted the params are empty, and the rows are read
-  from the changeset then: ids only, which is all an untouched row is.
+  Before anything is posted the params are empty and the rows come from the
+  changeset: ids only, which is all an untouched row is.
   """
   def append_row(form, assoc, new_row) do
     key = to_string(assoc)
@@ -495,11 +467,9 @@ defmodule AmbryWeb.Admin.Curation do
   defp normalize(nil), do: ""
   defp normalize(value), do: value |> to_string() |> String.trim()
 
-  # source_words resolves provider ids to display names for everyone now
-  # A hint that names the source already recorded is not news. Clicking a chip
-  # that is already the chosen one — because the value came from there and was
-  # saved from there — turned the flag amber and announced a change that was
-  # not one.
+  # A hint naming the source already recorded is not news: clicking the chip
+  # whose value is already saved would turn the flag amber and announce a
+  # change that is not one.
   defp news(nil, _entry), do: nil
 
   defp news(hint, %{"source" => source} = entry) do

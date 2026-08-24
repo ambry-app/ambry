@@ -5,6 +5,7 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   alias Ambry.Books
   alias Ambry.Media
   alias Ambry.Media.RecordingGroup
+  alias AmbryWeb.Admin.Deletion
   alias AmbryWeb.Admin.ReturnTo
   alias Ecto.Changeset
 
@@ -54,6 +55,22 @@ defmodule AmbryWeb.Admin.RecordingGroupLive.Form do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("delete", _params, socket) do
+    case Deletion.outcome(
+           Media.delete_recording_group(socket.assigns.group),
+           socket.assigns.group.name
+         ) do
+      {:ok, message} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, message)
+         |> push_navigate(to: ReturnTo.path(~p"/admin/sets", socket.assigns.list_params))}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("validate", %{"recording_group_form" => group_params}, socket) do
     changeset =
       socket.assigns.group

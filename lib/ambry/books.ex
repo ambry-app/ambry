@@ -64,13 +64,13 @@ defmodule Ambry.Books do
   The values a library naming template renders from.
 
   A folder can only sit under one author, so `author` and `series` resolve to
-  the **primary** credit — position 0, which the operator controls from the
-  book form. That designation is the entire reason credits carry a position.
+  the **primary** credit: position 0, which the operator controls from the
+  book form.
 
   Needs `book_authors: [:author]` and `series_books: [:series]` loaded, and
-  `media_narrators: [:narrator]` on the media; anything not loaded simply
-  resolves to nothing rather than raising, since a missing series is a normal
-  state and the template collapses empty segments anyway.
+  `media_narrators: [:narrator]` on the media. Anything not loaded resolves
+  to nothing rather than raising, and the template collapses empty
+  segments.
   """
   def naming_values(%Book{} = book, %Media{} = media) do
     primary_series = primary(book.series_books)
@@ -87,9 +87,8 @@ defmodule Ambry.Books do
     }
   end
 
-  # Position 0 is the operator's designated primary. The list arrives in
-  # position order via `preload_order`, but this is explicit rather than
-  # trusting whatever order a caller happened to load it in.
+  # Position 0 is the operator's designated primary. Explicit rather than
+  # trusting the order a caller happened to load the list in.
   defp primary(entries) when is_list(entries),
     do: Enum.min_by(entries, & &1.position, fn -> nil end)
 
@@ -125,12 +124,6 @@ defmodule Ambry.Books do
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`
   to change this. Also can optionally filter by the given `filter` string.
-
-  ## Examples
-
-      iex> list_books()
-      {[%BookFlat{}, ...], true}
-
   """
   def list_books(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :title]) do
     over_limit = limit + 1
@@ -151,20 +144,14 @@ defmodule Ambry.Books do
   Books matching a phrase, best first, for matching a *file* against the
   library rather than for somebody typing.
 
-  A term that misses costs nothing — that is `joiner: :any`, and it is the
-  whole reason this is not `list_books/4`'s search: the file's idea of the
-  title routinely isn't the library's, so the author's name should improve
+  `joiner: :any`, so a term that misses costs nothing: the file's idea of the
+  title routinely isn't the library's, and the author's name should improve
   the ranking rather than break the match.
 
-  No `partial`, unlike `search_books/2`. A prefix on the last word is for
-  somebody who has not finished typing it; a filename has no half-typed word,
-  and opening its last token to prefixes only buys noise.
-
-  And `:any` explicitly, rather than the `:narrowing` a picker gets. Nobody
-  is typing here, so there is no "I will add a word to cut this down" to
-  serve — and narrowing would hand back the one row that happened to match
-  every token where this wants the ranked field of candidates a matcher
-  scores.
+  No `partial`, unlike `search_books/2` — a filename has no half-typed word.
+  And `:any` explicitly rather than a picker's `:narrowing`, because a
+  matcher wants the ranked field of candidates, not the one row that matched
+  every token.
   """
   @spec match_books(String.t() | nil, pos_integer()) :: [struct()]
   def match_books(phrase, limit \\ 10) do
@@ -172,14 +159,7 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns the number of books, under the same filters `list_books/4` lists
-  with — so a list can say what page it is of.
-
-  ## Examples
-
-      iex> count_books()
-      1
-
+  The number of books, under the same filters `list_books/4` lists with.
   """
   @spec count_books(map()) :: integer()
   def count_books(filters \\ %{}) do
@@ -190,15 +170,6 @@ defmodule Ambry.Books do
   Gets a single book.
 
   Raises `Ecto.NoResultsError` if the Book does not exist.
-
-  ## Examples
-
-      iex> get_book!(123)
-      %Book{}
-
-      iex> get_book!(456)
-      ** (Ecto.NoResultsError)
-
   """
   def get_book!(id) do
     Book
@@ -208,14 +179,6 @@ defmodule Ambry.Books do
 
   @doc """
   Creates a book.
-
-  ## Examples
-
-      iex> create_book(%{field: value})
-      {:ok, %Book{}}
-
-      iex> create_book(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
 
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
@@ -240,14 +203,6 @@ defmodule Ambry.Books do
   @doc """
   Updates a book.
 
-  ## Examples
-
-      iex> update_book(book, %{field: new_value})
-      {:ok, %Book{}}
-
-      iex> update_book(book, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
   Accepts `provenance: %{"field" => source}` in `opts` to record where
   provider-fillable field values came from — see `Ambry.Provenance`.
   """
@@ -271,18 +226,6 @@ defmodule Ambry.Books do
 
   @doc """
   Deletes a book.
-
-  ## Examples
-
-      iex> delete_book(book)
-      :ok
-
-      iex> delete_book(book)
-      {:error, :has_media}
-
-      iex> delete_book(book)
-      {:error, changeset}
-
   """
   def delete_book(%Book{} = book) do
     Repo.transact(fn ->
@@ -310,12 +253,6 @@ defmodule Ambry.Books do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking book changes.
-
-  ## Examples
-
-      iex> change_book(book)
-      %Ecto.Changeset{data: %Book{}}
-
   """
   def change_book(%Book{} = book, attrs \\ %{}) do
     Book.changeset(book, attrs)
@@ -359,12 +296,8 @@ defmodule Ambry.Books do
   Books matching what somebody typed into a picker, as rich options: cover,
   title, and the authors — the fact that tells two same-titled books apart.
 
-  Asks the index the way every other picker does: a term that misses costs
-  nothing, so "sanderson kings" finds The Way of Kings, and the last word is
-  a prefix because somebody typing has not finished it.
-
-  With nothing typed, the first page — a box that has just been focused
-  should show what is there, not nothing.
+  Asks the index the way every other picker does. With nothing typed, the
+  first page.
   """
   def search_books(phrase, limit) do
     BookFlat
@@ -375,9 +308,7 @@ defmodule Ambry.Books do
   @doc """
   One book as a picker option, or nil.
 
-  What lets a picker name the book it is already holding. The preloaded list
-  it replaced was providing this silently, which is most of why it was
-  preloaded at all.
+  What lets a picker name the book it is already holding.
   """
   def book_option(nil), do: nil
   def book_option(""), do: nil
@@ -462,11 +393,6 @@ defmodule Ambry.Books do
 
   By default, it will limit to the first 10 results. Supply `offset` and `limit`
   to change this. Also can optionally filter by the given `filter` string.
-
-  ## Examples
-
-      iex> list_series()
-      {[%SeriesFlat{}, ...], true}
   """
   def list_series(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1
@@ -484,12 +410,7 @@ defmodule Ambry.Books do
   end
 
   @doc """
-  Returns the number of series.
-
-  ## Examples
-
-      iex> count_series()
-      1
+  The number of series.
   """
   @spec count_series(map()) :: integer()
   def count_series(filters \\ %{}) do
@@ -500,14 +421,6 @@ defmodule Ambry.Books do
   Gets a single series.
 
   Raises `Ecto.NoResultsError` if the Series does not exist.
-
-  ## Examples
-
-      iex> get_series!(123)
-      %Series{}
-
-      iex> get_series!(456)
-      ** (Ecto.NoResultsError)
   """
   def get_series!(id) do
     Series
@@ -518,10 +431,9 @@ defmodule Ambry.Books do
   @doc """
   The series or universe the library already has under a name, or nil.
 
-  A lookup, and only a lookup: curation stages what it finds, and a name that
-  finds nothing travels as a nested record the save creates
-  (`Ambry.Ecto.EntityRef`). Matched by search rather than by exact string, the
-  same way the picker matched while the name was being typed.
+  A lookup, and only a lookup: a name that finds nothing travels as a nested
+  record the save creates (`Ambry.Ecto.EntityRef`). Matched by search rather
+  than by exact string, the same way the picker matched.
   """
   def find_series(name), do: Ambry.Search.find_first(name, Series)
 
@@ -529,14 +441,6 @@ defmodule Ambry.Books do
 
   @doc """
   Creates a series.
-
-  ## Examples
-
-      iex> create_series(%{field: value})
-      {:ok, %Series{}}
-
-      iex> create_series(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
   """
   def create_series(attrs) do
     Repo.transact(fn ->
@@ -557,14 +461,6 @@ defmodule Ambry.Books do
 
   @doc """
   Updates a series.
-
-  ## Examples
-
-      iex> update_series(series, %{field: new_value})
-      {:ok, %Series{}}
-
-      iex> update_series(series, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
   """
   def update_series(%Series{} = series, attrs) do
     Repo.transact(fn ->
@@ -585,14 +481,6 @@ defmodule Ambry.Books do
 
   @doc """
   Deletes a series.
-
-  ## Examples
-
-      iex> delete_series(series)
-      {:ok, %Series{}}
-
-      iex> delete_series(series)
-      {:error, %Ecto.Changeset{}}
   """
   def delete_series(%Series{} = series) do
     Repo.transact(fn ->
@@ -613,11 +501,6 @@ defmodule Ambry.Books do
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking series changes.
-
-  ## Examples
-
-      iex> change_series(series)
-      %Ecto.Changeset{data: %Series{}}
   """
   def change_series(%Series{} = series, attrs \\ %{}) do
     Series.changeset(series, attrs)
@@ -662,8 +545,7 @@ defmodule Ambry.Books do
 
   # Universes
   #
-  # NOTE: universes are not in the full-text search index (yet) — deliberate;
-  # revisit if searching "Cosmere" ever matters.
+  # Deliberately not in the full-text search index.
 
   @universe_direct_assoc_preloads [book_universes: [book: [:media, :authors]]]
 
@@ -675,11 +557,6 @@ defmodule Ambry.Books do
   By default, it will limit to the first 10 results. Supply `offset` and
   `limit` to change this. Also can optionally filter by the given `filter`
   string.
-
-  ## Examples
-
-      iex> list_universes()
-      {[%UniverseFlat{}, ...], true}
   """
   def list_universes(offset \\ 0, limit \\ 10, filters \\ %{}, order \\ [asc: :name]) do
     over_limit = limit + 1

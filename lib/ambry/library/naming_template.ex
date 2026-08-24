@@ -12,29 +12,21 @@ defmodule Ambry.Library.NamingTemplate do
       Brandon Sanderson/The Stormlight Archive/1 - The Way of Kings (2010)/
         The Way of Kings.m4b
 
-  This is a pure renderer over a map of already-resolved values — deciding
-  *which* author is "the" author is domain knowledge that belongs with books,
-  not with the filesystem. See `Ambry.Books.naming_values/2`.
+  A pure renderer over already-resolved values: deciding *which* author is
+  "the" author belongs with books (`Ambry.Books.naming_values/2`).
 
-  ## Empty segments collapse
-
-  A standalone book has no series, and a book can be in a series without a
-  number. Rather than producing `Author//Title` or a stray leading `- `, a
-  segment whose tokens all resolve to nothing is dropped entirely, and a
-  partially-empty segment loses the punctuation that was only there to join
-  the missing part. Otherwise every standalone book in the library would sit
-  in a folder whose name starts with a dash.
+  Empty segments collapse. A segment whose tokens all resolve to nothing is
+  dropped, and a partially-empty one loses the punctuation that was only there
+  to join the missing part, so a standalone book never sits in `Author//Title`
+  or a folder starting with a dash.
   """
 
   @default "{author}/{series}/{series_book_number} - {title} ({year})"
 
   @tokens ~w(author series series_book_number title year narrator)
 
-  # Separators and brackets are stripped rather than substituted: a title
-  # containing a slash must not silently become two directories, and a NUL or
-  # a control character has no business in a filename at all. Everything else
-  # — apostrophes, commas, ampersands, unicode — is left alone, because
-  # mangling "Gwendy's Button Box" helps nobody.
+  # Stripped rather than substituted: a title containing a slash must not
+  # become two directories. Everything else is left alone.
   @unsafe ~r/[\/\\:\*\?"<>\|\x00-\x1f]/
 
   # Most filesystems cap a single name at 255 bytes. Truncating on a byte
@@ -47,8 +39,7 @@ defmodule Ambry.Library.NamingTemplate do
   @doc """
   The folder path for a recording, relative to its library root.
 
-  Returns `{:error, :no_title}` rather than inventing a name — a folder called
-  "Unknown" is worse than a refusal that says what's missing.
+  Returns `{:error, :no_title}` rather than inventing a name.
   """
   def render(template \\ @default, values) do
     values = stringify(values)
@@ -78,62 +69,41 @@ defmodule Ambry.Library.NamingTemplate do
   @doc """
   The names for every file of a recording, relative to its book folder.
 
-  A single-file recording is one name sitting directly in the folder, exactly
-  as before. A multi-file one gets a **subfolder of its own**, with its files
-  renamed to a zero-padded index:
+  A single-file recording is one name sitting directly in the folder. A
+  multi-file one gets a **subfolder of its own**, with its files renamed to a
+  zero-padded index:
 
       1 - Words of Radiance (2014)/
         Words of Radiance/
           Words of Radiance - 001.mp3
           Words of Radiance - 002.mp3
 
-  Two things make the subfolder non-negotiable. Forty files loose in the book
-  folder would sit alongside the *other* recordings of that book — the folder
-  is shared by every part of a set and by a second reading of the same work —
-  and pruning or deleting one of them could then no longer tell whose files
-  were whose. And the index has to be rendered rather than inherited: play
-  order is the order these names are generated in, so it must be legible on
-  disk instead of depending on how the release happened to name things.
+  The book folder is shared by every part of a set and by every recording of
+  the same work, so without the subfolder forty loose files could not be told
+  from another recording's. The index is rendered rather than inherited,
+  because play order must be legible on disk.
 
-  Renaming loses nothing that isn't already captured. Chapter titles are read
-  off the source filenames at import (the roadmap's 1h), and a hardlinked
-  source keeps its own name regardless — the library copy is a second name for
-  the same bytes, not a replacement.
+  Renaming loses nothing: chapter titles are read off the source filenames at
+  import, and a hardlinked source keeps its own name.
 
   ## The recording descriptor
 
-  `recording` says which recording of the work this is, and both of its keys
-  are appended to the **name stem** — the thing that has to be unique inside a
-  book folder, being the filename for a single-file recording and the
-  subfolder name for a multi-file one:
+  Both keys of `recording` are appended to the **name stem** — the filename
+  for a single-file recording, the subfolder name for a multi-file one:
 
-    * `:part` — `%{number: n, total: t, word: w}` for a member of a part set,
-      rendering " - Part 2 of 3" in the group's own wording. Meaningful, and
-      what a human reads.
-    * `:token` — the recording's own short identifier, rendering " [7bKq]".
-      Meaningless, and what makes the name *guaranteed* unique.
+    * `:part` — `%{number: n, total: t, word: w}`, rendering " - Part 2 of 3"
+      in the set's own wording. What a human reads.
+    * `:token` — the recording's short identifier, rendering " [7bKq]". What
+      makes the name *guaranteed* unique.
 
-  ### Why the token is always there
+  **The token is always there**, never added only on collision: a
+  conditional token makes one recording's correct name depend on the
+  existence of another record. Always present, the path is a pure function of
+  the record, and `{:destination_exists, _}` means two records claim one
+  path.
 
-  A book folder is shared on purpose: by every part of a set, and by every
-  recording of the same work. Two readings of one book published the same year
-  therefore rendered to one identical path, and placement refused —
-  `{narrator}` in the template was the documented workaround, which taxes
-  every book in the library for a problem a handful have.
-
-  The token could have been added only on collision, and deliberately isn't.
-  That would make one recording's correct name depend on the *existence of
-  another record*, so the nightly organize would have to re-derive that
-  relationship every time it ran — and a re-derivation that quietly un-answers
-  a settled question is this codebase's most-repeated bug. With the token
-  always present the path is a pure function of the record, organize stays a
-  rename-to-computed-path, and `{:destination_exists, _}` stops being an
-  expected operator-facing outcome and becomes what it should be: a sign that
-  two records claim one path, which is a bug.
-
-  Nothing *inside* a multi-file recording's own folder repeats the token — the
-  ` - 001` index already makes those unique, and the folder carries the
-  guarantee.
+  Nothing *inside* a multi-file recording's folder repeats the token; the
+  ` - 001` index already makes those unique.
   """
   def filenames(values, source_paths, recording \\ %{})
 
@@ -152,9 +122,8 @@ defmodule Ambry.Library.NamingTemplate do
     end
   end
 
-  # `stem` is what must be unique inside the book folder; `titled` is the same
-  # name without the token, for the files inside a recording's own folder —
-  # where the index is already all the uniqueness there is to need.
+  # `stem` is what must be unique inside the book folder; `titled` is the
+  # same without the token, for files inside a recording's own folder.
   defp build_filenames(stem, _titled, [source_path]), do: [stem <> extname(source_path)]
 
   defp build_filenames(stem, titled, source_paths) do
@@ -174,25 +143,13 @@ defmodule Ambry.Library.NamingTemplate do
   defp token_suffix(""), do: ""
   defp token_suffix(token), do: " [#{token}]"
 
-  # Three digits unless there are genuinely more files than that, so a
-  # forty-file book reads 001..040 and never gets re-padded by a later
-  # re-organize.
+  # Three digits unless there are genuinely more files, so a re-organize
+  # never re-pads.
   defp index_width(count), do: max(3, count |> to_string() |> String.length())
 
-  # `.mp4`, `.m4a` and `.m4b` are the *same container* — ISO base media, MPEG-4
-  # part 14 — and the extension only says what a player should expect to find
-  # inside: generic, audio, or audio that is a book. Ambry places nothing but
-  # audiobook audio into a root, so the honest name for all three here is
-  # `.m4b`, and it is the one that makes the tree readable by everything else:
-  # audiobook players key their whole behaviour off it, remembering position
-  # and shelving the file as a book rather than a song.
-  #
-  # Nothing about the bytes changes, and nothing in Ambry depends on the
-  # difference — `Probe` maps all three to `audio/mp4` already. This is purely
-  # so a library that outlives Ambry is a library, not a pile of `.mp4`s.
-  #
-  # Every other format keeps its extension, because renaming those *would* be
-  # a lie: an mp3 is not an m4b, whatever a library would prefer.
+  # `.mp4`, `.m4a` and `.m4b` are the same container, and audiobook players
+  # key their behaviour off `.m4b`. Nothing about the bytes changes. Every
+  # other format keeps its extension: an mp3 is not an m4b.
   defp extname(source_path) do
     source_path
     |> Path.extname()
@@ -239,9 +196,8 @@ defmodule Ambry.Library.NamingTemplate do
     |> Enum.find(&(&1 not in @tokens))
   end
 
-  # One path segment. If every token in it is empty the segment disappears;
-  # if only some are, the literal text that joined them goes too, so a
-  # missing series number doesn't leave "- The Way of Kings".
+  # One path segment. All tokens empty and the segment disappears; some empty
+  # and the literal text that joined them goes too.
   defp segment(segment, values) do
     tokens = ~r/\{([^}]*)\}/ |> Regex.scan(segment, capture: :all_but_first) |> List.flatten()
 
