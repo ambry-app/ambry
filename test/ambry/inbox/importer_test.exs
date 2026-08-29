@@ -119,6 +119,23 @@ defmodule Ambry.Inbox.ImporterTest do
       assert media.status == :pending
     end
 
+    test "a start-unlisted import is born hidden" do
+      item = tagged_item()
+
+      item = update_in(item.draft.recording, &%{&1 | start_unlisted: true})
+      {:ok, item} = Inbox.update_draft(item, Inbox.dump_draft(item.draft))
+
+      assert {:ok, media} = Inbox.import_item(item)
+
+      assert %DateTime{} = Media.get_media!(media.id).unlisted_at
+    end
+
+    test "an ordinary import is born listed" do
+      assert {:ok, media} = tagged_item() |> Inbox.import_item()
+
+      assert Media.get_media!(media.id).unlisted_at == nil
+    end
+
     # A curated list is the operator's answer — including hand-nudged times —
     # and lands verbatim. Safe against the import-time re-probe because a
     # file change flips the draft stale, and a stale draft refuses import.

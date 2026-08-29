@@ -85,6 +85,13 @@
             <div class="flex gap-4">
               <.input field={@form[:abridged]} label="Abridged" type="checkbox" />
               <.input field={@form[:full_cast]} label="Full cast" type="checkbox" />
+              <.input
+                type="checkbox"
+                id="media-unlisted"
+                name="media[unlisted]"
+                label="Unlisted"
+                checked={!!@form[:unlisted_at].value}
+              />
             </div>
           </.field_group>
 

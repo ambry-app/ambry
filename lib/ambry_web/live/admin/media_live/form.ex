@@ -208,6 +208,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       media_params
       |> mark_typed_titles(current_chapters(socket.assigns.form))
       |> naming_a_set(socket)
+      |> apply_unlisted(socket.assigns.media)
 
     changeset =
       socket.assigns.media
@@ -230,6 +231,7 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       media_params
       |> mark_typed_titles(current_chapters(socket.assigns.form))
       |> naming_a_set(socket)
+      |> apply_unlisted(socket.assigns.media)
 
     socket =
       assign(socket,
@@ -814,6 +816,20 @@ defmodule AmbryWeb.Admin.MediaLive.Form do
       {:error, _reason} -> {:error, :failed_import}
     end
   end
+
+  # The form speaks a checkbox; the record keeps a timestamp. Stamped only on
+  # the flip, so re-saving an unlisted recording keeps when it was hidden.
+  defp apply_unlisted(%{"unlisted" => unlisted} = media_params, media) do
+    media_params = Map.delete(media_params, "unlisted")
+
+    case {unlisted, media.unlisted_at} do
+      {"true", nil} -> Map.put(media_params, "unlisted_at", DateTime.utc_now())
+      {"true", _since} -> media_params
+      {"false", _any} -> Map.put(media_params, "unlisted_at", nil)
+    end
+  end
+
+  defp apply_unlisted(media_params, _media), do: media_params
 
   defp save_media(socket, :edit, media_params) do
     opts = [provenance: ProvenanceHints.sources(socket.assigns.provenance_hints)]
