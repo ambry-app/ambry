@@ -38,16 +38,16 @@ defmodule Ambry.Media.Editions do
   @doc """
   Partitions a book's media list into editions, newest first.
 
-  Only ready media are considered unless `all_statuses: true` (admin
-  surfaces — operators always see non-ready). A book whose media are all
-  filtered out yields `[]` — user-facing surfaces hide such books
-  entirely.
+  Only ready, listed media are considered unless `all_statuses: true` (admin
+  surfaces — operators always see non-ready and unlisted). A book whose
+  media are all filtered out yields `[]` — user-facing surfaces hide such
+  books entirely.
   """
   def from_media(media_list, opts \\ []) do
     media_list =
       if opts[:all_statuses],
         do: media_list,
-        else: Enum.filter(media_list, &(&1.status == :ready))
+        else: Enum.filter(media_list, &(&1.status == :ready and is_nil(&1.unlisted_at)))
 
     {grouped, singles} = Enum.split_with(media_list, & &1.recording_group_id)
 

@@ -837,6 +837,92 @@ defmodule Ambry.MediaTest do
     end
   end
 
+  describe "unlist_media/1 and relist_media/1" do
+    test "unlisting stamps unlisted_at once and relisting clears it" do
+      media = insert(:media, book: build(:book))
+
+      {:ok, unlisted} = Media.unlist_media(media)
+      assert %DateTime{} = unlisted.unlisted_at
+
+      {:ok, still_unlisted} = Media.unlist_media(unlisted)
+      assert still_unlisted.unlisted_at == unlisted.unlisted_at
+
+      {:ok, relisted} = Media.relist_media(still_unlisted)
+      assert relisted.unlisted_at == nil
+
+      {:ok, still_listed} = Media.relist_media(relisted)
+      assert still_listed.unlisted_at == nil
+    end
+
+    test "an unlisted media keeps its processing status" do
+      media = insert(:media, book: build(:book), status: :error)
+
+      {:ok, unlisted} = Media.unlist_media(media)
+      assert unlisted.status == :error
+
+      {:ok, relisted} = Media.relist_media(unlisted)
+      assert relisted.status == :error
+    end
+  end
+
+  describe "browsing hides unlisted media" do
+    test "get_recent_media/2 skips unlisted media" do
+      %{id: listed_id} = insert(:media, book: build(:book), status: :ready)
+
+      insert(:media,
+        book: build(:book),
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second)
+      )
+
+      {media, false} = Media.get_recent_media()
+
+      assert Enum.map(media, & &1.id) == [listed_id]
+    end
+
+    test "an unlisted part cannot represent its set" do
+      book = insert(:book)
+      group = insert(:recording_group, book: book)
+
+      insert(:media,
+        book: book,
+        recording_group: group,
+        part_number: 1,
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second)
+      )
+
+      %{id: part_two_id} =
+        insert(:media, book: book, recording_group: group, part_number: 2, status: :ready)
+
+      {media, false} = Media.get_recent_media()
+
+      assert Enum.map(media, & &1.id) == [part_two_id]
+    end
+
+    test "get_narrated_media/3 skips unlisted media" do
+      narrator = insert(:narrator, person: build(:person))
+
+      %{id: listed_id} =
+        insert(:media,
+          book: build(:book),
+          status: :ready,
+          media_narrators: [build(:media_narrator, narrator: narrator)]
+        )
+
+      insert(:media,
+        book: build(:book),
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second),
+        media_narrators: [build(:media_narrator, narrator: narrator)]
+      )
+
+      {media, false} = Media.get_narrated_media(narrator)
+
+      assert Enum.map(media, & &1.id) == [listed_id]
+    end
+  end
+
   describe "delete_media/1" do
     test "deletes a media" do
       media =

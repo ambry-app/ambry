@@ -404,8 +404,12 @@ defmodule Ambry.Media do
 
   defp media_with_book_details_query(id) do
     media_query =
-      from m in Media, where: m.status == :ready and m.id != ^id, order_by: {:desc, :published}
+      from m in Media,
+        where: m.status == :ready and is_nil(m.unlisted_at) and m.id != ^id,
+        order_by: {:desc, :published}
 
+    # unlisted parts stay in the set rail: whoever reached one part of a
+    # hidden set must still be able to reach the others
     group_media_query =
       from m in Media,
         where: m.status == :ready,
@@ -494,6 +498,20 @@ defmodule Ambry.Media do
       end
     end)
   end
+
+  @doc """
+  Hides a media from browsing and search; it stays reachable by direct link.
+  """
+  def unlist_media(%Media{unlisted_at: nil} = media),
+    do: update_media(media, %{unlisted_at: DateTime.utc_now()})
+
+  def unlist_media(%Media{} = media), do: {:ok, media}
+
+  @doc """
+  Restores an unlisted media to browsing and search.
+  """
+  def relist_media(%Media{unlisted_at: nil} = media), do: {:ok, media}
+  def relist_media(%Media{} = media), do: update_media(media, %{unlisted_at: nil})
 
   defp delete_unused_files_async(%Media{} = old_media, %Media{} = new_media) do
     (all_web_paths(old_media) -- all_web_paths(new_media))
@@ -1074,7 +1092,7 @@ defmodule Ambry.Media do
     # users never see non-ready audiobooks (tile system v2, rule 1)
     query =
       from b in Ecto.assoc(narrator, :media),
-        where: b.status == :ready,
+        where: b.status == :ready and is_nil(b.unlisted_at),
         order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,
@@ -1097,7 +1115,7 @@ defmodule Ambry.Media do
     # recording group represents its set
     query =
       from m in Media,
-        where: m.status == :ready,
+        where: m.status == :ready and is_nil(m.unlisted_at),
         where:
           is_nil(m.recording_group_id) or
             m.id ==
@@ -1105,6 +1123,7 @@ defmodule Ambry.Media do
                 """
                 (SELECT m2.id FROM media m2
                  WHERE m2.recording_group_id = ? AND m2.status = 'ready'
+                   AND m2.unlisted_at IS NULL
                  ORDER BY m2.part_number ASC NULLS LAST, m2.id ASC
                  LIMIT 1)
                 """,
@@ -1116,7 +1135,7 @@ defmodule Ambry.Media do
 
     group_media_query =
       from m in Media,
-        where: m.status == :ready,
+        where: m.status == :ready and is_nil(m.unlisted_at),
         order_by: [asc_nulls_last: m.part_number, asc: m.id]
 
     media =
