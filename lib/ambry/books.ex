@@ -262,7 +262,10 @@ defmodule Ambry.Books do
   Gets a book and all of its media.
   """
   def get_book_with_media!(book_id) do
-    media_query = from m in Media, where: [status: :ready], order_by: {:desc, :published}
+    media_query =
+      from m in Media,
+        where: m.status == :ready and is_nil(m.unlisted_at),
+        order_by: {:desc, :published}
 
     Book
     |> preload([
@@ -362,7 +365,12 @@ defmodule Ambry.Books do
       from b in Ecto.assoc(author, :books),
         as: :book,
         where:
-          exists(from m in Media, where: m.book_id == parent_as(:book).id and m.status == :ready),
+          exists(
+            from m in Media,
+              where:
+                m.book_id == parent_as(:book).id and m.status == :ready and
+                  is_nil(m.unlisted_at)
+          ),
         order_by: [desc: b.published],
         offset: ^offset,
         limit: ^over_limit,

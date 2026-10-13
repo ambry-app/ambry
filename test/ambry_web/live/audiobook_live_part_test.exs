@@ -24,6 +24,28 @@ defmodule AmbryWeb.AudiobookLivePartTest do
     refute html =~ "Season One"
   end
 
+  # whoever reached one part of a hidden set must still be able to reach the
+  # others
+  test "the set rail keeps unlisted sibling parts", %{conn: conn} do
+    book = insert(:book)
+    group = insert(:recording_group, book: book, parts_total: 2)
+
+    media = insert(:media, book: book, part_number: 1, recording_group: group, status: :ready)
+
+    sibling =
+      insert(:media,
+        book: book,
+        part_number: 2,
+        recording_group: group,
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second)
+      )
+
+    {:ok, _view, html} = live(conn, ~p"/audiobooks/#{media.id}")
+
+    assert Floki.find(Floki.parse_document!(html), "a[href='/audiobooks/#{sibling.id}']") != []
+  end
+
   test "tiles show composed titles for parts", %{conn: conn} do
     book = insert(:book, title: "The Way of Kings")
     group = insert(:recording_group, parts_total: 3)

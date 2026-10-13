@@ -289,6 +289,38 @@ defmodule Ambry.BooksTest do
     end
   end
 
+  describe "browsing hides unlisted media" do
+    test "get_book_with_media!/1 omits unlisted media" do
+      book = insert(:book)
+      %{id: listed_id} = insert(:media, book: book, status: :ready)
+
+      insert(:media, book: book, status: :ready, unlisted_at: DateTime.utc_now(:second))
+
+      assert %{media: [%{id: ^listed_id}]} = Books.get_book_with_media!(book.id)
+    end
+
+    test "get_authored_books/3 hides a book whose only media are unlisted" do
+      author = insert(:author, person: build(:person))
+
+      %{id: listed_book_id} =
+        listed_book = insert(:book, book_authors: [build(:book_author, author: author)])
+
+      insert(:media, book: listed_book, status: :ready)
+
+      hidden_book = insert(:book, book_authors: [build(:book_author, author: author)])
+
+      insert(:media,
+        book: hidden_book,
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second)
+      )
+
+      {books, false} = Books.get_authored_books(author)
+
+      assert Enum.map(books, & &1.id) == [listed_book_id]
+    end
+  end
+
   describe "delete_book/1" do
     test "deletes a book" do
       book = insert(:book)

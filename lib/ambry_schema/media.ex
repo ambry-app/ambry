@@ -41,6 +41,9 @@ defmodule AmbrySchema.Media do
   node object(:media) do
     field :status, non_null(:media_processing_status)
 
+    @desc "When an operator hid this recording from browsing and search; null means listed"
+    field :unlisted_at, :datetime
+
     field :full_cast, non_null(:boolean)
     field :abridged, non_null(:boolean)
 

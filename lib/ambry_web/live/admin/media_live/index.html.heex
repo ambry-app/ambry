@@ -64,6 +64,15 @@
           >
             missing
           </.badge>
+          <.badge
+            :if={media.unlisted_at}
+            color={:gray}
+            class="text-xs"
+            title={"Hidden from browsing and search since #{Calendar.strftime(media.unlisted_at, "%x %X")}"}
+            data-role="media-unlisted"
+          >
+            unlisted
+          </.badge>
         </:badges>
 
         <%!-- Everything that varies, on one line: the series, when it came

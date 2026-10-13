@@ -119,6 +119,25 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
       refute has_element?(view, "button[data-role='import'][disabled]")
     end
 
+    test "ticking Start unlisted carries through the import", %{conn: conn} do
+      item = probed_item() |> settle()
+
+      {:ok, view, _html} = live(conn, ~p"/admin/inbox/#{item}")
+
+      view
+      |> form("#destination-start-unlisted", %{"start_unlisted" => "true"})
+      |> render_change()
+
+      # a visibility choice is an answer, never an open question
+      refute has_element?(view, "button[data-role='import'][disabled]")
+
+      view |> element("button[data-role='import']") |> render_click()
+      assert %{success: 1} = Oban.drain_queue(queue: :media)
+
+      %{media_id: media_id} = Inbox.get_item!(item.id)
+      assert %DateTime{} = Ambry.Media.get_media!(media_id).unlisted_at
+    end
+
     # The import is queued and the operator is handed back to the queue at
     # once. It used to run in an async task owned by this LiveView, which
     # pinned them to a spinner and — the real defect — died with the process,

@@ -69,6 +69,11 @@ defmodule Ambry.Media.Media do
     # destroy every recording's status.
     field :missing_since, :utc_datetime
 
+    # When an operator hid this recording from browsing and search. Not a
+    # `status` value for the same reason as `missing_since`: orthogonal and
+    # reversible, and an unlisted recording stays playable by direct link.
+    field :unlisted_at, :utc_datetime
+
     field :abridged, :boolean, default: false
 
     # display-title override: how this recording's title differs from the
@@ -150,6 +155,7 @@ defmodule Ambry.Media.Media do
       :mpd_path,
       :hls_path,
       :status,
+      :unlisted_at,
       :chapter_marker_source
     ])
     |> cast_assoc(:media_narrators,

@@ -13,6 +13,19 @@ defmodule AmbryWeb.SearchLiveTest do
     assert html =~ html_escape(book_title)
   end
 
+  test "hides a book whose only media are unlisted", %{conn: conn} do
+    book = insert(:book)
+
+    media =
+      insert(:media, book: book, status: :ready, unlisted_at: DateTime.utc_now(:second))
+
+    {:ok, _view, html} = live(conn, ~p"/search/#{book.title}")
+
+    doc = Floki.parse_document!(html)
+    assert Floki.find(doc, "a[href='/audiobooks/#{media.id}']") == []
+    assert Floki.find(doc, "a[href='/books/#{book.id}']") == []
+  end
+
   test "renders search results page when searching for a person", %{conn: conn} do
     %{name: person_name} = :person |> insert()
 
