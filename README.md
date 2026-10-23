@@ -3,6 +3,10 @@
   <img src="branding/logo_dark.png#gh-dark-mode-only">
 </p>
 
+<p align="center">
+  <a href="https://app.railyard.run/deploy?repo=https://github.com/ambry-app/ambry"><img src="https://app.railyard.run/deploy/badge" alt="Deploy to Railyard"></a>
+</p>
+
 ## Intro
 
 Ambry is your personal audiobook library. Upload your books to a self-hosted
