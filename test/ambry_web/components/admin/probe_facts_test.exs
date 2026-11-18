@@ -12,7 +12,7 @@ defmodule AmbryWeb.Admin.ProbeFactsTest do
   # The pair production actually got wrong. Same recording to within four
   # seconds out of 28.7 hours, half the bytes, and the file was called
   # `This Inevitable Ruin.m4b` on both sides.
-  test "tells two rips of one recording apart" do
+  test "tells two copies of one recording apart" do
     kept = %{"size" => 1_639_966_385, "duration" => "103238.043333", "codec" => "aac"}
     worse = %{"size" => 819_378_051, "duration" => "103242.001000", "codec" => "aac"}
 

@@ -12,7 +12,7 @@ defmodule Ambry.Library.Source do
   symlinking, copying or moving them, and a source does **not** carry a
   default naming which. Whether a hardlink is even *possible* depends on the
   source and the root sharing a filesystem, which one end cannot know: the
-  same downloads folder may hardlink into one root
+  same source folder may hardlink into one root
   and have to copy into another on a different disk. And the field was never
   binding: every import could change it, which makes it a default rather
   than a setting, and a default that is overridden half the time is better
@@ -23,7 +23,7 @@ defmodule Ambry.Library.Source do
   imported into is the one it proposes next.
 
   How organized the folder is doesn't matter and isn't asked: discovery
-  measures release boundaries from the tree itself, and a messy downloads
+  measures release boundaries from the tree itself, and a messy
   folder and a meticulously curated collection are the same thing to it.
   """
 

@@ -40,7 +40,7 @@ defmodule Ambry.Library.PlacementTest do
       assert placement.policy == :hardlink
 
       assert File.read!(destination) == "audio bytes"
-      # the source keeps seeding
+      # the source stays in place
       assert File.exists?(source)
       # one inode, two names
       assert {:ok, %{links: 2}} = File.stat(destination)

@@ -94,7 +94,7 @@ defmodule Ambry.Media.Chapters.MergeTest do
 
     # An extra entry at the front is the one that would wreck an index-wise
     # merge: everything after it lands one chapter early.
-    test "absorbs an opening-credits entry the rip doesn't have" do
+    test "absorbs an opening-credits entry the local files don't have" do
       markers = markers([0, 1200, 2500, 3900])
 
       incoming = [
@@ -112,7 +112,7 @@ defmodule Ambry.Media.Chapters.MergeTest do
       assert {nil, 0} = hd(alignment)
     end
 
-    # The rip splits in two what the catalogue calls one chapter, so one
+    # The local files split in two what the catalogue calls one chapter, so one
     # marker has no title coming to it. It must keep its own — taking a
     # neighbour's name is worse than saying nothing.
     test "leaves a marker the title list has nothing for" do

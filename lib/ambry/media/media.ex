@@ -28,7 +28,7 @@ defmodule Ambry.Media.Media do
   # a single extractor. Titles carry a source per row.
   #
   # No `:provider`, deliberately: provider chapter times describe their own
-  # retail edition and drift by minutes against a rip.
+  # retail edition and drift by minutes against local files.
   @marker_sources [:embedded, :file_boundaries, :manual]
 
   # Provider-fillable scalar fields tracked by field-level provenance.
@@ -96,7 +96,7 @@ defmodule Ambry.Media.Media do
     field :source_files, {:array, :string}, default: []
 
     # Absolute paths an older recording was transcoded from, pointing into a
-    # downloads folder that is a source rather than a root. Provenance only:
+    # folder that is a source rather than a root. Provenance only:
     # never served and never deleted.
     field :legacy_source_files, {:array, :string}
 
@@ -192,7 +192,7 @@ defmodule Ambry.Media.Media do
     end
   end
 
-  # A recording with a real placement may not carry the absolute downloads
+  # A recording with a real placement may not carry the absolute source
   # paths a transcode consumed, and a CHECK cannot wait for the commit, so
   # the two changes travel in one statement.
   defp clear_legacy_provenance(changeset) do

@@ -3,9 +3,6 @@ defmodule Ambry.Inbox.ReleaseNameTest do
 
   alias Ambry.Inbox.ReleaseName
 
-  # Every name below is taken verbatim from a real 295-release downloads
-  # folder, which is also what the parser was tuned against.
-
   describe "parse/1 author and title" do
     test "splits the common \"Author - Title\" shape" do
       assert %{author: "Cory Doctorow", title: "The Bezzle"} =
@@ -93,7 +90,7 @@ defmodule Ambry.Inbox.ReleaseNameTest do
     test "reads a narrator credit and keeps it out of the title" do
       assert %{title: "Discworld 30 The Wee Free Men", narrator: "Steven Briggs"} =
                ReleaseName.parse(
-                 "Discworld 30 The Wee Free Men  (Read by Steven Briggs - Clear sound)"
+                 "Discworld 30 The Wee Free Men  (Read by Steven Briggs - Unabridged)"
                )
     end
 

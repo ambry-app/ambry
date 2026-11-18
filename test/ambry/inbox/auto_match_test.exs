@@ -12,7 +12,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
   describe "hints/1" do
     test "prefers tags over the release name" do
       item = %InboxItem{
-        path: "/downloads/Somebody Else - Some Other Book",
+        path: "/audiobooks/Somebody Else - Some Other Book",
         tags: %{"book_title" => "The Way of Kings", "authors" => ["Brandon Sanderson"]}
       }
 
@@ -20,7 +20,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
 
     test "falls back to the release name when tags are empty" do
-      item = %InboxItem{path: "/downloads/Cory Doctorow - The Bezzle [m4b]", tags: %{}}
+      item = %InboxItem{path: "/audiobooks/Cory Doctorow - The Bezzle [m4b]", tags: %{}}
 
       assert %{title: "The Bezzle", author: "Cory Doctorow"} = AutoMatch.hints(item)
     end
@@ -32,7 +32,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
     # only the question is cleaned.
     test "strips release junk from the tag title" do
       item = %InboxItem{
-        path: "/downloads/Adrian Tchaikovsky - Children of Time (m4b)",
+        path: "/audiobooks/Adrian Tchaikovsky - Children of Time (m4b)",
         tags: %{"book_title" => "Children of Time (Unabridged)"}
       }
 
@@ -41,7 +41,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
     test "a tag title that is nothing but junk falls back to the release name" do
       item = %InboxItem{
-        path: "/downloads/Cory Doctorow - The Bezzle [m4b]",
+        path: "/audiobooks/Cory Doctorow - The Bezzle [m4b]",
         tags: %{"book_title" => "(Unabridged)"}
       }
 
@@ -61,8 +61,8 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
     test "carries the item's raw text, basenames only" do
       item = %InboxItem{
-        path: "/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013",
-        files: ["/home/someone/downloads/Weir Andy - The Martian (R.C. Bray) - 2013/part1.mp3"],
+        path: "/home/someone/audiobooks/Weir Andy - The Martian (R.C. Bray) - 2013",
+        files: ["/home/someone/audiobooks/Weir Andy - The Martian (R.C. Bray) - 2013/part1.mp3"],
         tags: %{"book_title" => "The Martian (Unabridged)", "authors" => ["Andy Weir"]}
       }
 
@@ -1139,7 +1139,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
       )
 
       item = %InboxItem{
-        path: "/downloads/03 Children of Memory",
+        path: "/audiobooks/03 Children of Memory",
         tags: %{
           "book_title" => "Children of Memory",
           "authors" => ["Adrian Tchaikovsky"],
@@ -1171,7 +1171,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
       )
 
       item = %InboxItem{
-        path: "/downloads/2 - Kushiel's Chosen",
+        path: "/audiobooks/2 - Kushiel's Chosen",
         tags: %{
           "book_title" => "Kushiel's Chosen",
           "authors" => ["Jacqueline Carey"],
@@ -1366,7 +1366,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
     end
 
     test "an item with nothing to go on proposes nothing rather than guessing" do
-      %{matches: matches} = AutoMatch.match(%InboxItem{path: "/downloads/", tags: %{}})
+      %{matches: matches} = AutoMatch.match(%InboxItem{path: "/audiobooks/", tags: %{}})
 
       assert matches["work"]["candidates"] == []
       assert matches["work"]["confidence"] == 0.0
@@ -1473,7 +1473,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
           item(
             title: "DW35-Wintersmith",
             author: "Terry Pratchett",
-            path: "/downloads/Discworld 35 Wintersmith"
+            path: "/audiobooks/Discworld 35 Wintersmith"
           )
         )
 
@@ -1492,7 +1492,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
         item(
           title: "Wild [Disc 1]",
           author: "Cheryl Strayed",
-          path: "/downloads/Wild - Cheryl Strayed"
+          path: "/audiobooks/Wild - Cheryl Strayed"
         )
       )
 
@@ -1876,7 +1876,7 @@ defmodule Ambry.Inbox.AutoMatchTest do
 
   defp item(opts) do
     %InboxItem{
-      path: Keyword.get(opts, :path, "/downloads/#{Keyword.get(opts, :title, "Unknown")}"),
+      path: Keyword.get(opts, :path, "/audiobooks/#{Keyword.get(opts, :title, "Unknown")}"),
       tags:
         %{
           "book_title" => opts[:title],

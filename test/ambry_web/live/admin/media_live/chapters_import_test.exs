@@ -39,7 +39,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     |> insert()
   end
 
-  # Markers a few seconds off Audible's, which is what a rip of the same book
+  # Markers a few seconds off Audible's, which is what local files of the same book
   # actually looks like.
   defp markers do
     [
@@ -143,7 +143,7 @@ defmodule AmbryWeb.Admin.MediaLive.ChaptersImportTest do
     assert html =~ ~s(value="The Dungeon Opens")
     assert html =~ ~s(value="Princess Donut")
 
-    # The markers are untouched: 1490 is the rip's, 1500.25 is Audible's.
+    # The markers are untouched: 1490 is the local file's, 1500.25 is Audible's.
     assert html =~ ~s(value="1490.0")
     refute html =~ ~s(value="1500.25")
 

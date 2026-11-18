@@ -6,11 +6,11 @@ defmodule Ambry.Media.Chapters.Merge do
   best ones are. The two lists describe the same book but not the same
   artifact, so they rarely line up one-for-one:
 
-    * a retail edition carries "Opening Credits" and "End Credits" that a rip
-      doesn't have, or the other way round;
-    * a rip splits or merges a chapter the catalogue doesn't;
+    * a retail edition carries "Opening Credits" and "End Credits" that local files
+      don't have, or the other way round;
+    * local files split or merge a chapter the catalogue doesn't;
     * absolute timestamps have drifted by minutes by the end of the book,
-      because the retail master and the rip aren't the same encode.
+      because the retail master and the local files aren't the same encode.
 
   ## Why durations and not times
 
@@ -18,7 +18,7 @@ defmodule Ambry.Media.Chapters.Merge do
   into the book, the worse the drift.
 
   Durations are local. However far the two timelines have wandered apart, a
-  chapter that runs 18m22s in the retail edition runs about 18m22s in the rip,
+  chapter that runs 18m22s in the retail edition runs about 18m22s locally,
   because it's the same narration. So the merge aligns the two *sequences of
   durations* and is immune to accumulated offset by construction. Aligning
   sequences rather than pairing them elementwise is also what absorbs the

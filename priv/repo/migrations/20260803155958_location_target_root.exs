@@ -1,12 +1,12 @@
 defmodule Ambry.Repo.Migrations.LocationTargetRoot do
   use Ecto.Migration
 
-  # Which library root a downloads folder imports into.
+  # Which library root a source folder imports into.
   #
   # With one root this is obvious and stays null; the resolution falls back to
   # "the only root there is". With several it has to be said explicitly,
   # because the choice is not cosmetic: a hardlink can only be made within one
-  # filesystem, so pairing a downloads folder with a root on the wrong NAS is
+  # filesystem, so pairing a source folder with a root on the wrong NAS is
   # the difference between an import costing nothing and an import being
   # refused outright.
   #

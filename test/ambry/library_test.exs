@@ -10,10 +10,10 @@ defmodule Ambry.LibraryTest do
       assert {:ok, %Source{} = source} =
                Library.create_source(%{
                  name: "Downloads",
-                 path: "/data/downloads"
+                 path: "/data/incoming"
                })
 
-      assert source.path == "/data/downloads"
+      assert source.path == "/data/incoming"
       assert source.enabled
       assert is_nil(source.last_scanned_at)
     end
@@ -29,19 +29,19 @@ defmodule Ambry.LibraryTest do
       assert {:ok, source} =
                Library.create_source(%{
                  name: "D",
-                 path: "  /data/downloads/  "
+                 path: "  /data/incoming/  "
                })
 
-      assert source.path == "/data/downloads"
+      assert source.path == "/data/incoming"
     end
 
     test "refuses a duplicate path" do
-      insert(:source, path: "/data/downloads")
+      insert(:source, path: "/data/incoming")
 
       assert {:error, changeset} =
                Library.create_source(%{
                  name: "Other",
-                 path: "/data/downloads"
+                 path: "/data/incoming"
                })
 
       assert "has already been taken" in errors_on(changeset).path

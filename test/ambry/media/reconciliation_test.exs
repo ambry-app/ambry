@@ -3,7 +3,7 @@ defmodule Ambry.Media.ReconciliationTest do
   Noticing that a recording's files stopped being there.
 
   The rule the whole module is built around: recording what's wrong, never
-  acting on it. Files vanish for ordinary reasons — a torrent removed, a NAS
+  acting on it. Files vanish for ordinary reasons — a folder tidied, a NAS
   unplugged this morning — and none of them mean the recording should be
   deleted or downgraded.
   """

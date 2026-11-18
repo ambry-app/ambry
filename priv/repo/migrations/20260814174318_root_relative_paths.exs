@@ -14,12 +14,12 @@ defmodule Ambry.Repo.Migrations.RootRelativePaths do
     * `media_tracks.path` — a serving path; must resolve. Tracks pointing
       outside every root and outside the uploads tree are deleted first:
       staging has two, written by the admin scan button from legacy
-      `source_files`, so they point into the downloads folder. Those
+      `source_files`, so they point into the source folder. Those
       recordings keep their legacy outputs; Phase 4's relink gives them
       real placements.
     * `media.source_path` — must resolve; legacy ones are all under the
       uploads tree and become `/uploads/...`.
-    * `media.source_files` — legacy recordings point into a *downloads*
+    * `media.source_files` — legacy recordings point into a *source*
       folder, which is a source, not a root. They are provenance, not
       serving paths, so anything unmatched is quarantined into
       `legacy_source_files` (absolute, nullable) for Phase 4 to drain.

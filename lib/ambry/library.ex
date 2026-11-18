@@ -14,7 +14,7 @@ defmodule Ambry.Library do
 
   This module also answers "can these two paths share a hardlink?". Several
   roots is a first-class arrangement, since a hardlink cannot cross a
-  filesystem and downloads and library are routinely on different volumes.
+  filesystem and sources and roots are routinely on different volumes.
   The same-filesystem check gates every hardlink and fails loudly rather than
   falling back to a copy, which would double storage silently.
 
@@ -189,7 +189,7 @@ defmodule Ambry.Library do
   The policy this pairing last used, or `nil`.
 
   Asked per pairing rather than per source because the answer is a fact
-  about the pairing: the same downloads folder may hardlink into one root
+  about the pairing: the same source folder may hardlink into one root
   and have to copy into another on a different disk.
   """
   def recall_policy(%Source{id: source_id}, %Root{id: root_id}) do

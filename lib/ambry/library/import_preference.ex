@@ -4,7 +4,7 @@ defmodule Ambry.Library.ImportPreference do
 
   **A memory, not a setting.** Which of `hardlink | symlink | copy | move` an
   import uses is a property of the **pairing**: a hardlink is only possible
-  where the two paths share a filesystem, so one downloads folder feeding two
+  where the two paths share a filesystem, so one source folder feeding two
   roots on two volumes genuinely wants two answers, which a policy stored on
   the source cannot express.
 

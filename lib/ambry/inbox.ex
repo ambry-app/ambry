@@ -13,7 +13,7 @@ defmodule Ambry.Inbox do
 
   ## Discovery shape
 
-  A downloads folder does not say consistently where one release ends and the
+  A source folder does not say consistently where one release ends and the
   next begins, so the walk decides from what it finds
   (`directory_candidate/1`). A folder holding audio directly *is* the release;
   a folder whose subfolders are plainly parts ("Disc 02", "3 of 5") is still
@@ -1222,7 +1222,7 @@ defmodule Ambry.Inbox do
   whose parts sit in subfolders the walk could not read as parts.
 
   Nothing is offered for an item at the top of its source, where every item
-  shares the root and the offer would be the whole downloads folder.
+  shares the root and the offer would be the whole source folder.
   """
   def combine_group(%InboxItem{status: :pending} = item) do
     with folder when not is_nil(folder) <- parent_folder(item),
@@ -1455,7 +1455,7 @@ defmodule Ambry.Inbox do
     end
   end
 
-  # Where one release ends and the next begins, which a downloads folder does
+  # Where one release ends and the next begins, which a source folder does
   # not answer consistently. Three shapes turn up in practice, and the rule
   # has to tell them apart:
   #

@@ -11,7 +11,7 @@ defmodule Ambry.Inbox.Draft.Seed do
       local match settles it as that book; a weaker one is offered and never
       assumed. No local hit settles it as a new book.
     * **recording identity** — settled by an ASIN or a confident match, and
-      settled when nothing was found at all, since plenty of good rips are in
+      settled when nothing was found at all, since plenty of good recordings are in
       no storefront. A doubted match settles nothing and records why.
     * **scalar** — nothing proposed and optional: waived. One proposal, or
       several agreeing once normalized: taken. Several that disagree: the

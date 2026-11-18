@@ -21,13 +21,13 @@ defmodule AmbryWeb.Admin.LocationLive.IndexTest do
   end
 
   test "lists sources and roots as two sections", %{conn: conn} do
-    insert(:source, name: "Downloads NAS", path: "/data/downloads")
+    insert(:source, name: "Downloads NAS", path: "/data/incoming")
     insert(:root, name: "Old Library", path: "/data/library")
 
     {:ok, _view, html} = live(conn, ~p"/admin/locations")
 
     assert html =~ "Downloads NAS"
-    assert html =~ "/data/downloads"
+    assert html =~ "/data/incoming"
     assert html =~ "Old Library"
     assert html =~ "/data/library"
 

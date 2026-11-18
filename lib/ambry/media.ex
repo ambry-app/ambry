@@ -277,7 +277,7 @@ defmodule Ambry.Media do
 
   # Anything whose stored provenance could name one of these paths. Only a
   # file inside a library root can be named by a relative column, so an
-  # ordinary downloads folder costs one query on the legacy column.
+  # ordinary source folder costs one query on the legacy column.
   defp candidate_media(paths) do
     relatives = root_relative_forms(paths)
 

@@ -71,9 +71,8 @@ defmodule Ambry.InboxTest do
       assert {:ok, %{created: 3}} = discover(root)
     end
 
-    # Every shape below is copied from the operator's real downloads folder,
-    # where the naive "one candidate per immediate child" rule turned a
-    # 43-book series into a single 1707-file item.
+    # The naive "one candidate per immediate child" rule turned a 43-book
+    # series into a single 1707-file item.
     test "splits a series folder into one candidate per book" do
       root = watched_root()
       series = Path.join(root, "Discworld")
@@ -260,7 +259,7 @@ defmodule Ambry.InboxTest do
       {[item], false} = Inbox.list_items()
       {:ok, item} = Inbox.update_item(item, %{status: :imported})
 
-      # a managed import moves the bytes out of the downloads folder
+      # a managed import moves the bytes out of the source folder
       File.rm_rf!(release)
       File.mkdir_p!(release)
 

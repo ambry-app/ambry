@@ -147,7 +147,7 @@ defmodule Ambry.Media.Chapters.FromFilesTest do
       |> Enum.map(fn {time, title} -> %{time: Decimal.new(time), title: title} end)
 
     %{
-      path: "/downloads/release/#{name}",
+      path: "/incoming/release/#{name}",
       chapters: chapters,
       tags: %Ambry.Media.Scanner.Tags{title: opts[:title]}
     }

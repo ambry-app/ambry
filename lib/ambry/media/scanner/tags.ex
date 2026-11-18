@@ -130,7 +130,7 @@ defmodule Ambry.Media.Scanner.Tags do
   end
 
   @doc """
-  Whether anything usable was found — an untagged rip parses to an empty
+  Whether anything usable was found — an untagged file parses to an empty
   struct rather than an error.
   """
   def any?(%Tags{} = tags) do
