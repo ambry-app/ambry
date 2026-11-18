@@ -21,4 +21,17 @@ defmodule AmbryWeb.LibraryLiveTest do
 
     assert html =~ html_escape(book_title)
   end
+
+  test "hides unlisted media", %{conn: conn} do
+    media =
+      insert(:media,
+        book: build(:book),
+        status: :ready,
+        unlisted_at: DateTime.utc_now(:second)
+      )
+
+    {:ok, _view, html} = live(conn, ~p"/library")
+
+    refute html =~ html_escape(media.book.title)
+  end
 end

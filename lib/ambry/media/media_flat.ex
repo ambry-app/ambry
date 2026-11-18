@@ -17,6 +17,7 @@ defmodule Ambry.Media.MediaFlat do
     field :part_word, :string
     field :status, Ecto.Enum, values: [:pending, :processing, :error, :ready]
     field :missing_since, :utc_datetime
+    field :unlisted_at, :utc_datetime
     field :full_cast, :boolean
     field :abridged, :boolean
     field :duration, :decimal
@@ -50,6 +51,9 @@ defmodule Ambry.Media.MediaFlat do
 
   def filter(query, :missing, true), do: from(p in query, where: not is_nil(p.missing_since))
   def filter(query, :missing, false), do: from(p in query, where: is_nil(p.missing_since))
+
+  def filter(query, :unlisted, true), do: from(p in query, where: not is_nil(p.unlisted_at))
+  def filter(query, :unlisted, false), do: from(p in query, where: is_nil(p.unlisted_at))
 
   def filter(query, :direct_play, direct_play?),
     do: from(p in query, where: p.direct_play == ^direct_play?)

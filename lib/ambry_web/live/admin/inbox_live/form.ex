@@ -828,6 +828,13 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
      end)}
   end
 
+  def handle_event("choose-start-unlisted", %{"start_unlisted" => value}, socket) do
+    {:noreply,
+     edit(socket, fn draft ->
+       update_in(draft.recording, &%{&1 | start_unlisted: value == "true"})
+     end)}
+  end
+
   def handle_event("rebuild", _params, socket) do
     {:ok, item} = Inbox.rebuild_draft(socket.assigns.item)
 

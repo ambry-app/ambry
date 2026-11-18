@@ -483,6 +483,7 @@ defmodule Ambry.Inbox.Importer do
       # bookkeeping, and an import has no transcode.
       library_root_id: root.id,
       status: :pending,
+      unlisted_at: if(recording.start_unlisted, do: DateTime.utc_now()),
       # The recording's settled place in its part set, if any.
       part_number: part_number(recording.recording_group),
       recording_group_id: group && group.id,

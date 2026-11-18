@@ -52,6 +52,10 @@ defmodule Ambry.Inbox.Draft.Recording do
     field :doubt, Ecto.Enum, values: [:none, :nothing_found, :narrator_conflict, :low_confidence]
     field :doubt_detail, :string
 
+    # Whether the created Media is born hidden from browsing and search
+    # (`unlisted_at` stamped at import), for curating after the files land.
+    field :start_unlisted, :boolean, default: false
+
     embeds_one :title, Field, on_replace: :update
     embeds_one :published, Field, on_replace: :update
 
@@ -84,7 +88,8 @@ defmodule Ambry.Inbox.Draft.Recording do
       :approved,
       :evidence_curated,
       :doubt,
-      :doubt_detail
+      :doubt_detail,
+      :start_unlisted
     ])
     |> cast_embed(:recording_group)
     |> cast_embed(:sources)

@@ -959,6 +959,24 @@
             </select>
           </form>
         </div>
+        <%!-- Visibility on arrival: born hidden, curated, then relisted from
+            the audiobook's edit form. Its own card, not part of the
+            root/policy decision block — false is an answer, so it never
+            gates the import. --%>
+        <div class="rounded-lg bg-zinc-900 p-4">
+          <form id="destination-start-unlisted" phx-change="choose-start-unlisted">
+            <.input
+              type="checkbox"
+              id="start-unlisted"
+              name="start_unlisted"
+              label="Start unlisted"
+              checked={@item.draft.recording.start_unlisted}
+            />
+          </form>
+          <p class="pl-9 text-sm text-zinc-400">
+            Hidden from browsing and search until unticked on the audiobook's edit form.
+          </p>
+        </div>
         <p
           :if={@destination.blocker}
           class="flex items-baseline gap-1.5 pl-3 text-sm text-red-400"

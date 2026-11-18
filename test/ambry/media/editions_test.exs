@@ -59,6 +59,22 @@ defmodule Ambry.Media.EditionsTest do
       assert admin_rep_id == pending_first.id
     end
 
+    test "unlisted media are filtered like non-ready, unless all_statuses" do
+      book = insert(:book)
+
+      listed = insert(:media, book: book, status: :ready)
+
+      unlisted =
+        insert(:media, book: book, status: :ready, unlisted_at: DateTime.utc_now(:second))
+
+      assert [%Edition{representative: %{id: rep_id}}] =
+               Editions.from_media([unlisted, listed])
+
+      assert rep_id == listed.id
+
+      assert length(Editions.from_media([unlisted, listed], all_statuses: true)) == 2
+    end
+
     test "a book with nothing ready yields no editions" do
       book = insert(:book)
       insert(:media, book: book, status: :pending)

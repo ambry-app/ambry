@@ -48,6 +48,14 @@ defmodule AmbryWeb.Admin.MediaLive.Index do
       filters: %{direct_play: false},
       words: "Streaming only",
       empty: "Every audiobook is direct-play."
+    },
+    # Not trouble, but the same shape: a named list the operator can reach
+    # and paste. Unlisted recordings are invisible everywhere users browse,
+    # so this page is the one place to see what has been hidden.
+    "unlisted" => %{
+      filters: %{unlisted: true},
+      words: "Hidden from browsing",
+      empty: "No audiobooks are unlisted."
     }
   }
 

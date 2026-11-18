@@ -214,7 +214,7 @@ defmodule AmbrySchema.Resolvers do
       if params[:allow_all_media] do
         from(m in Media)
       else
-        from m in Media, where: m.status == :ready
+        from m in Media, where: m.status == :ready and is_nil(m.unlisted_at)
       end
 
     apply_params(query, params)
