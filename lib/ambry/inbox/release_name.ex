@@ -9,14 +9,14 @@ defmodule Ambry.Inbox.ReleaseName do
   Release naming has no standard, so nothing here is trusted: the output is a
   *hint* used to build a provider query and to prefill the inbox item, and
   everything it produces is reviewed before it becomes a record. The shapes it
-  handles are the ones that actually occur in downloads folders:
+  handles:
 
-      Cory Doctorow - The Bezzle [m4b]
-      Dan Brown ~ [Robert Langdon 06] - The Secret of Secrets (M4b)
-      Olan Thorensen - A Fearful Symmetry Destiny's Crucible, Book 8
-      Discworld 30 The Wee Free Men (Read by Steven Briggs - Clear sound)
-      Sunrise on the Reaping [B0D6PCZ98M]
-      01 Angels and Demons.m4b
+      Jules Verne - The Mysterious Island [m4b]
+      Arthur Conan Doyle ~ [Sherlock Holmes 03] - The Hound of the Baskervilles (M4b)
+      L. M. Montgomery - Anne of Avonlea, Book 2
+      Anne of Green Gables (Read by Karen Savage - Unabridged)
+      The Time Machine [B0XXXXXXXX]
+      01 The Jungle Book.m4b
 
   When it can't tell an author from a title it says so (`author: nil`) rather
   than guessing, because a wrong author is worse than a missing one: it sends

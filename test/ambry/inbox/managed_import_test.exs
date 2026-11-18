@@ -1,6 +1,6 @@
 defmodule Ambry.Inbox.ManagedImportTest do
   @moduledoc """
-  Approving an item that came from a downloads folder, which is the first
+  Approving an item that came from a source folder, which is the first
   point where Ambry writes to the library rather than just reading it.
   """
   use Ambry.DataCase
@@ -30,7 +30,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
   describe "importing from a bring-in source" do
     test "hardlinks into the library under the naming template" do
-      %{item: item, root: root, source: source} = downloads_item()
+      %{item: item, root: root, source: source} = source_item()
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -65,7 +65,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     test "gives a multi-file recording a subfolder of its own, with indexed names" do
       %{item: item, root: root, sources: sources} =
-        downloads_item(files: ["02.m4b", "01.m4b", "10.m4b"])
+        source_item(files: ["02.m4b", "01.m4b", "10.m4b"])
 
       assert {:ok, media} = Inbox.import_item(item)
       media = Media.get_media!(media.id)
@@ -92,13 +92,13 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert placed_on_disk == Enum.map(track_paths(media), &Path.join(root, &1))
       assert Enum.all?(placed_on_disk, &File.exists?/1)
 
-      # Every one hardlinked, and every source still seeding.
+      # Every one hardlinked, and every source still in place.
       assert Enum.all?(placed_on_disk, &match?({:ok, %{links: 2}}, File.stat(&1)))
       assert Enum.all?(sources, &File.exists?/1)
     end
 
     test "lays a multi-file recording's tracks end to end" do
-      %{item: item} = downloads_item(files: ["01.m4b", "02.m4b"])
+      %{item: item} = source_item(files: ["01.m4b", "02.m4b"])
 
       assert {:ok, media} = Inbox.import_item(item)
       media = Media.get_media!(media.id)
@@ -123,7 +123,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       File.write!(unusable, "not a directory")
 
       %{item: item, sources: sources} =
-        downloads_item(root: unusable, files: ["01.m4b", "02.m4b", "03.m4b"])
+        source_item(root: unusable, files: ["01.m4b", "02.m4b", "03.m4b"])
 
       assert {:error, _reason} = Inbox.import_item(item)
 
@@ -135,7 +135,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     test "renders the folder from the operator's template" do
       {:ok, _setting} = Settings.set_library_naming_template("{author}/{year} - {title}")
-      %{item: item, root: root} = downloads_item()
+      %{item: item, root: root} = source_item()
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -152,8 +152,8 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert track_disk_paths(media) == [Path.join(root, placed)]
     end
 
-    test "moves instead, leaving the downloads folder clean" do
-      %{item: item, source: source} = downloads_item(policy: :move)
+    test "moves instead, leaving the source folder clean" do
+      %{item: item, source: source} = source_item(policy: :move)
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -164,7 +164,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "copies when asked to, duplicating deliberately" do
-      %{item: item, source: source} = downloads_item(policy: :copy)
+      %{item: item, source: source} = source_item(policy: :copy)
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -174,7 +174,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "marks the item approved and links it to what it became" do
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -239,7 +239,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       root = new_dir("root")
       root_record = insert(:root, path: root, name: "Library")
 
-      downloads = new_dir("downloads")
+      downloads = new_dir("incoming")
 
       for n <- 1..2 do
         release = Path.join(downloads, "The Way of Kings Part #{n}")
@@ -316,7 +316,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
         File.mkdir_p!(root)
         on_exit(fn -> File.rm_rf(root) end)
 
-        %{item: item, source: source} = downloads_item(root: root)
+        %{item: item, source: source} = source_item(root: root)
 
         assert {:error, {:cross_filesystem, ^source, _destination}} = Inbox.import_item(item)
 
@@ -331,7 +331,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # watched folder — so "no root" and "several roots, none chosen" surface
     # as outstanding decisions rather than as failures at the last moment.
     test "refuses when there is no library root to import into" do
-      %{item: item} = downloads_item(root: :none)
+      %{item: item} = source_item(root: :none)
 
       assert {:error, {:unresolved, outstanding}} = Inbox.import_item(item)
       assert Enum.any?(outstanding, &(&1.section == :destination))
@@ -345,7 +345,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     test "refuses when several roots exist and none was chosen" do
       # No memory to inherit and no preference to fall back on, so the root
       # is a genuine question — asked once, and answered from then on.
-      %{item: item} = downloads_item(policy: :unremembered)
+      %{item: item} = source_item(policy: :unremembered)
       insert(:root, path: new_dir("second-root"))
       {:ok, item} = Inbox.prepare_draft(Repo.reload(item))
 
@@ -359,7 +359,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       chosen =
         insert(:root, path: new_dir("chosen-root"))
 
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
 
       {:ok, item} =
         Inbox.update_draft(item, %{
@@ -383,7 +383,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # so it is learned rather than configured: the next import from a source
     # proposes what the last one into that root actually did.
     test "the next import proposes what the last one from this source did" do
-      %{item: item, watched: watched, root: root} = downloads_item(policy: :hardlink)
+      %{item: item, watched: watched, root: root} = source_item(policy: :hardlink)
 
       item = pick(item, &Destination.choose_policy(&1, :move))
       assert {:ok, _media} = Inbox.import_item(item)
@@ -406,7 +406,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # item nobody has opened since would go on proposing the old default and
     # look settled while proposing it.
     test "items already queued follow the memory when it moves" do
-      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+      %{item: item, watched: watched} = source_item(policy: :hardlink)
 
       queued = second_release(watched)
       {:ok, queued} = Inbox.prepare_draft(queued)
@@ -420,7 +420,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "a policy the operator picked for one release is not moved by the memory" do
-      %{item: item, watched: watched} = downloads_item(policy: :hardlink)
+      %{item: item, watched: watched} = source_item(policy: :hardlink)
 
       queued = second_release(watched)
       {:ok, queued} = Inbox.prepare_draft(queued)
@@ -435,7 +435,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # Two recordings of one book used to render to one path and refuse; each
     # now carries its own token, so the same import twice lands twice.
     test "a second recording of the same book no longer collides with the first" do
-      %{item: first, watched: watched, downloads: downloads, root: root} = downloads_item()
+      %{item: first, watched: watched, downloads: downloads, root: root} = source_item()
 
       assert {:ok, media1} = Inbox.import_item(first)
 
@@ -469,7 +469,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # gap that made the inbox produce records nothing could ever see.
     test "publishes when the switch is on" do
       {:ok, _setting} = Settings.set_direct_play_publishing(true)
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
 
       assert {:ok, media} = Inbox.import_item(item)
       assert Media.get_media!(media.id).status == :ready
@@ -479,7 +479,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # direct-play recording before the fleet can play one.
     test "waits in pending when the switch is off" do
       {:ok, _setting} = Settings.set_direct_play_publishing(false)
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
 
       assert {:ok, media} = Inbox.import_item(item)
       assert Media.get_media!(media.id).status == :pending
@@ -487,7 +487,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     test "turning the switch on later releases what was waiting" do
       {:ok, _setting} = Settings.set_direct_play_publishing(false)
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
       {:ok, media} = Inbox.import_item(item)
 
       {:ok, _setting} = Settings.set_direct_play_publishing(true)
@@ -499,11 +499,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
   describe "replacing an audiobook's files" do
     # The whole back-catalog reclaim, one decision at a time: a legacy
-    # recording was transcoded from a downloads folder, the folder is still
+    # recording was transcoded from a source folder, the folder is still
     # there, and discovery no longer hides it. What the operator gets is a
     # queued item that already knows which audiobook it belongs to.
     test "the path evidence proposes it, unapproved" do
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       media = legacy_media(from: [source])
 
       {:ok, item} = Inbox.prepare_draft(item)
@@ -518,7 +518,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # Evidence is not an answer. A release the library was built from turning
     # up again says nothing about whether these files should take its place.
     test "an unanswered proposal blocks the import" do
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       _media = legacy_media(from: [source])
       {:ok, item} = Inbox.prepare_draft(item)
 
@@ -526,7 +526,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "answering it settles everything the audiobook already knows" do
-      %{item: item} = downloads_item(settle: false)
+      %{item: item} = source_item(settle: false)
       media = legacy_media()
 
       item = replace_with(item, media)
@@ -537,7 +537,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "the recording keeps its own records and gains the files" do
-      %{item: item, root: root, source: source} = downloads_item()
+      %{item: item, root: root, source: source} = source_item()
       media = legacy_media(from: [source], title: "The Way of Kings")
       before_count = Repo.aggregate(Media.Media, :count)
 
@@ -575,7 +575,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "the artifacts it was streamed from are deleted" do
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       media = legacy_media(from: [source])
       artifact = Ambry.Paths.web_to_disk(media.mp4_path)
 
@@ -590,13 +590,13 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # filename. Placement never clobbers, and its own name is the one thing
     # it may take.
     test "replacing files the recording already occupies" do
-      %{item: first, source: old_source} = downloads_item()
+      %{item: first, source: old_source} = source_item()
       {:ok, media} = Inbox.import_item(first)
       [placed] = track_disk_paths(Media.get_media!(media.id))
       assert File.stat!(placed).inode == File.stat!(old_source).inode
 
       %{item: second, source: new_source} =
-        downloads_item(root: :reuse, name: "The Way of Kings [FLAC rip]")
+        source_item(root: :reuse, name: "The Way of Kings [FLAC]")
 
       second = replace_with(second, media)
 
@@ -610,11 +610,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
       refute File.exists?(placed <> ".ambry-replaced")
     end
 
-    # Chapters are curated data and these files are a new rip of a recording
+    # Chapters are curated data and these files are a new copy of a recording
     # somebody has already been through — the rule `Ambry.Media.Scanner` has
     # always followed for a rescan.
     test "chapters the recording already has survive" do
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
 
       media =
         legacy_media(
@@ -636,7 +636,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # is released with the rest when the switch is turned on.
     test "a published legacy recording waits for the switch" do
       {:ok, _setting} = Settings.set_direct_play_publishing(false)
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       media = legacy_media(from: [source], status: :ready)
 
       item = replace_with(item, media)
@@ -650,7 +650,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     test "a published recording stays published when the switch is on" do
       {:ok, _setting} = Settings.set_direct_play_publishing(true)
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       media = legacy_media(from: [source], status: :ready)
 
       item = replace_with(item, media)
@@ -659,7 +659,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     # A recording transcoded before the paths refactor: artifacts under the
-    # uploads tree, no tracks, and the absolute downloads paths it was made
+    # uploads tree, no tracks, and the absolute source paths it was made
     # from quarantined in `legacy_source_files`.
     defp legacy_media(opts \\ []) do
       id = Ecto.UUID.generate()
@@ -688,7 +688,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # source, and the replacement deletes the library copy the first import
     # produced — so the write path has to say it.
     test "the import it replaced is marked superseded" do
-      %{item: first, watched: watched} = downloads_item()
+      %{item: first, watched: watched} = source_item()
 
       assert {:ok, media} = Inbox.import_item(first)
 
@@ -713,7 +713,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # instead of `update_all` would have silently restamped the row it was
     # recording the history of.
     test "superseding does not rewrite when the older import happened" do
-      %{item: first, watched: watched} = downloads_item()
+      %{item: first, watched: watched} = source_item()
 
       assert {:ok, media} = Inbox.import_item(first)
       imported_at = Inbox.get_item!(first.id).updated_at
@@ -729,7 +729,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # and putting a replaced audiobook back on its old files is then an
     # ordinary import rather than a reversal with its own rules.
     test "re-opening an imported item touches nothing in the library" do
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
       assert {:ok, media} = Inbox.import_item(item)
 
       assert {:ok, reopened} = item.id |> Inbox.get_item!() |> Inbox.reopen_item()
@@ -743,7 +743,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # row in the queue saying it produced a recording it is no longer the
     # record of, which is the half-truth the supersede work was about.
     test "re-opening drops the item's claim on the audiobook" do
-      %{item: first, watched: watched} = downloads_item()
+      %{item: first, watched: watched} = source_item()
       assert {:ok, media} = Inbox.import_item(first)
 
       second = watched |> second_release() |> replace_with(media)
@@ -757,7 +757,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "the draft survives, because it is the operator's curation" do
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
       assert {:ok, _media} = Inbox.import_item(item)
 
       assert {:ok, reopened} = item.id |> Inbox.get_item!() |> Inbox.reopen_item()
@@ -769,7 +769,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # A `move` placement consumed its source at import time, so there is
     # nothing to make decisions about. Refusing is the right answer, not a gap.
     test "an item whose files are gone cannot be re-opened" do
-      %{item: item, source: source} = downloads_item()
+      %{item: item, source: source} = source_item()
       assert {:ok, _media} = Inbox.import_item(item)
 
       File.rm!(source)
@@ -780,7 +780,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
 
     test "a pending item is not something to re-open" do
-      %{item: item} = downloads_item()
+      %{item: item} = source_item()
 
       assert {:error, :not_imported} = Inbox.reopen_item(item)
     end
@@ -924,7 +924,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
       assert length(replaced.media_tracks) == 3
     end
 
-    # A rip in another format takes none of the old names, so every one of
+    # A copy in another format takes none of the old names, so every one of
     # them is retired rather than reused — and the folder is left holding
     # exactly the new files.
     test "a different format replacing the same number of files" do
@@ -949,7 +949,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # one rather than a fixture — the names it occupies are the names the
     # template renders, which is the whole point of these cases.
     defp placed_recording(files) do
-      %{item: item} = downloads_item(files: files, name: "Original #{Ecto.UUID.generate()}")
+      %{item: item} = source_item(files: files, name: "Original #{Ecto.UUID.generate()}")
       {:ok, media} = Inbox.import_item(item)
       media = Media.get_media!(media.id)
 
@@ -961,11 +961,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
     #
     # Nothing else about it is settled, on purpose: the recording it replaces
     # has the book, the credits and the metadata, so a replacement is
-    # importable without any of that being answered — and an untagged rip,
+    # importable without any of that being answered — and an untagged copy,
     # which is exactly what the format case needs, could not answer it anyway.
     defp replacement_item(media, files) do
       %{item: item, sources: sources} =
-        downloads_item(
+        source_item(
           root: :reuse,
           files: files,
           settle: false,
@@ -988,7 +988,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
     # own names inside a root, organized by the template like everything
     # else.
     test "a symlink source's files stay where they lie, referenced by links" do
-      %{item: item, source: source, root: root} = downloads_item(policy: :symlink)
+      %{item: item, source: source, root: root} = source_item(policy: :symlink)
 
       assert {:ok, media} = Inbox.import_item(item)
 
@@ -1000,11 +1000,11 @@ defmodule Ambry.Inbox.ManagedImportTest do
     end
   end
 
-  defp downloads_item(opts \\ []) do
+  defp source_item(opts \\ []) do
     policy = Keyword.get(opts, :policy, :hardlink)
     name = Keyword.get(opts, :name, "The Way of Kings [M4B]")
 
-    # `:reuse` is a second downloads folder feeding the root that is already
+    # `:reuse` is a second source folder feeding the root that is already
     # registered. A second root record for one path would make every
     # destination ambiguous, which is a different test.
     root_record =
@@ -1017,7 +1017,7 @@ defmodule Ambry.Inbox.ManagedImportTest do
 
     root = root_record && root_record.path
 
-    downloads = new_dir("downloads")
+    downloads = new_dir("incoming")
     release = Path.join(downloads, name)
     File.mkdir_p!(release)
 

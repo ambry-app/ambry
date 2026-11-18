@@ -2326,7 +2326,7 @@ defmodule AmbryWeb.Admin.InboxLive.FormTest do
 
     # The other grain the heuristic gets wrong, and the reason this exists: a
     # folder of "1 of 5" subfolders is one release in five parts when it is a
-    # multi-disc rip, and five recordings when it is a GraphicAudio set. Only
+    # multi-disc recording, and five recordings when it is a GraphicAudio set. Only
     # the operator can tell, and one item per *file* was no use to them —
     # each part is seven files.
     test "a set of part folders splits by folder, keeping each part whole", %{conn: conn} do

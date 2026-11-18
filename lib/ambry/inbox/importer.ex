@@ -269,7 +269,7 @@ defmodule Ambry.Inbox.Importer do
   end
 
   # Markers the recording does not have yet, never over ones it does: chapters
-  # are curated data, and these files are a new rip of a recording somebody
+  # are curated data, and these files are a new copy of a recording somebody
   # has already been through.
   defp with_file_chapters(attrs, %{chapters: []}, probes) do
     case Scanner.chapters(probes) do

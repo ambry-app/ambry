@@ -1358,7 +1358,7 @@ defmodule AmbryWeb.Admin.InboxLive.Form do
   Whether replacing this recording's files would destroy the only copy.
 
   Read at render rather than stored, because it is a fact about the disk
-  right now: a library copy hardlinked from a torrent that has since been
+  right now: a library copy hardlinked from a source file that has since been
   removed is down to one name, and the draft was written before that could
   happen. See `Ambry.Media.only_copy?/1` for why the link count is the
   test and not the policy the import remembered.

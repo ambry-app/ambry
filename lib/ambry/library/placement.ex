@@ -7,8 +7,8 @@ defmodule Ambry.Library.Placement do
   them.
 
     * `:hardlink` — **same filesystem required**. One inode, two names, no
-      extra bytes: the torrent keeps seeding from the downloads folder while
-      the library serves the same bytes.
+      extra bytes: the source file stays where it is while the library
+      serves the same bytes.
     * `:symlink` — the cross-filesystem answer to the same question.
     * `:copy` — duplicates. Honest and always possible.
     * `:move` — the library gets the file and the source folder is left clean.

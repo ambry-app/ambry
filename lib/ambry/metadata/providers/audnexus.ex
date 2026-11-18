@@ -7,7 +7,7 @@ defmodule Ambry.Metadata.Providers.Audnexus do
   data by ASIN. Wraps the existing `AmbryScraping.Audnexus` HTTP client.
 
   Note on chapters: provider chapter *timestamps*
-  describe Audible's retail edition, not the local rip — they are a title
+  describe Audible's retail edition, not the local files — they are a title
   source, never a timeline source. The offsets are still returned here;
   the import UI is responsible for honoring that principle.
   """

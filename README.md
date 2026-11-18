@@ -13,6 +13,16 @@ This repo holds the code for the Ambry server.
 
 The mobile app code is located here: https://github.com/ambry-app/ambry-mobile-next
 
+## Your own audiobooks
+
+Ambry plays audiobooks you own. It does not acquire audiobooks or remove DRM,
+and it never will. Bring DRM-free files, from stores like
+[Libro.fm](https://libro.fm), or public-domain recordings from
+[LibriVox](https://librivox.org).
+
+Ambry does not support piracy. Issues, pull requests and discussions about
+getting books you don't own will be closed.
+
 ## Running the server
 
 > **NOTE**: This README reflects the `main` branch of this project and is not

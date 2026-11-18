@@ -955,7 +955,7 @@ defmodule Ambry.Inbox.DraftTest do
     test "finding nothing at all is settled, and says so" do
       draft = Seed.build(item(%{matches: matches([provider_candidate(%{})]), tags: %{}}))
 
-      # plenty of perfectly good rips are in no catalogue — that's an answer,
+      # plenty of perfectly good recordings are in no catalogue — that's an answer,
       # not an outstanding question
       assert draft.recording.doubt == :nothing_found
       assert draft.recording.approved

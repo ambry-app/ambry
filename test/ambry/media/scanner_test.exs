@@ -168,7 +168,7 @@ defmodule Ambry.Media.ScannerTest do
     Media.get_media!(media.id)
   end
 
-  # Tagged the way a real rip is: freeform MP4 atoms for the things the
+  # Tagged the way real audiobook files are: freeform MP4 atoms for the things the
   # container has no standard place for (ASIN, series), narrator in composer.
   defp tagged_media do
     retag(["-movflags", "use_metadata_tags"], [
@@ -184,7 +184,7 @@ defmodule Ambry.Media.ScannerTest do
 
   # Separate fixture because ffmpeg's mov muxer drops the attached-pic stream
   # when asked to write freeform atoms — a quirk of *writing* these files, not
-  # of reading them, so real rips carry both happily.
+  # of reading them, so real files carry both happily.
   defp media_with_cover_art do
     retag(["-cover"], ["album=Illustrated Edition"])
   end

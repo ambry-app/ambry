@@ -90,20 +90,20 @@ defmodule Ambry.Media.DeletionCustodyTest do
     end
 
     # A hardlink is one inode with two names. Removing the library's name
-    # leaves the seeding copy untouched — that's inherent to hardlinks, and
+    # leaves the other copy untouched — that's inherent to hardlinks, and
     # it's precisely why hardlinking is safe to delete from.
     test "removing a hardlinked file leaves the other link alone" do
       %{media: media, file: file} = library_media()
 
-      seeding = Path.join(System.tmp_dir!(), "seeding-#{Ecto.UUID.generate()}.m4b")
-      File.ln!(file, seeding)
-      on_exit(fn -> File.rm(seeding) end)
+      other = Path.join(System.tmp_dir!(), "other-#{Ecto.UUID.generate()}.m4b")
+      File.ln!(file, other)
+      on_exit(fn -> File.rm(other) end)
 
       assert {:ok, _media} = Media.delete_media(media)
       run_deletion_jobs()
 
       refute File.exists?(file)
-      assert File.read!(seeding) == "audio"
+      assert File.read!(other) == "audio"
     end
 
     # The symlink door's version of the same promise: `File.rm_rf` unlinks a

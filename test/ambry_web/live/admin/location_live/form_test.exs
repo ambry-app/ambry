@@ -13,7 +13,7 @@ defmodule AmbryWeb.Admin.LocationLive.FormTest do
 
       view
       |> form("#location-form",
-        source: %{name: "Downloads NAS", path: "/data/downloads"}
+        source: %{name: "Downloads NAS", path: "/data/incoming"}
       )
       |> render_submit()
 

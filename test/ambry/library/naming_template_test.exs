@@ -120,12 +120,12 @@ defmodule Ambry.Library.NamingTemplateTest do
   describe "filename/2" do
     test "names the file after the work, keeping the extension" do
       assert {:ok, "The Way of Kings.m4b"} =
-               NamingTemplate.filename(@book, "/downloads/x/book.m4b")
+               NamingTemplate.filename(@book, "/incoming/x/book.m4b")
     end
 
     test "normalizes the extension's case" do
       assert {:ok, "The Way of Kings.mp3"} =
-               NamingTemplate.filename(@book, "/downloads/x/BOOK.MP3")
+               NamingTemplate.filename(@book, "/incoming/x/BOOK.MP3")
     end
 
     # One container, three extensions saying what a player should expect
@@ -199,11 +199,11 @@ defmodule Ambry.Library.NamingTemplateTest do
   describe "filenames/3" do
     test "a single file sits directly in the book folder, exactly as before" do
       assert {:ok, ["The Way of Kings.m4b"]} =
-               NamingTemplate.filenames(@book, ["/downloads/x/book.m4b"])
+               NamingTemplate.filenames(@book, ["/incoming/x/book.m4b"])
     end
 
     test "a multi-file recording gets a subfolder of its own and indexed names" do
-      sources = for i <- 1..3, do: "/downloads/x/track#{i}.mp3"
+      sources = for i <- 1..3, do: "/incoming/x/track#{i}.mp3"
 
       assert {:ok, names} = NamingTemplate.filenames(@book, sources)
 
@@ -215,7 +215,7 @@ defmodule Ambry.Library.NamingTemplateTest do
     end
 
     test "the index is wide enough for the recording it numbers" do
-      sources = for i <- 1..1200, do: "/downloads/x/#{i}.mp3"
+      sources = for i <- 1..1200, do: "/incoming/x/#{i}.mp3"
 
       assert {:ok, names} = NamingTemplate.filenames(@book, sources)
 

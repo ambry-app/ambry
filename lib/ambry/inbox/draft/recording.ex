@@ -3,7 +3,7 @@ defmodule Ambry.Inbox.Draft.Recording do
   What the Media created by this import should say.
 
   In the walking skeleton a recording is always new. "This release is a better
-  rip of an existing recording" — 3a's replace/upgrade workflow — is the third
+  copy of an existing recording" — 3a's replace/upgrade workflow — is the third
   identity option this schema is shaped to grow, and is deliberately out of
   the first cut.
   """

@@ -5,7 +5,7 @@ defmodule Ambry.Repo.Migrations.LibraryLocations do
   #
   # Until now there was exactly one watched folder, and it was an environment
   # variable (`SOURCE_PATH`). That can't express what production actually
-  # looks like: the downloads folder and the uploads folder live on two
+  # looks like: the source folder and the uploads folder live on two
   # different NAS boxes, and a hardlink cannot cross a filesystem. So a single
   # root can never serve both the legacy transcoded library and new hardlinked
   # imports — multiple roots merging into one logical library is a
@@ -31,7 +31,7 @@ defmodule Ambry.Repo.Migrations.LibraryLocations do
       timestamps(type: :utc_datetime)
 
       # Operator-facing label, so a path change doesn't lose the identity of
-      # "the downloads NAS" in the UI or in logs.
+      # "the media NAS" in the UI or in logs.
       add :name, :text, null: false
       add :path, :text, null: false
 
